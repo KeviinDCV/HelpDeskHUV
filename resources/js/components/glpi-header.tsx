@@ -21,7 +21,7 @@ const inventarioItems = [
   { name: 'Computadores', href: '/inventario/computadores' },
   { name: 'Monitores', href: '/inventario/monitores' },
   { name: 'Programas', href: '/inventario/programas' },
-  { name: 'Dispositivos para redes', href: '/inventario/dispositivos-redes' },
+  { name: 'Dispositivos para redes', href: '/inventario/dispositivos-red' },
   { name: 'Dispositivos', href: '/inventario/dispositivos' },
   { name: 'Impresoras', href: '/inventario/impresoras' },
   { name: 'Cartuchos', href: '/inventario/cartuchos' },

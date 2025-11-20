@@ -4,30 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Monitor extends Model
+class Phone extends Model
 {
-    protected $table = 'glpi_monitors';
+    protected $table = 'glpi_phones';
     
     protected $fillable = [
         'entities_id',
         'name',
-        'date_mod',
-        'contact',
-        'contact_num',
-        'users_id_tech',
-        'groups_id_tech',
-        'comment',
         'serial',
         'otherserial',
-        'size',
         'locations_id',
-        'monitortypes_id',
-        'monitormodels_id',
+        'phonetypes_id',
+        'phonemodels_id',
         'manufacturers_id',
         'states_id',
         'is_deleted',
-        'is_dynamic',
-        'date_creation'
+        'date_mod',
     ];
 
     public $timestamps = false;
