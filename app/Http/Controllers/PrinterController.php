@@ -35,19 +35,14 @@ class PrinterController extends Controller
                 'p.id',
                 'p.name',
                 'p.date_mod',
-                'e.name as entity_name',
-                'st.name as state_name',
-                'mf.name as manufacturer_name',
-                'l.completename as location_name',
-                'pt.name as type_name',
-                'pm.name as model_name'
+                'p.manufacturers_id',
+                'p.locations_id',
+                'p.states_id',
+                'p.printertypes_id',
+                'p.printermodels_id',
+                'e.name as entity_name'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
-            ->leftJoin('glpi_states as st', 'p.states_id', '=', 'st.id')
-            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
-            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
-            ->leftJoin('glpi_printertypes as pt', 'p.printertypes_id', '=', 'pt.id')
-            ->leftJoin('glpi_printermodels as pm', 'p.printermodels_id', '=', 'pm.id')
             ->where('p.is_deleted', 0);
 
         // Aplicar búsqueda si existe
@@ -101,19 +96,14 @@ class PrinterController extends Controller
             ->select(
                 'p.name',
                 'e.name as entity_name',
-                'st.name as state_name',
-                'mf.name as manufacturer_name',
-                'l.completename as location_name',
-                'pt.name as type_name',
-                'pm.name as model_name',
+                'p.states_id',
+                'p.manufacturers_id',
+                'p.locations_id',
+                'p.printertypes_id',
+                'p.printermodels_id',
                 'p.date_mod'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
-            ->leftJoin('glpi_states as st', 'p.states_id', '=', 'st.id')
-            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
-            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
-            ->leftJoin('glpi_printertypes as pt', 'p.printertypes_id', '=', 'pt.id')
-            ->leftJoin('glpi_printermodels as pm', 'p.printermodels_id', '=', 'pm.id')
             ->where('p.is_deleted', 0);
 
         if ($search) {
@@ -149,11 +139,11 @@ class PrinterController extends Controller
             fputcsv($handle, [
                 $printer->name ?? '-',
                 $printer->entity_name ?? '-',
-                $printer->state_name ?? '-',
-                $printer->manufacturer_name ?? '-',
-                $printer->location_name ?? '-',
-                $printer->type_name ?? '-',
-                $printer->model_name ?? '-',
+                $printer->states_id ?? '-',
+                $printer->manufacturers_id ?? '-',
+                $printer->locations_id ?? '-',
+                $printer->printertypes_id ?? '-',
+                $printer->printermodels_id ?? '-',
                 $printer->date_mod ? date('Y-m-d H:i', strtotime($printer->date_mod)) : '-'
             ]);
         }

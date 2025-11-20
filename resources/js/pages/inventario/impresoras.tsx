@@ -25,11 +25,11 @@ interface Printer {
     id: number;
     name: string;
     entity_name: string;
-    state_name: string;
-    manufacturer_name: string;
-    location_name: string;
-    type_name: string;
-    model_name: string;
+    states_id: number;
+    manufacturers_id: number;
+    locations_id: number;
+    printertypes_id: number;
+    printermodels_id: number;
     date_mod: string;
 }
 
@@ -273,11 +273,11 @@ export default function Impresoras({ printers, filters }: PrintersProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{printer.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.state_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.manufacturer_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.location_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.type_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.model_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.states_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.locations_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.printertypes_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.printermodels_id || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {printer.date_mod ? new Date(printer.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

@@ -25,11 +25,11 @@ interface Phone {
     id: number;
     name: string;
     entity_name: string;
-    state_name: string;
-    manufacturer_name: string;
-    location_name: string;
-    type_name: string;
-    model_name: string;
+    states_id: number;
+    manufacturers_id: number;
+    locations_id: number;
+    phonetypes_id: number;
+    phonemodels_id: number;
     date_mod: string;
     otherserial: string;
 }
@@ -283,11 +283,11 @@ export default function Telefonos({ phones, filters }: PhonesProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{phone.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.state_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.manufacturer_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.location_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.type_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.model_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.states_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.locations_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.phonetypes_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.phonemodels_id || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {phone.date_mod ? new Date(phone.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

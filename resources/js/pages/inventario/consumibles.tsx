@@ -26,13 +26,13 @@ interface Consumable {
     name: string;
     entity_name: string;
     ref: string;
-    type_name: string;
-    manufacturer_name: string;
+    consumableitemtypes_id: number;
+    manufacturers_id: number;
     total: number;
     nuevo: number;
     usado: number;
     comment: string;
-    tech_name: string;
+    users_id_tech: number;
 }
 
 interface PaginationLinks {
@@ -270,15 +270,15 @@ export default function Consumibles({ consumables, filters }: ConsumablesProps) 
                                             </TableCell>
                                             <TableCell className="text-xs">{consumable.entity_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{consumable.ref || '-'}</TableCell>
-                                            <TableCell className="text-xs">{consumable.type_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{consumable.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.consumableitemtypes_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.manufacturers_id || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 Total: {consumable.total || 0}, Nuevo: {consumable.nuevo || 0}, Usado: {consumable.usado || 0}
                                             </TableCell>
                                             <TableCell className="text-xs truncate max-w-xs" title={consumable.comment || ''}>
                                                 {consumable.comment || '-'}
                                             </TableCell>
-                                            <TableCell className="text-xs">{consumable.tech_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.users_id_tech || '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

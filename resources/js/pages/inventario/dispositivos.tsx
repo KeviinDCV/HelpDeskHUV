@@ -25,10 +25,10 @@ interface Peripheral {
     id: number;
     name: string;
     entity_name: string;
-    manufacturer_name: string;
-    location_name: string;
-    type_name: string;
-    model_name: string;
+    manufacturers_id: number;
+    locations_id: number;
+    peripheraltypes_id: number;
+    peripheralmodels_id: number;
     date_mod: string;
     otherserial: string;
 }
@@ -273,10 +273,10 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{peripheral.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.manufacturer_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.location_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.type_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.model_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.locations_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.peripheraltypes_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.peripheralmodels_id || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {peripheral.date_mod ? new Date(peripheral.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',
