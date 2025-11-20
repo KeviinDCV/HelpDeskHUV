@@ -144,7 +144,7 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Features::registration(),  // Deshabilitado - No se permite registro público
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

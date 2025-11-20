@@ -1,4 +1,4 @@
-import { User, Lock } from 'lucide-react';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,12 +6,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { store } from '@/routes/login';
 import { Form, Head } from '@inertiajs/react';
+import { useState } from 'react';
 
 interface LoginProps {
     status?: string;
 }
 
 export default function Login({ status }: LoginProps) {
+    const [showPassword, setShowPassword] = useState(false);
+
     return (
         <>
             <Head title="HelpDesk HUV - Iniciar Sesión" />
@@ -21,11 +24,14 @@ export default function Login({ status }: LoginProps) {
                 <div className="flex-1 flex items-center justify-center pt-20">
                     <div className="text-center">
                         <div className="mb-16">
-                            <h1 className="text-white text-5xl font-bold tracking-wide">
-                                <span className="inline-flex items-center gap-1">
-                                    <span className="bg-white text-[#2c4875] px-3 py-1 rounded-lg">H</span>
-                                    <span>elpDesk HUV</span>
-                                </span>
+                            <h1 className="text-white font-bold tracking-wide">
+                                <div className="flex flex-col items-center gap-1">
+                                    <div className="inline-flex items-center gap-1 text-5xl">
+                                        <span className="bg-white text-[#2c4875] px-3 py-1 rounded-lg">H</span>
+                                        <span>elpDesk</span>
+                                    </div>
+                                    <div className="text-4xl">HUV</div>
+                                </div>
                             </h1>
                         </div>
 
@@ -40,8 +46,8 @@ export default function Login({ status }: LoginProps) {
                                     {/* Usuario Field */}
                                     <div className="space-y-1.5">
                                         <div className="relative">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 z-10">
-                                                <User className="w-4 h-4" />
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 z-10">
+                                                <User className="w-5 h-5" />
                                             </div>
                                             <Input
                                                 type="text"
@@ -50,49 +56,60 @@ export default function Login({ status }: LoginProps) {
                                                 required
                                                 autoFocus
                                                 autoComplete="username"
-                                                className="h-10 pl-10 pr-4 bg-white text-gray-900 placeholder:text-gray-500 border-gray-300 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
+                                                className="h-12 pl-11 pr-4 bg-[#2c4370]/30 text-white font-medium placeholder:text-gray-300 placeholder:font-normal border-2 border-white/30 focus-visible:ring-0 focus-visible:border-white/50 shadow-sm"
                                             />
                                         </div>
                                         {errors.email && (
-                                            <InputError message={errors.email} className="text-white text-xs" />
+                                            <InputError message={errors.email} className="text-red-200 text-xs font-medium bg-red-900/30 px-2 py-1 rounded" />
                                         )}
                                     </div>
 
                                     {/* Contraseña Field */}
                                     <div className="space-y-1.5">
                                         <div className="relative">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 z-10">
-                                                <Lock className="w-4 h-4" />
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 z-10">
+                                                <Lock className="w-5 h-5" />
                                             </div>
                                             <Input
-                                                type="password"
+                                                type={showPassword ? "text" : "password"}
                                                 name="password"
                                                 placeholder="Contraseña"
                                                 required
                                                 autoComplete="current-password"
-                                                className="h-10 pl-10 pr-4 bg-white text-gray-900 placeholder:text-gray-500 border-gray-300 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
+                                                className="h-12 pl-11 pr-12 bg-[#2c4370]/30 text-white font-medium placeholder:text-gray-300 placeholder:font-normal border-2 border-white/30 focus-visible:ring-0 focus-visible:border-white/50 shadow-sm"
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white/90 transition-colors z-10"
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff className="w-5 h-5" />
+                                                ) : (
+                                                    <Eye className="w-5 h-5" />
+                                                )}
+                                            </button>
                                         </div>
                                         {errors.password && (
-                                            <InputError message={errors.password} className="text-white text-xs" />
+                                            <InputError message={errors.password} className="text-red-200 text-xs font-medium bg-red-900/30 px-2 py-1 rounded" />
                                         )}
                                     </div>
 
                                     {/* Remember Me Checkbox */}
-                                    <div className="flex items-center gap-2 text-white text-sm">
+                                    <div className="flex items-center gap-2 text-white text-sm mt-2">
                                         <Checkbox
                                             id="remember"
                                             name="remember"
                                             defaultChecked
-                                            className="border-white data-[state=checked]:bg-white data-[state=checked]:text-[#2c4875]"
+                                            className="border-2 border-white data-[state=checked]:bg-white data-[state=checked]:text-[#2c4875] h-5 w-5"
                                         />
-                                        <Label htmlFor="remember" className="cursor-pointer font-normal">
-                                            Recuerdame
+                                        <Label htmlFor="remember" className="cursor-pointer font-medium">
+                                            Recuérdame
                                         </Label>
                                     </div>
 
                                     {status && (
-                                        <div className="text-center text-sm font-medium text-green-300 bg-green-900/20 py-2 rounded-md">
+                                        <div className="text-center text-sm font-medium text-green-100 bg-green-700/40 py-2.5 px-3 rounded-md border border-green-500/30">
                                             {status}
                                         </div>
                                     )}
@@ -101,7 +118,7 @@ export default function Login({ status }: LoginProps) {
                                     <Button
                                         type="submit"
                                         disabled={processing}
-                                        className="w-full h-10 bg-[#f5a73b] hover:bg-[#e69522] text-gray-900 font-medium transition-colors disabled:opacity-50"
+                                        className="w-full h-12 bg-[#f5a73b] hover:bg-[#e69522] text-gray-900 font-bold text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
                                     >
                                         {processing ? 'Procesando...' : 'Aceptar'}
                                     </Button>

@@ -2,7 +2,7 @@ import { Bell, LogOut, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { router } from '@inertiajs/react'
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +75,16 @@ interface GLPIHeaderProps {
 }
 
 export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
+  const [activeTab, setActiveTab] = useState("Vista personal")
+  
+  const tabs = [
+    "Vista personal",
+    "Vista de Grupo",
+    "Vista Global",
+    "Canales RSS",
+    "Todo",
+  ]
+
   const handleLogout = () => {
     router.post('/logout')
   }
@@ -263,24 +273,45 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
       </div>
 
       {/* Sub Navigation Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white text-foreground border-b">
-        <div className="flex items-center gap-2">
-          {breadcrumb || <span className="text-sm font-medium">Inicio</span>}
+      <div className="bg-white text-foreground border-b">
+        {/* Primera fila: Breadcrumb y Technician */}
+        <div className="flex items-center justify-between px-4 py-2">
+          <div className="flex items-center gap-2">
+            {breadcrumb || <span className="text-sm font-medium">Inicio</span>}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm">HUV (estructura en árbol)</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="text-sm">
+                  Technician
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>Technician</DropdownMenuItem>
+                <DropdownMenuItem>Administrator</DropdownMenuItem>
+                <DropdownMenuItem>User</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm">HUV (estructura en árbol)</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="text-sm">
-                Technician
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>Technician</DropdownMenuItem>
-              <DropdownMenuItem>Administrator</DropdownMenuItem>
-              <DropdownMenuItem>User</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        
+        {/* Segunda fila: Tabs de vistas */}
+        <div className="flex items-center gap-1 px-4 border-t">
+          {tabs.map((tab) => (
+            <Button
+              key={tab}
+              variant="ghost"
+              onClick={() => setActiveTab(tab)}
+              className={`rounded-none border-b-2 px-4 py-2 text-sm font-normal ${
+                activeTab === tab
+                  ? "border-[#2c4370] text-[#2c4370] bg-gray-50"
+                  : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              {tab}
+            </Button>
+          ))}
         </div>
       </div>
     </header>
