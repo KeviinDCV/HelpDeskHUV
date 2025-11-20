@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import React from 'react';
 import {
     Select,
     SelectContent,
@@ -52,17 +53,39 @@ interface ComputersProps {
         per_page: number;
         sort: string;
         direction: string;
+        search: string;
     };
 }
 
 export default function Computadores({ computers, filters }: ComputersProps) {
+    const [searchValue, setSearchValue] = React.useState(filters.search || '');
+
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
         router.get('/inventario/computadores', {
             per_page: filters.per_page,
             sort: field,
-            direction: newDirection
+            direction: newDirection,
+            search: filters.search
         }, { preserveState: false });
+    };
+
+    const handleSearch = () => {
+        router.get('/inventario/computadores', {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            search: searchValue
+        }, { preserveState: false });
+    };
+
+    const handleExport = () => {
+        const params = new URLSearchParams({
+            sort: filters.sort,
+            direction: filters.direction,
+            search: filters.search
+        });
+        window.location.href = `/inventario/computadores/export?${params}`;
     };
 
     const getSortIcon = (field: string) => {
@@ -78,7 +101,17 @@ export default function Computadores({ computers, filters }: ComputersProps) {
         <>
             <Head title="HelpDesk HUV - Computadores" />
             <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader />
+                <GLPIHeader 
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className="text-gray-600">Inicio</span>
+                            <span className="text-gray-400">/</span>
+                            <span className="text-gray-600">Inventario</span>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Computadores</span>
+                        </div>
+                    }
+                />
 
                 <main className="flex-1 px-6 py-6">
                     <div className="bg-white rounded-lg shadow">
@@ -92,16 +125,27 @@ export default function Computadores({ computers, filters }: ComputersProps) {
                                             type="text"
                                             placeholder="Buscar..."
                                             className="w-64 pr-10"
+                                            value={searchValue}
+                                            onChange={(e) => setSearchValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleSearch();
+                                                }
+                                            }}
                                         />
                                         <Button
                                             size="sm"
                                             variant="ghost"
                                             className="absolute right-0 top-0 h-full px-3"
+                                            onClick={handleSearch}
                                         >
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button className="bg-[#2c4370] hover:bg-[#3d5583] text-white">
+                                    <Button 
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                        onClick={handleExport}
+                                    >
                                         Exportar
                                     </Button>
                                 </div>
@@ -115,7 +159,12 @@ export default function Computadores({ computers, filters }: ComputersProps) {
                                 <Select 
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/computadores', { per_page: value }, { preserveState: false })
+                                        router.get('/inventario/computadores', { 
+                                            per_page: value,
+                                            sort: filters.sort,
+                                            direction: filters.direction,
+                                            search: filters.search
+                                        }, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-20 h-8">

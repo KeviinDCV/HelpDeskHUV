@@ -2,6 +2,7 @@ import { Bell, LogOut, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { router } from '@inertiajs/react'
+import { ReactNode } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +71,7 @@ const configuracionItems = [
 ]
 
 interface GLPIHeaderProps {
-  breadcrumb?: JSX.Element;
+  breadcrumb?: ReactNode;
 }
 
 export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
