@@ -37,14 +37,19 @@ class MonitorController extends Controller
                 'm.name',
                 'm.otherserial',
                 'm.date_mod',
-                'm.states_id',
-                'm.manufacturers_id',
-                'm.locations_id',
-                'm.monitortypes_id',
-                'm.monitormodels_id',
-                'e.name as entity_name'
+                'e.name as entity_name',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'mt.name as type_name',
+                'mm.name as model_name'
             )
             ->leftJoin('glpi_entities as e', 'm.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'm.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'm.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'm.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_monitortypes as mt', 'm.monitortypes_id', '=', 'mt.id')
+            ->leftJoin('glpi_monitormodels as mm', 'm.monitormodels_id', '=', 'mm.id')
             ->where('m.is_deleted', 0);
 
         // Aplicar búsqueda si existe
@@ -100,15 +105,20 @@ class MonitorController extends Controller
             ->select(
                 'm.name',
                 'e.name as entity_name',
-                'm.states_id',
-                'm.manufacturers_id',
-                'm.locations_id',
-                'm.monitortypes_id',
-                'm.monitormodels_id',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'mt.name as type_name',
+                'mm.name as model_name',
                 'm.date_mod',
                 'm.otherserial'
             )
             ->leftJoin('glpi_entities as e', 'm.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'm.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'm.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'm.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_monitortypes as mt', 'm.monitortypes_id', '=', 'mt.id')
+            ->leftJoin('glpi_monitormodels as mm', 'm.monitormodels_id', '=', 'mm.id')
             ->where('m.is_deleted', 0);
 
         if ($search) {
@@ -146,11 +156,11 @@ class MonitorController extends Controller
             fputcsv($handle, [
                 $monitor->name ?? '-',
                 $monitor->entity_name ?? '-',
-                $monitor->states_id ?? '-',
-                $monitor->manufacturers_id ?? '-',
-                $monitor->locations_id ?? '-',
-                $monitor->monitortypes_id ?? '-',
-                $monitor->monitormodels_id ?? '-',
+                $monitor->state_name ?? '-',
+                $monitor->manufacturer_name ?? '-',
+                $monitor->location_name ?? '-',
+                $monitor->type_name ?? '-',
+                $monitor->model_name ?? '-',
                 $monitor->date_mod ? date('Y-m-d H:i', strtotime($monitor->date_mod)) : '-',
                 $monitor->otherserial ?? '-'
             ]);

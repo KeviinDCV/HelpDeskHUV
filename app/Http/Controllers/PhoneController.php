@@ -36,15 +36,20 @@ class PhoneController extends Controller
                 'p.id',
                 'p.name',
                 'p.date_mod',
-                'p.manufacturers_id',
-                'p.locations_id',
-                'p.states_id',
-                'p.phonetypes_id',
-                'p.phonemodels_id',
                 'p.otherserial',
-                'e.name as entity_name'
+                'e.name as entity_name',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'pt.name as type_name',
+                'pm.name as model_name'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'p.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_phonetypes as pt', 'p.phonetypes_id', '=', 'pt.id')
+            ->leftJoin('glpi_phonemodels as pm', 'p.phonemodels_id', '=', 'pm.id')
             ->where('p.is_deleted', 0);
 
         // Aplicar búsqueda si existe
@@ -100,15 +105,20 @@ class PhoneController extends Controller
             ->select(
                 'p.name',
                 'e.name as entity_name',
-                'p.states_id',
-                'p.manufacturers_id',
-                'p.locations_id',
-                'p.phonetypes_id',
-                'p.phonemodels_id',
-                'p.otherserial',
-                'p.date_mod'
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'pt.name as type_name',
+                'pm.name as model_name',
+                'p.date_mod',
+                'p.otherserial'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'p.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_phonetypes as pt', 'p.phonetypes_id', '=', 'pt.id')
+            ->leftJoin('glpi_phonemodels as pm', 'p.phonemodels_id', '=', 'pm.id')
             ->where('p.is_deleted', 0);
 
         if ($search) {
@@ -146,11 +156,11 @@ class PhoneController extends Controller
             fputcsv($handle, [
                 $phone->name ?? '-',
                 $phone->entity_name ?? '-',
-                $phone->states_id ?? '-',
-                $phone->manufacturers_id ?? '-',
-                $phone->locations_id ?? '-',
-                $phone->phonetypes_id ?? '-',
-                $phone->phonemodels_id ?? '-',
+                $phone->state_name ?? '-',
+                $phone->manufacturer_name ?? '-',
+                $phone->location_name ?? '-',
+                $phone->type_name ?? '-',
+                $phone->model_name ?? '-',
                 $phone->date_mod ? date('Y-m-d H:i', strtotime($phone->date_mod)) : '-',
                 $phone->otherserial ?? '-'
             ]);

@@ -25,11 +25,11 @@ interface Monitor {
     id: number;
     name: string;
     entity_name: string;
-    states_id: number;
-    manufacturers_id: number;
-    locations_id: number;
-    monitortypes_id: number;
-    monitormodels_id: number;
+    state_name: string;
+    manufacturer_name: string;
+    location_name: string;
+    type_name: string;
+    model_name: string;
     date_mod: string;
     otherserial: string;
 }
@@ -283,11 +283,11 @@ export default function Monitores({ monitors, filters }: MonitorsProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{monitor.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.monitortypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.monitormodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {monitor.date_mod ? new Date(monitor.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

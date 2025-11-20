@@ -37,14 +37,17 @@ class ComputerController extends Controller
                 'c.name',
                 'c.serial',
                 'c.date_mod',
-                'c.states_id',
-                'c.manufacturers_id',
-                'c.locations_id',
                 'e.name as entity_name',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
                 't.name as type_name',
                 'cm.name as model_name'
             )
             ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'c.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'c.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
             ->leftJoin('glpi_computertypes as t', 'c.computertypes_id', '=', 't.id')
             ->leftJoin('glpi_computermodels as cm', 'c.computermodels_id', '=', 'cm.id')
             ->where('c.is_deleted', 0);
@@ -104,15 +107,18 @@ class ComputerController extends Controller
             ->select(
                 'c.name',
                 'e.name as entity_name',
-                'c.states_id',
-                'c.manufacturers_id',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
                 'c.serial',
                 't.name as type_name',
                 'cm.name as model_name',
-                'c.locations_id',
+                'l.completename as location_name',
                 'c.date_mod'
             )
             ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'c.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'c.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
             ->leftJoin('glpi_computertypes as t', 'c.computertypes_id', '=', 't.id')
             ->leftJoin('glpi_computermodels as cm', 'c.computermodels_id', '=', 'cm.id')
             ->where('c.is_deleted', 0);
@@ -154,12 +160,12 @@ class ComputerController extends Controller
             fputcsv($handle, [
                 $computer->name ?? '-',
                 $computer->entity_name ?? '-',
-                $computer->states_id ?? '-',
-                $computer->manufacturers_id ?? '-',
+                $computer->state_name ?? '-',
+                $computer->manufacturer_name ?? '-',
                 $computer->serial ?? '-',
                 $computer->type_name ?? '-',
                 $computer->model_name ?? '-',
-                $computer->locations_id ?? '-',
+                $computer->location_name ?? '-',
                 $computer->date_mod ? date('Y-m-d H:i', strtotime($computer->date_mod)) : '-'
             ]);
         }

@@ -20,37 +20,40 @@ class GlobalInventoryController extends Controller
             ->select(
                 'c.name',
                 'e.name as entity_name',
-                'c.states_id',
+                'st.name as state_name',
                 DB::raw("'Computadores' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'c.states_id', '=', 'st.id')
             ->where('c.is_deleted', 0);
 
         $monitorsQuery = DB::table('glpi_monitors as m')
             ->select(
                 'm.name',
                 'e.name as entity_name',
-                'm.states_id',
+                'st.name as state_name',
                 DB::raw("'Monitores' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'm.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'm.states_id', '=', 'st.id')
             ->where('m.is_deleted', 0);
 
         $networkQuery = DB::table('glpi_networkequipments as n')
             ->select(
                 'n.name',
                 'e.name as entity_name',
-                'n.states_id',
+                'st.name as state_name',
                 DB::raw("'Dispositivos para redes' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'n.states_id', '=', 'st.id')
             ->where('n.is_deleted', 0);
 
         $peripheralsQuery = DB::table('glpi_peripherals as p')
             ->select(
                 'p.name',
                 'e.name as entity_name',
-                'p.states_id',
+                DB::raw('NULL as state_name'),
                 DB::raw("'Dispositivos' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
@@ -60,20 +63,22 @@ class GlobalInventoryController extends Controller
             ->select(
                 'pr.name',
                 'e.name as entity_name',
-                'pr.states_id',
+                'st.name as state_name',
                 DB::raw("'Impresoras' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'pr.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'pr.states_id', '=', 'st.id')
             ->where('pr.is_deleted', 0);
 
         $phonesQuery = DB::table('glpi_phones as ph')
             ->select(
                 'ph.name',
                 'e.name as entity_name',
-                'ph.states_id',
+                'st.name as state_name',
                 DB::raw("'Teléfonos' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'ph.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'ph.states_id', '=', 'st.id')
             ->where('ph.is_deleted', 0);
 
         // Combinar todas las queries con UNION
@@ -139,37 +144,40 @@ class GlobalInventoryController extends Controller
             ->select(
                 'c.name',
                 'e.name as entity_name',
-                'c.states_id',
+                'st.name as state_name',
                 DB::raw("'Computadores' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'c.states_id', '=', 'st.id')
             ->where('c.is_deleted', 0);
 
         $monitorsQuery = DB::table('glpi_monitors as m')
             ->select(
                 'm.name',
                 'e.name as entity_name',
-                'm.states_id',
+                'st.name as state_name',
                 DB::raw("'Monitores' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'm.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'm.states_id', '=', 'st.id')
             ->where('m.is_deleted', 0);
 
         $networkQuery = DB::table('glpi_networkequipments as n')
             ->select(
                 'n.name',
                 'e.name as entity_name',
-                'n.states_id',
+                'st.name as state_name',
                 DB::raw("'Dispositivos para redes' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'n.states_id', '=', 'st.id')
             ->where('n.is_deleted', 0);
 
         $peripheralsQuery = DB::table('glpi_peripherals as p')
             ->select(
                 'p.name',
                 'e.name as entity_name',
-                'p.states_id',
+                DB::raw('NULL as state_name'),
                 DB::raw("'Dispositivos' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
@@ -179,20 +187,22 @@ class GlobalInventoryController extends Controller
             ->select(
                 'pr.name',
                 'e.name as entity_name',
-                'pr.states_id',
+                'st.name as state_name',
                 DB::raw("'Impresoras' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'pr.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'pr.states_id', '=', 'st.id')
             ->where('pr.is_deleted', 0);
 
         $phonesQuery = DB::table('glpi_phones as ph')
             ->select(
                 'ph.name',
                 'e.name as entity_name',
-                'ph.states_id',
+                'st.name as state_name',
                 DB::raw("'Teléfonos' as item_type")
             )
             ->leftJoin('glpi_entities as e', 'ph.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'ph.states_id', '=', 'st.id')
             ->where('ph.is_deleted', 0);
 
         // Combinar todas las queries con UNION
@@ -248,7 +258,7 @@ class GlobalInventoryController extends Controller
             fputcsv($handle, [
                 $item->name ?? '-',
                 $item->entity_name ?? '-',
-                $item->states_id ?? '-',
+                $item->state_name ?? '-',
                 $item->item_type ?? '-'
             ]);
         }

@@ -25,11 +25,11 @@ interface NetworkEquipment {
     id: number;
     name: string;
     entity_name: string;
-    states_id: number;
-    manufacturers_id: number;
-    locations_id: number;
-    networkequipmenttypes_id: number;
-    networkequipmentmodels_id: number;
+    state_name: string;
+    manufacturer_name: string;
+    location_name: string;
+    type_name: string;
+    model_name: string;
     date_mod: string;
 }
 
@@ -273,11 +273,11 @@ export default function DispositivosRed({ networkequipments, filters }: NetworkE
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{equipment.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.networkequipmenttypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.networkequipmentmodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {equipment.date_mod ? new Date(equipment.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

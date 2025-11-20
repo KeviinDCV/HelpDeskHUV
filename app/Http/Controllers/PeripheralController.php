@@ -35,14 +35,18 @@ class PeripheralController extends Controller
                 'p.id',
                 'p.name',
                 'p.date_mod',
-                'p.manufacturers_id',
-                'p.locations_id',
-                'p.peripheraltypes_id',
-                'p.peripheralmodels_id',
                 'p.otherserial',
-                'e.name as entity_name'
+                'e.name as entity_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'pt.name as type_name',
+                'pm.name as model_name'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_peripheraltypes as pt', 'p.peripheraltypes_id', '=', 'pt.id')
+            ->leftJoin('glpi_peripheralmodels as pm', 'p.peripheralmodels_id', '=', 'pm.id')
             ->where('p.is_deleted', 0);
 
         // Aplicar búsqueda si existe
@@ -97,14 +101,18 @@ class PeripheralController extends Controller
             ->select(
                 'p.name',
                 'e.name as entity_name',
-                'p.manufacturers_id',
-                'p.locations_id',
-                'p.peripheraltypes_id',
-                'p.peripheralmodels_id',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'pt.name as type_name',
+                'pm.name as model_name',
                 'p.date_mod',
                 'p.otherserial'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_peripheraltypes as pt', 'p.peripheraltypes_id', '=', 'pt.id')
+            ->leftJoin('glpi_peripheralmodels as pm', 'p.peripheralmodels_id', '=', 'pm.id')
             ->where('p.is_deleted', 0);
 
         if ($search) {
@@ -141,10 +149,10 @@ class PeripheralController extends Controller
             fputcsv($handle, [
                 $peripheral->name ?? '-',
                 $peripheral->entity_name ?? '-',
-                $peripheral->manufacturers_id ?? '-',
-                $peripheral->locations_id ?? '-',
-                $peripheral->peripheraltypes_id ?? '-',
-                $peripheral->peripheralmodels_id ?? '-',
+                $peripheral->manufacturer_name ?? '-',
+                $peripheral->location_name ?? '-',
+                $peripheral->type_name ?? '-',
+                $peripheral->model_name ?? '-',
                 $peripheral->date_mod ? date('Y-m-d H:i', strtotime($peripheral->date_mod)) : '-',
                 $peripheral->otherserial ?? '-'
             ]);

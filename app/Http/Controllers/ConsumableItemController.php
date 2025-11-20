@@ -34,19 +34,22 @@ class ConsumableItemController extends Controller
                 'ci.id',
                 'ci.name',
                 'ci.ref',
-                'ci.consumableitemtypes_id',
-                'ci.manufacturers_id',
-                'ci.users_id_tech',
                 'ci.comment',
                 'e.name as entity_name',
+                'ct.name as type_name',
+                'mf.name as manufacturer_name',
+                DB::raw('CONCAT(u.firstname, " ", u.realname) as tech_name'),
                 DB::raw('COUNT(c.id) as total'),
                 DB::raw('SUM(CASE WHEN c.date_out IS NULL THEN 1 ELSE 0 END) as nuevo'),
                 DB::raw('SUM(CASE WHEN c.date_out IS NOT NULL THEN 1 ELSE 0 END) as usado')
             )
             ->leftJoin('glpi_entities as e', 'ci.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_consumableitemtypes as ct', 'ci.consumableitemtypes_id', '=', 'ct.id')
+            ->leftJoin('glpi_manufacturers as mf', 'ci.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_users as u', 'ci.users_id_tech', '=', 'u.id')
             ->leftJoin('glpi_consumables as c', 'ci.id', '=', 'c.consumableitems_id')
             ->where('ci.is_deleted', 0)
-            ->groupBy('ci.id', 'ci.name', 'ci.ref', 'ci.consumableitemtypes_id', 'ci.manufacturers_id', 'ci.users_id_tech', 'ci.comment', 'e.name');
+            ->groupBy('ci.id', 'ci.name', 'ci.ref', 'ci.comment', 'e.name', 'ct.name', 'mf.name', 'u.firstname', 'u.realname');
 
         // Aplicar búsqueda si existe
         if ($search) {
@@ -98,18 +101,21 @@ class ConsumableItemController extends Controller
                 'ci.name',
                 'e.name as entity_name',
                 'ci.ref',
-                'ci.consumableitemtypes_id',
-                'ci.manufacturers_id',
+                'ct.name as type_name',
+                'mf.name as manufacturer_name',
                 'ci.comment',
-                'ci.users_id_tech',
+                DB::raw('CONCAT(u.firstname, " ", u.realname) as tech_name'),
                 DB::raw('COUNT(c.id) as total'),
                 DB::raw('SUM(CASE WHEN c.date_out IS NULL THEN 1 ELSE 0 END) as nuevo'),
                 DB::raw('SUM(CASE WHEN c.date_out IS NOT NULL THEN 1 ELSE 0 END) as usado')
             )
             ->leftJoin('glpi_entities as e', 'ci.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_consumableitemtypes as ct', 'ci.consumableitemtypes_id', '=', 'ct.id')
+            ->leftJoin('glpi_manufacturers as mf', 'ci.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_users as u', 'ci.users_id_tech', '=', 'u.id')
             ->leftJoin('glpi_consumables as c', 'ci.id', '=', 'c.consumableitems_id')
             ->where('ci.is_deleted', 0)
-            ->groupBy('ci.id', 'ci.name', 'e.name', 'ci.ref', 'ci.consumableitemtypes_id', 'ci.manufacturers_id', 'ci.comment', 'ci.users_id_tech');
+            ->groupBy('ci.id', 'ci.name', 'e.name', 'ci.ref', 'ct.name', 'mf.name', 'ci.comment', 'u.firstname', 'u.realname');
 
         if ($search) {
             $query->having(DB::raw('LOWER(ci.name)'), 'LIKE', "%".strtolower($search)."%")
@@ -146,11 +152,11 @@ class ConsumableItemController extends Controller
                 $consumable->name ?? '-',
                 $consumable->entity_name ?? '-',
                 $consumable->ref ?? '-',
-                $consumable->consumableitemtypes_id ?? '-',
-                $consumable->manufacturers_id ?? '-',
+                $consumable->type_name ?? '-',
+                $consumable->manufacturer_name ?? '-',
                 $consumiblesInfo,
                 $consumable->comment ?? '-',
-                $consumable->users_id_tech ?? '-'
+                $consumable->tech_name ?? '-'
             ]);
         }
 

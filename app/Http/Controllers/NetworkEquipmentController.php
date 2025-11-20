@@ -35,14 +35,19 @@ class NetworkEquipmentController extends Controller
                 'n.id',
                 'n.name',
                 'n.date_mod',
-                'n.states_id',
-                'n.manufacturers_id',
-                'n.locations_id',
-                'n.networkequipmenttypes_id',
-                'n.networkequipmentmodels_id',
-                'e.name as entity_name'
+                'e.name as entity_name',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'nt.name as type_name',
+                'nm.name as model_name'
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'n.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'n.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'n.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_networkequipmenttypes as nt', 'n.networkequipmenttypes_id', '=', 'nt.id')
+            ->leftJoin('glpi_networkequipmentmodels as nm', 'n.networkequipmentmodels_id', '=', 'nm.id')
             ->where('n.is_deleted', 0);
 
         // Aplicar búsqueda si existe
@@ -96,14 +101,19 @@ class NetworkEquipmentController extends Controller
             ->select(
                 'n.name',
                 'e.name as entity_name',
-                'n.states_id',
-                'n.manufacturers_id',
-                'n.locations_id',
-                'n.networkequipmenttypes_id',
-                'n.networkequipmentmodels_id',
+                'st.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'nt.name as type_name',
+                'nm.name as model_name',
                 'n.date_mod'
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as st', 'n.states_id', '=', 'st.id')
+            ->leftJoin('glpi_manufacturers as mf', 'n.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'n.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_networkequipmenttypes as nt', 'n.networkequipmenttypes_id', '=', 'nt.id')
+            ->leftJoin('glpi_networkequipmentmodels as nm', 'n.networkequipmentmodels_id', '=', 'nm.id')
             ->where('n.is_deleted', 0);
 
         if ($search) {
@@ -139,11 +149,11 @@ class NetworkEquipmentController extends Controller
             fputcsv($handle, [
                 $equipment->name ?? '-',
                 $equipment->entity_name ?? '-',
-                $equipment->states_id ?? '-',
-                $equipment->manufacturers_id ?? '-',
-                $equipment->locations_id ?? '-',
-                $equipment->networkequipmenttypes_id ?? '-',
-                $equipment->networkequipmentmodels_id ?? '-',
+                $equipment->state_name ?? '-',
+                $equipment->manufacturer_name ?? '-',
+                $equipment->location_name ?? '-',
+                $equipment->type_name ?? '-',
+                $equipment->model_name ?? '-',
                 $equipment->date_mod ? date('Y-m-d H:i', strtotime($equipment->date_mod)) : '-'
             ]);
         }

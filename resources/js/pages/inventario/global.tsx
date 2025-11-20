@@ -24,7 +24,7 @@ import {
 interface GlobalItem {
     name: string;
     entity_name: string;
-    states_id: number;
+    state_name: string;
     item_type: string;
 }
 
@@ -230,7 +230,7 @@ export default function Global({ items, filters }: GlobalInventoryProps) {
                                                 {item.name || '-'}
                                             </TableCell>
                                             <TableCell className="text-xs">{item.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{item.states_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{item.state_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{item.item_type || '-'}</TableCell>
                                         </TableRow>
                                     ))}

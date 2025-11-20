@@ -25,12 +25,12 @@ interface Computer {
     id: number;
     name: string;
     entity_name: string | null;
-    states_id: number | null;
-    manufacturers_id: number | null;
+    state_name: string | null;
+    manufacturer_name: string | null;
     serial: string | null;
     type_name: string | null;
     model_name: string | null;
-    locations_id: number | null;
+    location_name: string | null;
     date_mod: string | null;
 }
 
@@ -283,12 +283,12 @@ export default function Computadores({ computers, filters }: ComputersProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{computer.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{computer.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{computer.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{computer.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{computer.manufacturer_name || '-'}</TableCell>
                                             <TableCell className="font-mono text-xs">{computer.serial || '-'}</TableCell>
                                             <TableCell className="text-xs">{computer.type_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{computer.model_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{computer.locations_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{computer.location_name || '-'}</TableCell>
                                             <TableCell className="text-xs text-gray-600">
                                                 {computer.date_mod 
                                                     ? new Date(computer.date_mod).toLocaleDateString('es-CO', { 

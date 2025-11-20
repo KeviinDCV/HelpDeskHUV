@@ -34,6 +34,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/telefonos/export', [App\Http\Controllers\PhoneController::class, 'export'])->name('inventario.telefonos.export');
     Route::get('/inventario/global', [App\Http\Controllers\GlobalInventoryController::class, 'index'])->name('inventario.global');
     Route::get('/inventario/global/export', [App\Http\Controllers\GlobalInventoryController::class, 'export'])->name('inventario.global.export');
+    
+    // Administración
+    Route::get('/administracion/usuarios', [App\Http\Controllers\UserController::class, 'index'])->name('administracion.usuarios');
+    Route::get('/administracion/usuarios/export', [App\Http\Controllers\UserController::class, 'export'])->name('administracion.usuarios.export');
 });
 
 require __DIR__.'/settings.php';
