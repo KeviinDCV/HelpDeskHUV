@@ -5,55 +5,37 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Models\User;
 
 class UserController extends Controller
 {
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
-        $sortField = $request->input('sort', 'name');
+        $sortField = $request->input('sort', 'username');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
 
         $sortableFields = [
-            'name' => 'u.name',
-            'entity_name' => 'e.name',
-            'profile_name' => 'p.name',
-            'realname' => 'u.realname',
-            'email' => 'ue.email',
-            'phone' => 'u.phone',
-            'location_name' => 'l.completename',
-            'is_active' => 'u.is_active',
-            'id' => 'u.id',
-            'firstname' => 'u.firstname',
+            'username' => 'username',
+            'name' => 'name',
+            'email' => 'email',
+            'role' => 'role',
+            'is_active' => 'is_active',
+            'created_at' => 'created_at',
         ];
 
-        $orderByField = $sortableFields[$sortField] ?? 'u.name';
+        $orderByField = $sortableFields[$sortField] ?? 'username';
         
-        $query = DB::table('glpi_users as u')
-            ->select(
-                'u.id',
-                'u.name',
-                'e.name as entity_name',
-                DB::raw('(SELECT GROUP_CONCAT(p2.name SEPARATOR ", ") FROM glpi_profiles_users pu2 LEFT JOIN glpi_profiles p2 ON pu2.profiles_id = p2.id WHERE pu2.users_id = u.id) as profile_name'),
-                'u.realname',
-                DB::raw('(SELECT GROUP_CONCAT(ue2.email SEPARATOR ", ") FROM glpi_useremails ue2 WHERE ue2.users_id = u.id) as email'),
-                'u.phone',
-                'l.completename as location_name',
-                'u.is_active',
-                'u.firstname'
-            )
-            ->leftJoin('glpi_entities as e', 'u.entities_id', '=', 'e.id')
-            ->leftJoin('glpi_locations as l', 'u.locations_id', '=', 'l.id')
-            ->where('u.is_deleted', 0);
+        $query = User::query();
 
         // Aplicar búsqueda si existe
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('u.name', 'LIKE', "%{$search}%")
-                  ->orWhere('u.firstname', 'LIKE', "%{$search}%")
-                  ->orWhere('u.realname', 'LIKE', "%{$search}%")
-                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+                $q->where('username', 'LIKE', "%{$search}%")
+                  ->orWhere('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%")
+                  ->orWhere('role', 'LIKE', "%{$search}%");
             });
         }
         
@@ -79,48 +61,29 @@ class UserController extends Controller
 
     public function export(Request $request)
     {
-        $sortField = $request->input('sort', 'name');
+        $sortField = $request->input('sort', 'username');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
 
         $sortableFields = [
-            'name' => 'u.name',
-            'entity_name' => 'e.name',
-            'profile_name' => 'p.name',
-            'realname' => 'u.realname',
-            'email' => 'ue.email',
-            'phone' => 'u.phone',
-            'location_name' => 'l.completename',
-            'is_active' => 'u.is_active',
-            'id' => 'u.id',
-            'firstname' => 'u.firstname',
+            'username' => 'username',
+            'name' => 'name',
+            'email' => 'email',
+            'role' => 'role',
+            'is_active' => 'is_active',
+            'created_at' => 'created_at',
         ];
 
-        $orderByField = $sortableFields[$sortField] ?? 'u.name';
+        $orderByField = $sortableFields[$sortField] ?? 'username';
         
-        $query = DB::table('glpi_users as u')
-            ->select(
-                'u.name',
-                'e.name as entity_name',
-                DB::raw('(SELECT GROUP_CONCAT(p2.name SEPARATOR ", ") FROM glpi_profiles_users pu2 LEFT JOIN glpi_profiles p2 ON pu2.profiles_id = p2.id WHERE pu2.users_id = u.id) as profile_name'),
-                'u.realname',
-                DB::raw('(SELECT GROUP_CONCAT(ue2.email SEPARATOR ", ") FROM glpi_useremails ue2 WHERE ue2.users_id = u.id) as email'),
-                'u.phone',
-                'l.completename as location_name',
-                'u.is_active',
-                'u.id',
-                'u.firstname'
-            )
-            ->leftJoin('glpi_entities as e', 'u.entities_id', '=', 'e.id')
-            ->leftJoin('glpi_locations as l', 'u.locations_id', '=', 'l.id')
-            ->where('u.is_deleted', 0);
+        $query = User::query();
 
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('u.name', 'LIKE', "%{$search}%")
-                  ->orWhere('u.firstname', 'LIKE', "%{$search}%")
-                  ->orWhere('u.realname', 'LIKE', "%{$search}%")
-                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+                $q->where('username', 'LIKE', "%{$search}%")
+                  ->orWhere('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%")
+                  ->orWhere('role', 'LIKE', "%{$search}%");
             });
         }
 
@@ -135,31 +98,25 @@ class UserController extends Controller
         
         // Headers
         fputcsv($handle, [
-            'Usuario',
-            'Entidades',
-            'Perfil',
-            'Apellidos',
-            'Correos electrónicos',
-            'Teléfono',
-            'Localización',
-            'Activar',
             'ID',
-            'Nombre'
+            'Usuario',
+            'Nombre Completo',
+            'Email',
+            'Rol',
+            'Activo',
+            'Fecha de Creación'
         ]);
 
         // Datos
         foreach ($users as $user) {
             fputcsv($handle, [
-                $user->name ?? '-',
-                $user->entity_name ?? '-',
-                $user->profile_name ?? '-',
-                $user->realname ?? '-',
-                $user->email ?? '-',
-                $user->phone ?? '-',
-                $user->location_name ?? '-',
+                $user->id,
+                $user->username,
+                $user->name,
+                $user->email,
+                $user->role,
                 $user->is_active ? 'Sí' : 'No',
-                $user->id ?? '-',
-                $user->firstname ?? '-'
+                $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : '-'
             ]);
         }
 
@@ -170,5 +127,14 @@ class UserController extends Controller
         return response($csv)
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    public function toggleActive($id)
+    {
+        $user = User::findOrFail($id);
+        $user->is_active = !$user->is_active;
+        $user->save();
+
+        return redirect()->back()->with('success', 'Estado del usuario actualizado correctamente');
     }
 }

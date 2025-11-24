@@ -23,15 +23,12 @@ import {
 
 interface User {
     id: number;
+    username: string;
     name: string;
-    entity_name: string | null;
-    profile_name: string | null;
-    realname: string | null;
-    email: string | null;
-    phone: string | null;
-    location_name: string | null;
-    is_active: number;
-    firstname: string | null;
+    email: string;
+    role: string;
+    is_active: boolean;
+    created_at: string;
 }
 
 interface PaginationLinks {
@@ -90,6 +87,13 @@ export default function Usuarios({ users, filters }: UsersProps) {
         return filters.direction === 'asc' 
             ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
             : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
+    };
+
+    const handleToggleActive = (userId: number) => {
+        router.post(`/administracion/usuarios/${userId}/toggle-active`, {}, {
+            preserveScroll: true,
+            preserveState: true,
+        });
     };
 
     return (
@@ -184,67 +188,7 @@ export default function Usuarios({ users, filters }: UsersProps) {
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
                                         <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
-                                        >
-                                            <div className="flex items-center">
-                                                Usuario
-                                                {getSortIcon('name')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('entity_name')}
-                                        >
-                                            <div className="flex items-center">
-                                                Entidad
-                                                {getSortIcon('entity_name')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Perfil
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('realname')}
-                                        >
-                                            <div className="flex items-center">
-                                                Apellidos
-                                                {getSortIcon('realname')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Correos electrónicos
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('phone')}
-                                        >
-                                            <div className="flex items-center">
-                                                Teléfono
-                                                {getSortIcon('phone')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('location_name')}
-                                        >
-                                            <div className="flex items-center">
-                                                Localización
-                                                {getSortIcon('location_name')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('is_active')}
-                                        >
-                                            <div className="flex items-center">
-                                                Activar
-                                                {getSortIcon('is_active')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100 w-16"
                                             onClick={() => handleSort('id')}
                                         >
                                             <div className="flex items-center">
@@ -254,11 +198,50 @@ export default function Usuarios({ users, filters }: UsersProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('firstname')}
+                                            onClick={() => handleSort('username')}
                                         >
                                             <div className="flex items-center">
-                                                Nombre
-                                                {getSortIcon('firstname')}
+                                                Usuario
+                                                {getSortIcon('username')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead 
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Nombre Completo
+                                                {getSortIcon('name')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead 
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('email')}
+                                        >
+                                            <div className="flex items-center">
+                                                Email
+                                                {getSortIcon('email')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead 
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('role')}
+                                        >
+                                            <div className="flex items-center">
+                                                Rol
+                                                {getSortIcon('role')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold text-gray-900 text-xs">
+                                            Activo
+                                        </TableHead>
+                                        <TableHead 
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('created_at')}
+                                        >
+                                            <div className="flex items-center">
+                                                Fecha de Creación
+                                                {getSortIcon('created_at')}
                                             </div>
                                         </TableHead>
                                     </TableRow>
@@ -266,28 +249,48 @@ export default function Usuarios({ users, filters }: UsersProps) {
                                 <TableBody>
                                     {users.data.map((user, index) => (
                                         <TableRow key={`${user.id}-${index}`} className="hover:bg-gray-50">
+                                            <TableCell className="text-xs font-medium">{user.id}</TableCell>
                                             <TableCell className="font-medium text-xs">
                                                 <a href={`/administracion/usuarios/${user.id}`} className="text-[#2c4370] hover:underline">
-                                                    {user.name || '-'}
+                                                    {user.username || '-'}
                                                 </a>
                                             </TableCell>
-                                            <TableCell className="text-xs">{user.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{user.profile_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{user.realname || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.name || '-'}</TableCell>
                                             <TableCell className="text-xs">{user.email || '-'}</TableCell>
-                                            <TableCell className="text-xs">{user.phone || '-'}</TableCell>
-                                            <TableCell className="text-xs">{user.location_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                                                    user.is_active === 1 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-red-100 text-red-800'
+                                                    user.role === 'Administrador' 
+                                                        ? 'bg-purple-100 text-purple-800' 
+                                                        : user.role === 'Técnico'
+                                                        ? 'bg-blue-100 text-blue-800'
+                                                        : 'bg-gray-100 text-gray-800'
                                                 }`}>
-                                                    {user.is_active === 1 ? 'Sí' : 'No'}
+                                                    {user.role}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-xs">{user.id}</TableCell>
-                                            <TableCell className="text-xs">{user.firstname || '-'}</TableCell>
+                                            <TableCell className="text-xs">
+                                                <Button
+                                                    size="sm"
+                                                    variant={user.is_active ? "default" : "outline"}
+                                                    className={`h-7 text-[10px] ${
+                                                        user.is_active 
+                                                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                                                            : 'border-red-600 text-red-600 hover:bg-red-600 hover:text-white'
+                                                    }`}
+                                                    onClick={() => handleToggleActive(user.id)}
+                                                >
+                                                    {user.is_active ? 'Activo' : 'Inactivo'}
+                                                </Button>
+                                            </TableCell>
+                                            <TableCell className="text-xs text-gray-600">
+                                                {user.created_at ? new Date(user.created_at).toLocaleDateString('es-CO', {
+                                                    year: 'numeric',
+                                                    month: '2-digit',
+                                                    day: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                }) : '-'}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
