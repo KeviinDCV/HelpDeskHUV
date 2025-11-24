@@ -25,11 +25,11 @@ interface NetworkEquipment {
     id: number;
     name: string;
     entity_name: string;
-    states_id: number;
-    manufacturers_id: number;
-    locations_id: number;
-    networkequipmenttypes_id: number;
-    networkequipmentmodels_id: number;
+    state_name: string | null;
+    manufacturer_name: string | null;
+    location_name: string | null;
+    type_name: string | null;
+    model_name: string | null;
     date_mod: string;
 }
 
@@ -210,47 +210,47 @@ export default function DispositivosRed({ networkequipments, filters }: NetworkE
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('states_id')}
+                                            onClick={() => handleSort('state_name')}
                                         >
                                             <div className="flex items-center">
                                                 Estado
-                                                {getSortIcon('states_id')}
+                                                {getSortIcon('state_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('networkequipmenttypes_id')}
+                                            onClick={() => handleSort('type_name')}
                                         >
                                             <div className="flex items-center">
                                                 Tipo
-                                                {getSortIcon('networkequipmenttypes_id')}
+                                                {getSortIcon('type_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('networkequipmentmodels_id')}
+                                            onClick={() => handleSort('model_name')}
                                         >
                                             <div className="flex items-center">
                                                 Modelo
-                                                {getSortIcon('networkequipmentmodels_id')}
+                                                {getSortIcon('model_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -273,11 +273,11 @@ export default function DispositivosRed({ networkequipments, filters }: NetworkE
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{equipment.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.networkequipmenttypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{equipment.networkequipmentmodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{equipment.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {equipment.date_mod ? new Date(equipment.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

@@ -25,11 +25,11 @@ interface Phone {
     id: number;
     name: string;
     entity_name: string;
-    states_id: number;
-    manufacturers_id: number;
-    locations_id: number;
-    phonetypes_id: number;
-    phonemodels_id: number;
+    state_name: string | null;
+    manufacturer_name: string | null;
+    location_name: string | null;
+    type_name: string | null;
+    model_name: string | null;
     date_mod: string;
     otherserial: string;
 }
@@ -211,47 +211,47 @@ export default function Telefonos({ phones, filters }: PhonesProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('states_id')}
+                                            onClick={() => handleSort('state_name')}
                                         >
                                             <div className="flex items-center">
                                                 Estado
-                                                {getSortIcon('states_id')}
+                                                {getSortIcon('state_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('phonetypes_id')}
+                                            onClick={() => handleSort('type_name')}
                                         >
                                             <div className="flex items-center">
                                                 Tipo
-                                                {getSortIcon('phonetypes_id')}
+                                                {getSortIcon('type_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('phonemodels_id')}
+                                            onClick={() => handleSort('model_name')}
                                         >
                                             <div className="flex items-center">
                                                 Modelo
-                                                {getSortIcon('phonemodels_id')}
+                                                {getSortIcon('model_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -283,11 +283,11 @@ export default function Telefonos({ phones, filters }: PhonesProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{phone.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.phonetypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{phone.phonemodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{phone.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {phone.date_mod ? new Date(phone.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

@@ -24,7 +24,7 @@ import {
 interface GlobalItem {
     name: string;
     entity_name: string;
-    states_id: number;
+    state_name: string | null;
     item_type: string;
 }
 
@@ -205,11 +205,11 @@ export default function Global({ items, filters }: GlobalInventoryProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('states_id')}
+                                            onClick={() => handleSort('state_name')}
                                         >
                                             <div className="flex items-center">
                                                 Estado
-                                                {getSortIcon('states_id')}
+                                                {getSortIcon('state_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -230,7 +230,7 @@ export default function Global({ items, filters }: GlobalInventoryProps) {
                                                 {item.name || '-'}
                                             </TableCell>
                                             <TableCell className="text-xs">{item.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{item.states_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{item.state_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{item.item_type || '-'}</TableCell>
                                         </TableRow>
                                     ))}

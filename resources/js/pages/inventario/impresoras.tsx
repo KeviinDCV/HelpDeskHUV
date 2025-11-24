@@ -25,11 +25,11 @@ interface Printer {
     id: number;
     name: string;
     entity_name: string;
-    states_id: number;
-    manufacturers_id: number;
-    locations_id: number;
-    printertypes_id: number;
-    printermodels_id: number;
+    state_name: string | null;
+    manufacturer_name: string | null;
+    location_name: string | null;
+    type_name: string | null;
+    model_name: string | null;
     date_mod: string;
 }
 
@@ -210,47 +210,47 @@ export default function Impresoras({ printers, filters }: PrintersProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('states_id')}
+                                            onClick={() => handleSort('state_name')}
                                         >
                                             <div className="flex items-center">
                                                 Estado
-                                                {getSortIcon('states_id')}
+                                                {getSortIcon('state_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('printertypes_id')}
+                                            onClick={() => handleSort('type_name')}
                                         >
                                             <div className="flex items-center">
                                                 Tipo
-                                                {getSortIcon('printertypes_id')}
+                                                {getSortIcon('type_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('printermodels_id')}
+                                            onClick={() => handleSort('model_name')}
                                         >
                                             <div className="flex items-center">
                                                 Modelo
-                                                {getSortIcon('printermodels_id')}
+                                                {getSortIcon('model_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -273,11 +273,11 @@ export default function Impresoras({ printers, filters }: PrintersProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{printer.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.printertypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{printer.printermodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{printer.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {printer.date_mod ? new Date(printer.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

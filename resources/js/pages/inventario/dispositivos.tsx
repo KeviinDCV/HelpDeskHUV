@@ -25,10 +25,11 @@ interface Peripheral {
     id: number;
     name: string;
     entity_name: string;
-    manufacturers_id: number;
-    locations_id: number;
-    peripheraltypes_id: number;
-    peripheralmodels_id: number;
+    state_name: string | null;
+    manufacturer_name: string | null;
+    location_name: string | null;
+    type_name: string | null;
+    model_name: string | null;
     date_mod: string;
     otherserial: string;
 }
@@ -210,38 +211,47 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('state_name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Estado
+                                                {getSortIcon('state_name')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead 
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('peripheraltypes_id')}
+                                            onClick={() => handleSort('type_name')}
                                         >
                                             <div className="flex items-center">
                                                 Tipo
-                                                {getSortIcon('peripheraltypes_id')}
+                                                {getSortIcon('type_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('peripheralmodels_id')}
+                                            onClick={() => handleSort('model_name')}
                                         >
                                             <div className="flex items-center">
                                                 Modelo
-                                                {getSortIcon('peripheralmodels_id')}
+                                                {getSortIcon('model_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -273,10 +283,11 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{peripheral.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.peripheraltypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.peripheralmodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{peripheral.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {peripheral.date_mod ? new Date(peripheral.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

@@ -20,11 +20,11 @@ class NetworkEquipmentController extends Controller
         $sortableFields = [
             'name' => 'n.name',
             'entity_name' => 'e.name',
-            'states_id' => 'n.states_id',
-            'manufacturers_id' => 'n.manufacturers_id',
-            'locations_id' => 'n.locations_id',
-            'networkequipmenttypes_id' => 'n.networkequipmenttypes_id',
-            'networkequipmentmodels_id' => 'n.networkequipmentmodels_id',
+            'state_name' => 's.name',
+            'manufacturer_name' => 'mf.name',
+            'location_name' => 'l.completename',
+            'type_name' => 't.name',
+            'model_name' => 'md.name',
             'date_mod' => 'n.date_mod',
         ];
 
@@ -35,21 +35,31 @@ class NetworkEquipmentController extends Controller
                 'n.id',
                 'n.name',
                 'n.date_mod',
-                'n.states_id',
-                'n.manufacturers_id',
-                'n.locations_id',
-                'n.networkequipmenttypes_id',
-                'n.networkequipmentmodels_id',
+                's.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                't.name as type_name',
+                'md.name as model_name',
                 'e.name as entity_name'
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as s', 'n.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as mf', 'n.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'n.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_networkequipmenttypes as t', 'n.networkequipmenttypes_id', '=', 't.id')
+            ->leftJoin('glpi_networkequipmentmodels as md', 'n.networkequipmentmodels_id', '=', 'md.id')
             ->where('n.is_deleted', 0);
 
         // Aplicar búsqueda si existe
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('n.name', 'LIKE', "%{$search}%")
-                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+                  ->orWhere('e.name', 'LIKE', "%{$search}%")
+                  ->orWhere('s.name', 'LIKE', "%{$search}%")
+                  ->orWhere('mf.name', 'LIKE', "%{$search}%")
+                  ->orWhere('l.completename', 'LIKE', "%{$search}%")
+                  ->orWhere('t.name', 'LIKE', "%{$search}%")
+                  ->orWhere('md.name', 'LIKE', "%{$search}%");
             });
         }
         
@@ -82,11 +92,11 @@ class NetworkEquipmentController extends Controller
         $sortableFields = [
             'name' => 'n.name',
             'entity_name' => 'e.name',
-            'states_id' => 'n.states_id',
-            'manufacturers_id' => 'n.manufacturers_id',
-            'locations_id' => 'n.locations_id',
-            'networkequipmenttypes_id' => 'n.networkequipmenttypes_id',
-            'networkequipmentmodels_id' => 'n.networkequipmentmodels_id',
+            'state_name' => 's.name',
+            'manufacturer_name' => 'mf.name',
+            'location_name' => 'l.completename',
+            'type_name' => 't.name',
+            'model_name' => 'md.name',
             'date_mod' => 'n.date_mod',
         ];
 
@@ -96,20 +106,30 @@ class NetworkEquipmentController extends Controller
             ->select(
                 'n.name',
                 'e.name as entity_name',
-                'n.states_id',
-                'n.manufacturers_id',
-                'n.locations_id',
-                'n.networkequipmenttypes_id',
-                'n.networkequipmentmodels_id',
+                's.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                't.name as type_name',
+                'md.name as model_name',
                 'n.date_mod'
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as s', 'n.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as mf', 'n.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'n.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_networkequipmenttypes as t', 'n.networkequipmenttypes_id', '=', 't.id')
+            ->leftJoin('glpi_networkequipmentmodels as md', 'n.networkequipmentmodels_id', '=', 'md.id')
             ->where('n.is_deleted', 0);
 
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('n.name', 'LIKE', "%{$search}%")
-                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+                  ->orWhere('e.name', 'LIKE', "%{$search}%")
+                  ->orWhere('s.name', 'LIKE', "%{$search}%")
+                  ->orWhere('mf.name', 'LIKE', "%{$search}%")
+                  ->orWhere('l.completename', 'LIKE', "%{$search}%")
+                  ->orWhere('t.name', 'LIKE', "%{$search}%")
+                  ->orWhere('md.name', 'LIKE', "%{$search}%");
             });
         }
 
@@ -139,11 +159,11 @@ class NetworkEquipmentController extends Controller
             fputcsv($handle, [
                 $equipment->name ?? '-',
                 $equipment->entity_name ?? '-',
-                $equipment->states_id ?? '-',
-                $equipment->manufacturers_id ?? '-',
-                $equipment->locations_id ?? '-',
-                $equipment->networkequipmenttypes_id ?? '-',
-                $equipment->networkequipmentmodels_id ?? '-',
+                $equipment->state_name ?? '-',
+                $equipment->manufacturer_name ?? '-',
+                $equipment->location_name ?? '-',
+                $equipment->type_name ?? '-',
+                $equipment->model_name ?? '-',
                 $equipment->date_mod ? date('Y-m-d H:i', strtotime($equipment->date_mod)) : '-'
             ]);
         }

@@ -26,13 +26,13 @@ interface Consumable {
     name: string;
     entity_name: string;
     ref: string;
-    consumableitemtypes_id: number;
-    manufacturers_id: number;
+    type_name: string | null;
+    manufacturer_name: string | null;
     total: number;
     nuevo: number;
     usado: number;
     comment: string;
-    users_id_tech: number;
+    tech_name: string | null;
 }
 
 interface PaginationLinks {
@@ -221,20 +221,20 @@ export default function Consumibles({ consumables, filters }: ConsumablesProps) 
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('consumableitemtypes_id')}
+                                            onClick={() => handleSort('type_name')}
                                         >
                                             <div className="flex items-center">
                                                 Tipo
-                                                {getSortIcon('consumableitemtypes_id')}
+                                                {getSortIcon('type_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -251,11 +251,11 @@ export default function Consumibles({ consumables, filters }: ConsumablesProps) 
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('users_id_tech')}
+                                            onClick={() => handleSort('tech_name')}
                                         >
                                             <div className="flex items-center">
                                                 Técnico a cargo
-                                                {getSortIcon('users_id_tech')}
+                                                {getSortIcon('tech_name')}
                                             </div>
                                         </TableHead>
                                     </TableRow>
@@ -270,15 +270,15 @@ export default function Consumibles({ consumables, filters }: ConsumablesProps) 
                                             </TableCell>
                                             <TableCell className="text-xs">{consumable.entity_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{consumable.ref || '-'}</TableCell>
-                                            <TableCell className="text-xs">{consumable.consumableitemtypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{consumable.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.manufacturer_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 Total: {consumable.total || 0}, Nuevo: {consumable.nuevo || 0}, Usado: {consumable.usado || 0}
                                             </TableCell>
                                             <TableCell className="text-xs truncate max-w-xs" title={consumable.comment || ''}>
                                                 {consumable.comment || '-'}
                                             </TableCell>
-                                            <TableCell className="text-xs">{consumable.users_id_tech || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.tech_name || '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

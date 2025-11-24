@@ -20,11 +20,11 @@ class PhoneController extends Controller
         $sortableFields = [
             'name' => 'p.name',
             'entity_name' => 'e.name',
-            'manufacturers_id' => 'p.manufacturers_id',
-            'locations_id' => 'p.locations_id',
-            'states_id' => 'p.states_id',
-            'phonetypes_id' => 'p.phonetypes_id',
-            'phonemodels_id' => 'p.phonemodels_id',
+            'state_name' => 's.name',
+            'manufacturer_name' => 'mf.name',
+            'location_name' => 'l.completename',
+            'type_name' => 't.name',
+            'model_name' => 'md.name',
             'otherserial' => 'p.otherserial',
             'date_mod' => 'p.date_mod',
         ];
@@ -36,15 +36,20 @@ class PhoneController extends Controller
                 'p.id',
                 'p.name',
                 'p.date_mod',
-                'p.manufacturers_id',
-                'p.locations_id',
-                'p.states_id',
-                'p.phonetypes_id',
-                'p.phonemodels_id',
+                's.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                't.name as type_name',
+                'md.name as model_name',
                 'p.otherserial',
                 'e.name as entity_name'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as s', 'p.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_phonetypes as t', 'p.phonetypes_id', '=', 't.id')
+            ->leftJoin('glpi_phonemodels as md', 'p.phonemodels_id', '=', 'md.id')
             ->where('p.is_deleted', 0);
 
         // Aplicar búsqueda si existe
@@ -52,7 +57,12 @@ class PhoneController extends Controller
             $query->where(function($q) use ($search) {
                 $q->where('p.name', 'LIKE', "%{$search}%")
                   ->orWhere('p.otherserial', 'LIKE', "%{$search}%")
-                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+                  ->orWhere('e.name', 'LIKE', "%{$search}%")
+                  ->orWhere('s.name', 'LIKE', "%{$search}%")
+                  ->orWhere('mf.name', 'LIKE', "%{$search}%")
+                  ->orWhere('l.completename', 'LIKE', "%{$search}%")
+                  ->orWhere('t.name', 'LIKE', "%{$search}%")
+                  ->orWhere('md.name', 'LIKE', "%{$search}%");
             });
         }
         
@@ -85,11 +95,11 @@ class PhoneController extends Controller
         $sortableFields = [
             'name' => 'p.name',
             'entity_name' => 'e.name',
-            'manufacturers_id' => 'p.manufacturers_id',
-            'locations_id' => 'p.locations_id',
-            'states_id' => 'p.states_id',
-            'phonetypes_id' => 'p.phonetypes_id',
-            'phonemodels_id' => 'p.phonemodels_id',
+            'state_name' => 's.name',
+            'manufacturer_name' => 'mf.name',
+            'location_name' => 'l.completename',
+            'type_name' => 't.name',
+            'model_name' => 'md.name',
             'otherserial' => 'p.otherserial',
             'date_mod' => 'p.date_mod',
         ];
@@ -100,22 +110,32 @@ class PhoneController extends Controller
             ->select(
                 'p.name',
                 'e.name as entity_name',
-                'p.states_id',
-                'p.manufacturers_id',
-                'p.locations_id',
-                'p.phonetypes_id',
-                'p.phonemodels_id',
+                's.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                't.name as type_name',
+                'md.name as model_name',
                 'p.otherserial',
                 'p.date_mod'
             )
             ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as s', 'p.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_phonetypes as t', 'p.phonetypes_id', '=', 't.id')
+            ->leftJoin('glpi_phonemodels as md', 'p.phonemodels_id', '=', 'md.id')
             ->where('p.is_deleted', 0);
 
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('p.name', 'LIKE', "%{$search}%")
                   ->orWhere('p.otherserial', 'LIKE', "%{$search}%")
-                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+                  ->orWhere('e.name', 'LIKE', "%{$search}%")
+                  ->orWhere('s.name', 'LIKE', "%{$search}%")
+                  ->orWhere('mf.name', 'LIKE', "%{$search}%")
+                  ->orWhere('l.completename', 'LIKE', "%{$search}%")
+                  ->orWhere('t.name', 'LIKE', "%{$search}%")
+                  ->orWhere('md.name', 'LIKE', "%{$search}%");
             });
         }
 
@@ -146,11 +166,11 @@ class PhoneController extends Controller
             fputcsv($handle, [
                 $phone->name ?? '-',
                 $phone->entity_name ?? '-',
-                $phone->states_id ?? '-',
-                $phone->manufacturers_id ?? '-',
-                $phone->locations_id ?? '-',
-                $phone->phonetypes_id ?? '-',
-                $phone->phonemodels_id ?? '-',
+                $phone->state_name ?? '-',
+                $phone->manufacturer_name ?? '-',
+                $phone->location_name ?? '-',
+                $phone->type_name ?? '-',
+                $phone->model_name ?? '-',
                 $phone->date_mod ? date('Y-m-d H:i', strtotime($phone->date_mod)) : '-',
                 $phone->otherserial ?? '-'
             ]);
