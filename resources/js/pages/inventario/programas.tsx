@@ -271,28 +271,28 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                             </div>
                             <div className="flex items-center gap-2">
                                 {softwares.links.map((link: PaginationLinks, index: number) => {
-                                    if (link.label === '&laquo; Previous') {
+                                    if (index === 0) {
                                         return (
                                             <Button
                                                 key={index}
                                                 variant="outline"
                                                 size="sm"
                                                 disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:bg-[#2c4370] hover:text-white"
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
                                                 onClick={() => link.url && router.visit(link.url)}
                                             >
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
                                         );
                                     }
-                                    if (link.label === 'Next &raquo;') {
+                                    if (index === softwares.links.length - 1) {
                                         return (
                                             <Button
                                                 key={index}
                                                 variant="outline"
                                                 size="sm"
                                                 disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:bg-[#2c4370] hover:text-white"
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
                                                 onClick={() => link.url && router.visit(link.url)}
                                             >
                                                 <ChevronRight className="h-4 w-4" />
@@ -306,8 +306,8 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                                             size="sm"
                                             disabled={!link.url}
                                             className={link.active 
-                                                ? "bg-[#2c4370] hover:bg-[#3d5583] text-white border-[#2c4370]" 
-                                                : "border-[#2c4370] text-[#2c4370] hover:bg-[#2c4370] hover:text-white"}
+                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" 
+                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}
                                             onClick={() => link.url && router.visit(link.url)}
                                         >
                                             {link.label}

@@ -21,16 +21,17 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-interface Peripheral {
+interface User {
     id: number;
     name: string;
-    entity_name: string;
-    manufacturers_id: number;
-    locations_id: number;
-    peripheraltypes_id: number;
-    peripheralmodels_id: number;
-    date_mod: string;
-    otherserial: string;
+    entity_name: string | null;
+    profile_name: string | null;
+    realname: string | null;
+    email: string | null;
+    phone: string | null;
+    location_name: string | null;
+    is_active: number;
+    firstname: string | null;
 }
 
 interface PaginationLinks {
@@ -39,9 +40,9 @@ interface PaginationLinks {
     active: boolean;
 }
 
-interface PeripheralsProps {
-    peripherals: {
-        data: Peripheral[];
+interface UsersProps {
+    users: {
+        data: User[];
         current_page: number;
         last_page: number;
         per_page: number;
@@ -56,12 +57,12 @@ interface PeripheralsProps {
     };
 }
 
-export default function Dispositivos({ peripherals, filters }: PeripheralsProps) {
+export default function Usuarios({ users, filters }: UsersProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        router.get('/inventario/dispositivos', {
+        router.get('/administracion/usuarios', {
             per_page: filters.per_page,
             sort: field,
             direction: newDirection,
@@ -70,7 +71,7 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
     };
 
     const handleSearch = () => {
-        router.get('/inventario/dispositivos', {
+        router.get('/administracion/usuarios', {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
@@ -79,12 +80,7 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
     };
 
     const handleExport = () => {
-        const params = new URLSearchParams({
-            sort: filters.sort,
-            direction: filters.direction,
-            search: filters.search
-        });
-        window.location.href = `/inventario/dispositivos/export?${params}`;
+        window.location.href = `/administracion/usuarios/export?search=${filters.search}&sort=${filters.sort}&direction=${filters.direction}`;
     };
 
     const getSortIcon = (field: string) => {
@@ -98,26 +94,24 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
 
     return (
         <>
-            <Head title="HelpDesk HUV - Dispositivos" />
+            <Head title="Usuarios - HelpDesk HUV" />
             <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader 
-                    breadcrumb={
-                        <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600">Inicio</span>
-                            <span className="text-gray-400">/</span>
-                            <span className="text-gray-600">Inventario</span>
-                            <span className="text-gray-400">/</span>
-                            <span className="font-medium text-gray-900">Dispositivos</span>
-                        </div>
-                    }
-                />
+                <GLPIHeader breadcrumb={
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Inicio</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-gray-600">Administración</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="font-medium text-gray-900">Usuarios</span>
+                    </div>
+                } />
 
                 <main className="flex-1 px-6 py-6">
                     <div className="bg-white rounded-lg shadow">
                         {/* Header */}
                         <div className="px-6 py-4 border-b">
                             <div className="flex items-center justify-between">
-                                <h1 className="text-xl font-semibold text-gray-900">Dispositivos</h1>
+                                <h1 className="text-xl font-semibold text-gray-900">Usuarios</h1>
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
                                         <Input
@@ -158,7 +152,7 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                 <Select 
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/dispositivos', { 
+                                        router.get('/administracion/usuarios', { 
                                             per_page: value,
                                             sort: filters.sort,
                                             direction: filters.direction,
@@ -180,12 +174,11 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                 <span className="text-sm text-gray-600">elementos</span>
                             </div>
                             <p className="text-sm text-gray-600">
-                                Mostrando <span className="font-medium">{peripherals.data.length}</span> de{' '}
-                                <span className="font-medium">{peripherals.total}</span> dispositivos
+                                Mostrando <span className="font-medium">{users.data.length}</span> de{' '}
+                                <span className="font-medium">{users.total}</span> usuarios
                             </p>
                         </div>
 
-                        {/* Table */}
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -195,7 +188,7 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                             onClick={() => handleSort('name')}
                                         >
                                             <div className="flex items-center">
-                                                Nombre
+                                                Usuario
                                                 {getSortIcon('name')}
                                             </div>
                                         </TableHead>
@@ -208,99 +201,106 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                                 {getSortIcon('entity_name')}
                                             </div>
                                         </TableHead>
+                                        <TableHead className="font-semibold text-gray-900 text-xs">
+                                            Perfil
+                                        </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('realname')}
                                         >
                                             <div className="flex items-center">
-                                                Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                Apellidos
+                                                {getSortIcon('realname')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold text-gray-900 text-xs">
+                                            Correos electrónicos
+                                        </TableHead>
+                                        <TableHead 
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('phone')}
+                                        >
+                                            <div className="flex items-center">
+                                                Teléfono
+                                                {getSortIcon('phone')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('peripheraltypes_id')}
+                                            onClick={() => handleSort('is_active')}
                                         >
                                             <div className="flex items-center">
-                                                Tipo
-                                                {getSortIcon('peripheraltypes_id')}
+                                                Activar
+                                                {getSortIcon('is_active')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('peripheralmodels_id')}
+                                            onClick={() => handleSort('id')}
                                         >
                                             <div className="flex items-center">
-                                                Modelo
-                                                {getSortIcon('peripheralmodels_id')}
+                                                ID
+                                                {getSortIcon('id')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('date_mod')}
+                                            onClick={() => handleSort('firstname')}
                                         >
                                             <div className="flex items-center">
-                                                Última actualización
-                                                {getSortIcon('date_mod')}
-                                            </div>
-                                        </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('otherserial')}
-                                        >
-                                            <div className="flex items-center">
-                                                Nombre de usuario alternativo
-                                                {getSortIcon('otherserial')}
+                                                Nombre
+                                                {getSortIcon('firstname')}
                                             </div>
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {peripherals.data.map((peripheral) => (
-                                        <TableRow key={peripheral.id} className="hover:bg-gray-50">
+                                    {users.data.map((user, index) => (
+                                        <TableRow key={`${user.id}-${index}`} className="hover:bg-gray-50">
                                             <TableCell className="font-medium text-xs">
-                                                <a href={`/inventario/dispositivos/${peripheral.id}`} className="text-[#2c4370] hover:underline">
-                                                    {peripheral.name || '-'}
+                                                <a href={`/administracion/usuarios/${user.id}`} className="text-[#2c4370] hover:underline">
+                                                    {user.name || '-'}
                                                 </a>
                                             </TableCell>
-                                            <TableCell className="text-xs">{peripheral.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.peripheraltypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{peripheral.peripheralmodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.entity_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.profile_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.realname || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.email || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.phone || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.location_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
-                                                {peripheral.date_mod ? new Date(peripheral.date_mod).toLocaleString('es-CO', {
-                                                    year: 'numeric',
-                                                    month: '2-digit',
-                                                    day: '2-digit',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                }) : '-'}
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                                                    user.is_active === 1 
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : 'bg-red-100 text-red-800'
+                                                }`}>
+                                                    {user.is_active === 1 ? 'Sí' : 'No'}
+                                                </span>
                                             </TableCell>
-                                            <TableCell className="text-xs">{peripheral.otherserial || '-'}</TableCell>
+                                            <TableCell className="text-xs">{user.id}</TableCell>
+                                            <TableCell className="text-xs">{user.firstname || '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         </div>
 
-                        {/* Pagination */}
                         <div className="px-6 py-4 border-t flex items-center justify-between">
                             <div className="text-sm text-gray-600">
-                                Página <span className="font-medium">{peripherals.current_page}</span> de{' '}
-                                <span className="font-medium">{peripherals.last_page}</span>
+                                Página {users.current_page} de {users.last_page}
                             </div>
                             <div className="flex items-center gap-2">
-                                {peripherals.links.map((link: PaginationLinks, index: number) => {
+                                {users.links.map((link, index) => {
+                                    // Primer botón = Previous
                                     if (index === 0) {
                                         return (
                                             <Button
@@ -315,7 +315,8 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                             </Button>
                                         );
                                     }
-                                    if (index === peripherals.links.length - 1) {
+                                    // Último botón = Next
+                                    if (index === users.links.length - 1) {
                                         return (
                                             <Button
                                                 key={index}
@@ -329,6 +330,7 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                             </Button>
                                         );
                                     }
+                                    // Botones de números
                                     return (
                                         <Button
                                             key={index}
@@ -348,7 +350,7 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                         </div>
                     </div>
                 </main>
-                
+
                 <GLPIFooter />
             </div>
         </>

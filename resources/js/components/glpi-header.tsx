@@ -2,7 +2,7 @@ import { Bell, LogOut, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { router } from '@inertiajs/react'
-import { ReactNode, useState } from 'react'
+import { ReactNode } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,22 +75,12 @@ interface GLPIHeaderProps {
 }
 
 export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
-  const [activeTab, setActiveTab] = useState("Vista personal")
-  
-  const tabs = [
-    "Vista personal",
-    "Vista de Grupo",
-    "Vista Global",
-    "Canales RSS",
-    "Todo",
-  ]
-
   const handleLogout = () => {
     router.post('/logout')
   }
 
   return (
-    <header className="bg-[#2c4370] text-white">
+    <header className="bg-[#2c4370] text-white relative z-50">
       {/* Top Navigation Bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-[#3d5583]">
         <div className="flex items-center gap-6">
@@ -274,7 +264,6 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
       {/* Sub Navigation Bar */}
       <div className="bg-white text-foreground border-b">
-        {/* Primera fila: Breadcrumb y Technician */}
         <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-2">
             {breadcrumb || <span className="text-sm font-medium">Inicio</span>}
@@ -294,24 +283,6 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-        
-        {/* Segunda fila: Tabs de vistas */}
-        <div className="flex items-center gap-1 px-4 border-t">
-          {tabs.map((tab) => (
-            <Button
-              key={tab}
-              variant="ghost"
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-none border-b-2 px-4 py-2 text-sm font-normal ${
-                activeTab === tab
-                  ? "border-[#2c4370] text-[#2c4370] bg-gray-50"
-                  : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              }`}
-            >
-              {tab}
-            </Button>
-          ))}
         </div>
       </div>
     </header>

@@ -13,21 +13,23 @@ export function ViewTabs() {
   ]
 
   return (
-    <div className="flex items-center gap-1 border-b bg-white px-4">
-      {tabs.map((tab) => (
-        <Button
-          key={tab}
-          variant="ghost"
-          onClick={() => setActiveTab(tab)}
-          className={`rounded-none border-b-2 px-4 py-2 text-sm font-normal ${
-            activeTab === tab
-              ? "border-[#2c4370] text-[#2c4370] bg-gray-50"
-              : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-          }`}
-        >
-          {tab}
-        </Button>
-      ))}
+    <div className="px-6 pt-6 pb-4">
+      <div className="bg-white rounded-lg shadow-sm inline-flex w-auto">
+        {tabs.map((tab) => (
+          <Button
+            key={tab}
+            variant="ghost"
+            onClick={() => setActiveTab(tab)}
+            className={`px-6 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === tab
+                ? "bg-[#2c4370] text-white hover:bg-[#2c4370]"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
+          >
+            {tab}
+          </Button>
+        ))}
+      </div>
     </div>
   )
 }
