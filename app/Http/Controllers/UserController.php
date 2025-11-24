@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use App\Models\User;
 
@@ -55,6 +56,9 @@ class UserController extends Controller
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'search' => $search
+            ],
+            'auth' => [
+                'user' => auth()->user()
             ]
         ]);
     }
@@ -136,5 +140,40 @@ class UserController extends Controller
         $user->save();
 
         return redirect()->back()->with('success', 'Estado del usuario actualizado correctamente');
+    }
+
+    public function update(Request $request, $id)
+    {
+        // Solo administradores pueden editar usuarios
+        if (auth()->user()->role !== 'Administrador') {
+            return redirect()->back()->with('error', 'No tienes permisos para realizar esta acción');
+        }
+
+        $request->validate([
+            'username' => 'required|string|max:255|unique:users,username,' . $id,
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . $id,
+            'role' => 'required|in:Administrador,Técnico,Usuario',
+            'is_active' => 'required|boolean',
+        ]);
+
+        $user = User::findOrFail($id);
+        $user->username = $request->username;
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->role = $request->role;
+        $user->is_active = $request->is_active;
+        
+        // Si se proporciona una nueva contraseña
+        if ($request->filled('password')) {
+            $request->validate([
+                'password' => 'min:6|confirmed'
+            ]);
+            $user->password = Hash::make($request->password);
+        }
+        
+        $user->save();
+
+        return redirect()->back()->with('success', 'Usuario actualizado correctamente');
     }
 }

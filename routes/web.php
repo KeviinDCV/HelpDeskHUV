@@ -38,11 +38,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // Rutas de Soporte
     Route::get('/soporte/casos', [App\Http\Controllers\TicketController::class, 'index'])->name('soporte.casos');
+    Route::get('/soporte/crear-caso', [App\Http\Controllers\TicketController::class, 'create'])->name('soporte.crear-caso');
+    Route::post('/soporte/casos', [App\Http\Controllers\TicketController::class, 'store'])->name('soporte.casos.store');
 
     // Administración
     Route::get('/administracion/usuarios', [App\Http\Controllers\UserController::class, 'index'])->name('administracion.usuarios');
     Route::get('/administracion/usuarios/export', [App\Http\Controllers\UserController::class, 'export'])->name('administracion.usuarios.export');
     Route::post('/administracion/usuarios/{id}/toggle-active', [App\Http\Controllers\UserController::class, 'toggleActive'])->name('administracion.usuarios.toggle-active');
+    Route::put('/administracion/usuarios/{id}', [App\Http\Controllers\UserController::class, 'update'])->name('administracion.usuarios.update');
 });
 
 require __DIR__.'/settings.php';

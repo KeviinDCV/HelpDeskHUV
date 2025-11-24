@@ -12,6 +12,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import React from 'react';
 import {
     Select,
@@ -52,10 +61,24 @@ interface UsersProps {
         direction: string;
         search: string;
     };
+    auth: {
+        user: User;
+    };
 }
 
-export default function Usuarios({ users, filters }: UsersProps) {
+export default function Usuarios({ users, filters, auth }: UsersProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
+    const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+    const [editingUser, setEditingUser] = React.useState<User | null>(null);
+    const [formData, setFormData] = React.useState({
+        username: '',
+        name: '',
+        email: '',
+        role: 'Técnico',
+        is_active: true,
+        password: '',
+        password_confirmation: ''
+    });
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -89,10 +112,56 @@ export default function Usuarios({ users, filters }: UsersProps) {
             : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
     };
 
-    const handleToggleActive = (userId: number) => {
+    const handleToggleActive = (e: React.MouseEvent, userId: number) => {
+        e.stopPropagation(); // Evitar que se dispare el doble clic de la fila
         router.post(`/administracion/usuarios/${userId}/toggle-active`, {}, {
             preserveScroll: true,
             preserveState: true,
+        });
+    };
+
+    const handleRowDoubleClick = (user: User) => {
+        // Solo administradores pueden editar
+        if (auth.user.role !== 'Administrador') {
+            return;
+        }
+
+        setEditingUser(user);
+        setFormData({
+            username: user.username,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            is_active: user.is_active,
+            password: '',
+            password_confirmation: ''
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsEditModalOpen(false);
+        setEditingUser(null);
+        setFormData({
+            username: '',
+            name: '',
+            email: '',
+            role: 'Técnico',
+            is_active: true,
+            password: '',
+            password_confirmation: ''
+        });
+    };
+
+    const handleSubmitEdit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        router.put(`/administracion/usuarios/${editingUser.id}`, formData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                handleCloseModal();
+            },
         });
     };
 
@@ -248,7 +317,11 @@ export default function Usuarios({ users, filters }: UsersProps) {
                                 </TableHeader>
                                 <TableBody>
                                     {users.data.map((user, index) => (
-                                        <TableRow key={`${user.id}-${index}`} className="hover:bg-gray-50">
+                                        <TableRow 
+                                            key={`${user.id}-${index}`} 
+                                            className={`hover:bg-gray-50 ${auth.user.role === 'Administrador' ? 'cursor-pointer' : ''}`}
+                                            onDoubleClick={() => handleRowDoubleClick(user)}
+                                        >
                                             <TableCell className="text-xs font-medium">{user.id}</TableCell>
                                             <TableCell className="font-medium text-xs">
                                                 <a href={`/administracion/usuarios/${user.id}`} className="text-[#2c4370] hover:underline">
@@ -277,7 +350,7 @@ export default function Usuarios({ users, filters }: UsersProps) {
                                                             ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800' 
                                                             : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800'
                                                     }`}
-                                                    onClick={() => handleToggleActive(user.id)}
+                                                    onClick={(e) => handleToggleActive(e, user.id)}
                                                 >
                                                     <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
                                                         user.is_active ? 'bg-green-500' : 'bg-red-500'
@@ -359,6 +432,119 @@ export default function Usuarios({ users, filters }: UsersProps) {
 
                 <GLPIFooter />
             </div>
+
+            {/* Modal de Edición */}
+            <Dialog open={isEditModalOpen} onOpenChange={handleCloseModal}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <form onSubmit={handleSubmitEdit}>
+                        <DialogHeader>
+                            <DialogTitle>Editar Usuario</DialogTitle>
+                            <DialogDescription>
+                                Modifica los datos del usuario. Los campos con * son obligatorios.
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="username">Usuario *</Label>
+                                <Input
+                                    id="username"
+                                    value={formData.username}
+                                    onChange={(e) => setFormData({...formData, username: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">Nombre Completo *</Label>
+                                <Input
+                                    id="name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">Email *</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="role">Rol *</Label>
+                                <Select 
+                                    value={formData.role} 
+                                    onValueChange={(value) => setFormData({...formData, role: value})}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Administrador">Administrador</SelectItem>
+                                        <SelectItem value="Técnico">Técnico</SelectItem>
+                                        <SelectItem value="Usuario">Usuario</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="is_active">Estado</Label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_active"
+                                        checked={formData.is_active}
+                                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                    <span className="text-sm">{formData.is_active ? 'Activo' : 'Inactivo'}</span>
+                                </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                                <p className="text-sm text-gray-600 mb-3">Cambiar Contraseña (opcional)</p>
+                                
+                                <div className="grid gap-2 mb-3">
+                                    <Label htmlFor="password">Nueva Contraseña</Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                        placeholder="Dejar en blanco para mantener la actual"
+                                    />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="password_confirmation">Confirmar Contraseña</Label>
+                                    <Input
+                                        id="password_confirmation"
+                                        type="password"
+                                        value={formData.password_confirmation}
+                                        onChange={(e) => setFormData({...formData, password_confirmation: e.target.value})}
+                                        placeholder="Confirmar nueva contraseña"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={handleCloseModal}>
+                                Cancelar
+                            </Button>
+                            <Button type="submit" className="bg-[#2c4370] hover:bg-[#3d5583] text-white">
+                                Guardar Cambios
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
