@@ -271,14 +271,17 @@ export default function Usuarios({ users, filters }: UsersProps) {
                                             <TableCell className="text-xs">
                                                 <Button
                                                     size="sm"
-                                                    variant={user.is_active ? "default" : "outline"}
-                                                    className={`h-7 text-[10px] ${
+                                                    variant="ghost"
+                                                    className={`h-6 px-3 text-[10px] font-semibold rounded-full transition-colors duration-200 ${
                                                         user.is_active 
-                                                            ? 'bg-green-600 hover:bg-green-700 text-white' 
-                                                            : 'border-red-600 text-red-600 hover:bg-red-600 hover:text-white'
+                                                            ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800' 
+                                                            : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800'
                                                     }`}
                                                     onClick={() => handleToggleActive(user.id)}
                                                 >
+                                                    <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+                                                        user.is_active ? 'bg-green-500' : 'bg-red-500'
+                                                    }`}></span>
                                                     {user.is_active ? 'Activo' : 'Inactivo'}
                                                 </Button>
                                             </TableCell>
