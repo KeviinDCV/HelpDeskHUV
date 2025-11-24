@@ -34,6 +34,7 @@ const inventarioItems = [
 
 const soporteItems = [
   { name: 'Crear caso', href: '/soporte/crear-caso' },
+  { name: 'Casos', href: '/soporte/casos' },
   { name: 'Problemas', href: '/soporte/problemas' },
   { name: 'Cambios', href: '/soporte/cambios' },
   { name: 'Planificación', href: '/soporte/planificacion' },
