@@ -25,12 +25,12 @@ interface Computer {
     id: number;
     name: string;
     entity_name: string | null;
-    states_id: number | null;
-    manufacturers_id: number | null;
+    state_name: string | null;
+    manufacturer_name: string | null;
     serial: string | null;
     type_name: string | null;
     model_name: string | null;
-    locations_id: number | null;
+    location_name: string | null;
     date_mod: string | null;
 }
 
@@ -211,20 +211,20 @@ export default function Computadores({ computers, filters }: ComputersProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('states_id')}
+                                            onClick={() => handleSort('state_name')}
                                         >
                                             <div className="flex items-center">
                                                 Estado
-                                                {getSortIcon('states_id')}
+                                                {getSortIcon('state_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -256,11 +256,11 @@ export default function Computadores({ computers, filters }: ComputersProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -283,12 +283,12 @@ export default function Computadores({ computers, filters }: ComputersProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{computer.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{computer.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{computer.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{computer.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{computer.manufacturer_name || '-'}</TableCell>
                                             <TableCell className="font-mono text-xs">{computer.serial || '-'}</TableCell>
                                             <TableCell className="text-xs">{computer.type_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{computer.model_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{computer.locations_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{computer.location_name || '-'}</TableCell>
                                             <TableCell className="text-xs text-gray-600">
                                                 {computer.date_mod 
                                                     ? new Date(computer.date_mod).toLocaleDateString('es-CO', { 

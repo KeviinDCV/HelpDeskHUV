@@ -25,7 +25,7 @@ interface Software {
     id: number;
     name: string;
     entity_name: string;
-    manufacturers_id: number;
+    manufacturer_name: string | null;
     num_versions: number;
     num_installations: number;
     num_licenses: number;
@@ -208,11 +208,11 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Editor
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -253,7 +253,7 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{software.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{software.manufacturers_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{software.manufacturer_name || '-'}</TableCell>
                                             <TableCell className="text-xs text-center">{software.num_versions || 0}</TableCell>
                                             <TableCell className="text-xs text-center">{software.num_installations || 0}</TableCell>
                                             <TableCell className="text-xs text-center">{software.num_licenses || 0}</TableCell>

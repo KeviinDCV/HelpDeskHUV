@@ -25,11 +25,11 @@ interface Monitor {
     id: number;
     name: string;
     entity_name: string;
-    states_id: number;
-    manufacturers_id: number;
-    locations_id: number;
-    monitortypes_id: number;
-    monitormodels_id: number;
+    state_name: string | null;
+    manufacturer_name: string | null;
+    location_name: string | null;
+    type_name: string | null;
+    model_name: string | null;
     date_mod: string;
     otherserial: string;
 }
@@ -211,47 +211,47 @@ export default function Monitores({ monitors, filters }: MonitorsProps) {
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('states_id')}
+                                            onClick={() => handleSort('state_name')}
                                         >
                                             <div className="flex items-center">
                                                 Estado
-                                                {getSortIcon('states_id')}
+                                                {getSortIcon('state_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturers_id')}
+                                            onClick={() => handleSort('manufacturer_name')}
                                         >
                                             <div className="flex items-center">
                                                 Fabricante
-                                                {getSortIcon('manufacturers_id')}
+                                                {getSortIcon('manufacturer_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('locations_id')}
+                                            onClick={() => handleSort('location_name')}
                                         >
                                             <div className="flex items-center">
                                                 Localización
-                                                {getSortIcon('locations_id')}
+                                                {getSortIcon('location_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('monitortypes_id')}
+                                            onClick={() => handleSort('type_name')}
                                         >
                                             <div className="flex items-center">
                                                 Tipo
-                                                {getSortIcon('monitortypes_id')}
+                                                {getSortIcon('type_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('monitormodels_id')}
+                                            onClick={() => handleSort('model_name')}
                                         >
                                             <div className="flex items-center">
                                                 Modelo
-                                                {getSortIcon('monitormodels_id')}
+                                                {getSortIcon('model_name')}
                                             </div>
                                         </TableHead>
                                         <TableHead 
@@ -283,11 +283,11 @@ export default function Monitores({ monitors, filters }: MonitorsProps) {
                                                 </a>
                                             </TableCell>
                                             <TableCell className="text-xs">{monitor.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.states_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.manufacturers_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.locations_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.monitortypes_id || '-'}</TableCell>
-                                            <TableCell className="text-xs">{monitor.monitormodels_id || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.state_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.location_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{monitor.model_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 {monitor.date_mod ? new Date(monitor.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',

@@ -20,7 +20,7 @@ class SoftwareController extends Controller
         $sortableFields = [
             'name' => 's.name',
             'entity_name' => 'e.name',
-            'manufacturers_id' => 's.manufacturers_id',
+            'manufacturer_name' => 'm.name',
             'num_versions' => 'num_versions',
             'num_installations' => 'num_installations',
             'num_licenses' => 'num_licenses',
@@ -32,23 +32,25 @@ class SoftwareController extends Controller
             ->select(
                 's.id',
                 's.name',
-                's.manufacturers_id',
+                'm.name as manufacturer_name',
                 'e.name as entity_name',
                 DB::raw('COUNT(DISTINCT sv.id) as num_versions'),
                 DB::raw('COUNT(DISTINCT csv.id) as num_installations'),
                 DB::raw('COALESCE(SUM(sl.number), 0) as num_licenses')
             )
             ->leftJoin('glpi_entities as e', 's.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_manufacturers as m', 's.manufacturers_id', '=', 'm.id')
             ->leftJoin('glpi_softwareversions as sv', 's.id', '=', 'sv.softwares_id')
             ->leftJoin('glpi_computers_softwareversions as csv', 'sv.id', '=', 'csv.softwareversions_id')
             ->leftJoin('glpi_softwarelicenses as sl', 's.id', '=', 'sl.softwares_id')
             ->where('s.is_deleted', 0)
-            ->groupBy('s.id', 's.name', 's.manufacturers_id', 'e.name');
+            ->groupBy('s.id', 's.name', 'm.name', 'e.name');
 
         // Aplicar búsqueda si existe
         if ($search) {
             $query->having(DB::raw('LOWER(s.name)'), 'LIKE', "%".strtolower($search)."%")
-                  ->orHaving(DB::raw('LOWER(e.name)'), 'LIKE', "%".strtolower($search)."%");
+                  ->orHaving(DB::raw('LOWER(e.name)'), 'LIKE', "%".strtolower($search)."%")
+                  ->orHaving(DB::raw('LOWER(m.name)'), 'LIKE', "%".strtolower($search)."%");
         }
         
         $softwares = $query->orderBy($orderByField, $sortDirection)
@@ -80,7 +82,7 @@ class SoftwareController extends Controller
         $sortableFields = [
             'name' => 's.name',
             'entity_name' => 'e.name',
-            'manufacturers_id' => 's.manufacturers_id',
+            'manufacturer_name' => 'm.name',
             'num_versions' => 'num_versions',
             'num_installations' => 'num_installations',
             'num_licenses' => 'num_licenses',
@@ -92,21 +94,23 @@ class SoftwareController extends Controller
             ->select(
                 's.name',
                 'e.name as entity_name',
-                's.manufacturers_id',
+                'm.name as manufacturer_name',
                 DB::raw('COUNT(DISTINCT sv.id) as num_versions'),
                 DB::raw('COUNT(DISTINCT csv.id) as num_installations'),
                 DB::raw('COALESCE(SUM(sl.number), 0) as num_licenses')
             )
             ->leftJoin('glpi_entities as e', 's.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_manufacturers as m', 's.manufacturers_id', '=', 'm.id')
             ->leftJoin('glpi_softwareversions as sv', 's.id', '=', 'sv.softwares_id')
             ->leftJoin('glpi_computers_softwareversions as csv', 'sv.id', '=', 'csv.softwareversions_id')
             ->leftJoin('glpi_softwarelicenses as sl', 's.id', '=', 'sl.softwares_id')
             ->where('s.is_deleted', 0)
-            ->groupBy('s.id', 's.name', 's.manufacturers_id', 'e.name');
+            ->groupBy('s.id', 's.name', 'm.name', 'e.name');
 
         if ($search) {
             $query->having(DB::raw('LOWER(s.name)'), 'LIKE', "%".strtolower($search)."%")
-                  ->orHaving(DB::raw('LOWER(e.name)'), 'LIKE', "%".strtolower($search)."%");
+                  ->orHaving(DB::raw('LOWER(e.name)'), 'LIKE', "%".strtolower($search)."%")
+                  ->orHaving(DB::raw('LOWER(m.name)'), 'LIKE', "%".strtolower($search)."%");
         }
 
         $softwares = $query->orderBy($orderByField, $sortDirection)->get();
@@ -133,7 +137,7 @@ class SoftwareController extends Controller
             fputcsv($handle, [
                 $software->name ?? '-',
                 $software->entity_name ?? '-',
-                $software->manufacturers_id ?? '-',
+                $software->manufacturer_name ?? '-',
                 $software->num_versions ?? '0',
                 $software->num_installations ?? '0',
                 $software->num_licenses ?? '0'
