@@ -11,8 +11,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { CheckCircle, AlertCircle, Building2, Phone, Mail, User, Briefcase } from 'lucide-react';
+import { CheckCircle, AlertCircle, User, Monitor, X } from 'lucide-react';
 import React, { useState } from 'react';
+import { Evarisbot } from '@/components/evarisbot';
 
 interface Location {
     id: number;
@@ -26,9 +27,20 @@ interface Category {
     completename: string;
 }
 
+interface ItemType {
+    value: string;
+    label: string;
+}
+
+interface Item {
+    id: number;
+    name: string;
+}
+
 interface PageProps {
     locations: Location[];
     categories: Category[];
+    itemTypes: ItemType[];
     flash?: {
         success?: {
             message: string;
@@ -37,12 +49,18 @@ interface PageProps {
     };
 }
 
-export default function ReportarCaso({ locations, categories }: PageProps) {
+export default function ReportarCaso({ locations, categories, itemTypes }: PageProps) {
     const { props } = usePage<{ flash?: { success?: { message: string; ticket_id: number } } }>();
     const flash = props.flash;
 
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    
+    // Estados para elementos asociados
+    const [selectedItemType, setSelectedItemType] = useState<string>('');
+    const [availableItems, setAvailableItems] = useState<Item[]>([]);
+    const [selectedItems, setSelectedItems] = useState<{type: string, id: number, name: string}[]>([]);
+    const [loadingItems, setLoadingItems] = useState(false);
     
     const [formData, setFormData] = useState({
         reporter_name: '',
@@ -59,7 +77,6 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
 
     const handleChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        // Limpiar error del campo
         if (errors[field]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
@@ -69,11 +86,51 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
         }
     };
 
+    // Funciones para elementos asociados
+    const handleItemTypeChange = async (type: string) => {
+        setSelectedItemType(type);
+        setAvailableItems([]);
+        
+        if (type) {
+            setLoadingItems(true);
+            try {
+                const response = await fetch(`/soporte/items/${type}`, {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const items = await response.json();
+                setAvailableItems(items);
+            } catch (error) {
+                console.error('Error loading items:', error);
+            } finally {
+                setLoadingItems(false);
+            }
+        }
+    };
+
+    const addSelectedItem = (itemId: string) => {
+        const item = availableItems.find(i => i.id === parseInt(itemId));
+        const typeLabel = itemTypes?.find(t => t.value === selectedItemType)?.label || selectedItemType;
+        
+        if (item && !selectedItems.some(s => s.type === selectedItemType && s.id === item.id)) {
+            setSelectedItems([...selectedItems, { type: selectedItemType, id: item.id, name: `${typeLabel}: ${item.name}` }]);
+        }
+    };
+
+    const removeSelectedItem = (type: string, id: number) => {
+        setSelectedItems(selectedItems.filter(item => !(item.type === type && item.id === id)));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
 
-        router.post('/reportar', formData, {
+        const submitData = {
+            ...formData,
+            items: selectedItems.map(item => ({ type: item.type, id: item.id })),
+        };
+
+        router.post('/reportar', submitData, {
             onSuccess: () => {
                 setFormData({
                     reporter_name: '',
@@ -87,6 +144,9 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
                     locations_id: '',
                     itilcategories_id: '',
                 });
+                setSelectedItems([]);
+                setSelectedItemType('');
+                setAvailableItems([]);
                 setProcessing(false);
             },
             onError: (errors) => {
@@ -99,25 +159,9 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
-            <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex flex-col">
-                {/* Header simple */}
-                <header className="bg-white/10 backdrop-blur-sm border-b border-white/20">
-                    <div className="max-w-4xl mx-auto px-6 py-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                                <span className="text-[#2c4370] font-bold text-lg">H</span>
-                            </div>
-                            <div>
-                                <h1 className="text-white font-semibold">HelpDesk HUV</h1>
-                                <p className="text-white/70 text-xs">Sistema de Reportes</p>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
+            <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
                 {/* Contenido principal */}
-                <main className="flex-1 px-6 py-8">
-                    <div className="max-w-4xl mx-auto">
+                <div className="w-full max-w-4xl">
                         {/* Mensaje de éxito */}
                         {flash?.success && (
                             <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
@@ -136,22 +180,21 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
 
                         <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
                             {/* Encabezado del formulario */}
-                            <div className="bg-[#2c4370] px-6 py-5">
-                                <h2 className="text-xl font-semibold text-white">¿Tiene un problema con su equipo o sistema?</h2>
-                                <p className="text-white/80 text-sm mt-1">
+                            <div className="bg-[#2c4370] px-5 py-4">
+                                <h2 className="text-lg font-semibold text-white">¿Tiene un problema con su equipo o sistema?</h2>
+                                <p className="text-white/80 text-sm">
                                     Cuéntenos qué sucede y lo ayudaremos a solucionarlo
                                 </p>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-6">
+                            <form onSubmit={handleSubmit} className="p-5">
                                 {/* Sección: Información del Reportante */}
-                                <div className="mb-6">
+                                <div className="mb-4">
                                     <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                         <User className="w-4 h-4" />
                                         ¿Quién reporta?
                                     </h3>
-                                    <p className="text-xs text-gray-500 mb-3">Necesitamos sus datos para poder contactarlo</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-lg">
                                         <div>
                                             <Label htmlFor="reporter_name" className="text-xs">
                                                 Nombre Completo *
@@ -205,44 +248,26 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
 
                                         <div>
                                             <Label htmlFor="reporter_extension" className="text-xs">
-                                                Extensión Telefónica
+                                                Extensión
                                             </Label>
                                             <Input
                                                 id="reporter_extension"
                                                 value={formData.reporter_extension}
                                                 onChange={(e) => handleChange('reporter_extension', e.target.value)}
                                                 placeholder="Ej: 1234"
-                                                className="mt-1 h-9 text-sm"
+                                                className="mt-1 h-8 text-sm"
                                             />
-                                        </div>
-
-                                        <div className="md:col-span-2">
-                                            <Label htmlFor="reporter_email" className="text-xs">
-                                                Correo Electrónico (opcional)
-                                            </Label>
-                                            <Input
-                                                id="reporter_email"
-                                                type="email"
-                                                value={formData.reporter_email}
-                                                onChange={(e) => handleChange('reporter_email', e.target.value)}
-                                                placeholder="ejemplo@huv.gov.co"
-                                                className="mt-1 h-9 text-sm"
-                                            />
-                                            {errors.reporter_email && (
-                                                <p className="text-red-600 text-xs mt-1">{errors.reporter_email}</p>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Sección: Información del Problema */}
-                                <div className="mb-6">
+                                <div className="mb-4">
                                     <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                         <AlertCircle className="w-4 h-4" />
                                         ¿Qué problema tiene?
                                     </h3>
-                                    <p className="text-xs text-gray-500 mb-3">Describa lo que está pasando para que podamos ayudarle</p>
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         <div>
                                             <Label htmlFor="name" className="text-xs">
                                                 ¿Qué está pasando? (resumen corto) *
@@ -260,7 +285,7 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             <div>
                                                 <Label htmlFor="priority" className="text-xs">
                                                     ¿Qué tan urgente es? *
@@ -318,6 +343,53 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
                                             </div>
                                         </div>
 
+                                        {/* Elementos asociados */}
+                                        {itemTypes && itemTypes.length > 0 && (
+                                            <div className="bg-gray-50 p-3 rounded-lg">
+                                                <Label className="text-xs flex items-center gap-1 mb-2">
+                                                    <Monitor className="w-3 h-3" />
+                                                    ¿Qué equipo tiene el problema? (opcional)
+                                                </Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Select value={selectedItemType} onValueChange={handleItemTypeChange}>
+                                                        <SelectTrigger className="h-8 text-xs">
+                                                            <SelectValue placeholder="Tipo de equipo" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {itemTypes.map(type => (
+                                                                <SelectItem key={type.value} value={type.value}>
+                                                                    {type.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <SearchableSelect
+                                                        options={availableItems.map(item => ({
+                                                            value: item.id.toString(),
+                                                            label: item.name
+                                                        }))}
+                                                        value=""
+                                                        onValueChange={addSelectedItem}
+                                                        placeholder={loadingItems ? "Cargando..." : "Seleccionar equipo"}
+                                                        searchPlaceholder="Buscar..."
+                                                        disabled={!selectedItemType || loadingItems}
+                                                    />
+                                                </div>
+                                                {selectedItems.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                        {selectedItems.map((item, idx) => (
+                                                            <span key={idx} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
+                                                                {item.name}
+                                                                <button type="button" onClick={() => removeSelectedItem(item.type, item.id)}>
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         <div>
                                             <Label htmlFor="content" className="text-xs">
                                                 Cuéntenos más detalles *
@@ -330,7 +402,7 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
                                                 }
                                                 placeholder="Cuéntenos con detalle qué está pasando:\n- ¿Qué estaba haciendo cuando ocurrió?\n- ¿Aparece algún mensaje de error?\n- ¿Desde cuándo tiene este problema?"
                                                 required
-                                                rows={5}
+                                                rows={3}
                                                 className="mt-1 text-sm"
                                             />
                                             {errors.content && (
@@ -341,7 +413,7 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
                                 </div>
 
                                 {/* Botón de envío */}
-                                <div className="flex justify-end pt-4 border-t">
+                                <div className="flex justify-end pt-3 border-t">
                                     <Button
                                         type="submit"
                                         disabled={processing}
@@ -354,11 +426,16 @@ export default function ReportarCaso({ locations, categories }: PageProps) {
                         </div>
 
                         {/* Footer informativo */}
-                        <div className="mt-6 text-center text-white/60 text-xs">
+                        <div className="mt-4 text-center text-white/60 text-xs">
                             <p>Hospital Universitario del Valle - Gestión de la Información</p>
                         </div>
-                    </div>
-                </main>
+                </div>
+
+                {/* Chatbot Evarisbot */}
+                <Evarisbot 
+                    formData={formData}
+                    onFillField={handleChange}
+                />
             </div>
         </>
     );

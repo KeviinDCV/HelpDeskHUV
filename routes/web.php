@@ -14,6 +14,7 @@ Route::get('/', function () {
 // Rutas públicas (sin autenticación)
 Route::get('/reportar', [App\Http\Controllers\PublicTicketController::class, 'create'])->name('reportar');
 Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 'store'])->name('reportar.store');
+Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->name('chatbot');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {

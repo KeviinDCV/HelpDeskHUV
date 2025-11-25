@@ -26,9 +26,20 @@ class PublicTicketController extends Controller
             ->orderBy('completename')
             ->get();
 
+        // Tipos de elementos asociados
+        $itemTypes = [
+            ['value' => 'Computer', 'label' => 'Computador'],
+            ['value' => 'Monitor', 'label' => 'Monitor'],
+            ['value' => 'Printer', 'label' => 'Impresora'],
+            ['value' => 'Phone', 'label' => 'Teléfono'],
+            ['value' => 'NetworkEquipment', 'label' => 'Equipo de Red'],
+            ['value' => 'Peripheral', 'label' => 'Periférico'],
+        ];
+
         return Inertia::render('public/reportar-caso', [
             'locations' => $locations,
             'categories' => $categories,
+            'itemTypes' => $itemTypes,
         ]);
     }
 
@@ -48,6 +59,9 @@ class PublicTicketController extends Controller
             'priority' => 'required|integer|min:1|max:6',
             'locations_id' => 'nullable|integer',
             'itilcategories_id' => 'nullable|integer',
+            'items' => 'nullable|array',
+            'items.*.type' => 'required_with:items|string',
+            'items.*.id' => 'required_with:items|integer',
         ]);
 
         // Crear el ticket
@@ -70,6 +84,17 @@ class PublicTicketController extends Controller
             'is_deleted' => 0,
             'requesttypes_id' => 1, // Solicitud web
         ]);
+
+        // Guardar elementos asociados
+        if (!empty($validated['items'])) {
+            foreach ($validated['items'] as $item) {
+                DB::table('glpi_items_tickets')->insert([
+                    'tickets_id' => $ticketId,
+                    'itemtype' => $item['type'],
+                    'items_id' => $item['id'],
+                ]);
+            }
+        }
 
         return redirect()->route('reportar')->with('success', [
             'message' => '¡Reporte enviado exitosamente!',
