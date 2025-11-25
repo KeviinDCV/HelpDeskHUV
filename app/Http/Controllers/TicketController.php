@@ -120,6 +120,13 @@ class TicketController extends Controller
             ->orderBy('completename')
             ->get();
 
+        // Obtener categorías de GLPI
+        $categories = DB::table('glpi_itilcategories')
+            ->select('id', 'name', 'completename')
+            ->where('is_incident', 1)
+            ->orderBy('completename')
+            ->get();
+
         // Obtener usuarios de GLPI (por si necesitan seleccionar de la BD de GLPI)
         $glpiUsers = DB::table('glpi_users')
             ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
@@ -143,6 +150,7 @@ class TicketController extends Controller
             'users' => $users,
             'glpiUsers' => $glpiUsers,
             'locations' => $locations,
+            'categories' => $categories,
             'itemTypes' => $itemTypes,
             'auth' => [
                 'user' => auth()->user()
@@ -220,6 +228,7 @@ class TicketController extends Controller
             'status' => 'required|integer|between:1,6',
             'priority' => 'required|integer|between:1,6',
             'locations_id' => 'nullable|integer',
+            'itilcategories_id' => 'nullable|integer',
             'requester_id' => 'required|integer',
             'observer_ids' => 'nullable|array',
             'observer_ids.*' => 'integer',
@@ -247,6 +256,7 @@ class TicketController extends Controller
                 'status' => $validated['status'],
                 'priority' => $validated['priority'],
                 'locations_id' => $validated['locations_id'] ?? 0,
+                'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
                 'users_id_recipient' => $validated['requester_id'],
                 'is_deleted' => 0,
             ]);

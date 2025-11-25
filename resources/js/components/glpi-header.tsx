@@ -85,10 +85,13 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
       {/* Top Navigation Bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-[#3d5583]">
         <div className="flex items-center gap-6">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="text-2xl font-bold">HelpDesk HUV</div>
-          </div>
+          {/* Logo - Clicable para ir al Dashboard */}
+          <button 
+            onClick={() => router.visit('/dashboard')}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            <span className="text-2xl font-bold">HelpDesk HUV</span>
+          </button>
           
           {/* Main Navigation */}
           <NavigationMenu viewport={false}>

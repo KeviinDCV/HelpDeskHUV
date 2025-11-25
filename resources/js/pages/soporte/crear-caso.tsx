@@ -47,17 +47,24 @@ interface Item {
     name: string;
 }
 
+interface Category {
+    id: number;
+    name: string;
+    completename: string;
+}
+
 interface CreateTicketProps {
     users: User[];
     glpiUsers: GLPIUser[];
     locations: Location[];
+    categories: Category[];
     itemTypes: ItemType[];
     auth: {
         user: User;
     };
 }
 
-export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth }: CreateTicketProps) {
+export default function CrearCaso({ users, glpiUsers, locations, categories, itemTypes, auth }: CreateTicketProps) {
     const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
     const [observerIds, setObserverIds] = React.useState<number[]>([]);
     const [assignedIds, setAssignedIds] = React.useState<number[]>([]);
@@ -75,6 +82,7 @@ export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth
         status: '1',
         priority: '3',
         locations_id: '',
+        itilcategories_id: '',
         requester_id: '',
         observer_ids: [] as number[],
         assigned_ids: [] as number[],
@@ -252,6 +260,19 @@ export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth
                                             onValueChange={(value) => setData('locations_id', value)}
                                             placeholder="Seleccione..."
                                             searchPlaceholder="Buscar ubicación..."
+                                            className="mt-1"
+                                        />
+                                    </div>
+
+                                    {/* Fila 2.5: Categoría */}
+                                    <div className="md:col-span-2">
+                                        <Label htmlFor="itilcategories_id" className="text-xs">Categoría *</Label>
+                                        <SearchableSelect
+                                            options={categories.map(cat => ({ value: cat.id.toString(), label: cat.completename }))}
+                                            value={data.itilcategories_id}
+                                            onValueChange={(value) => setData('itilcategories_id', value)}
+                                            placeholder="Seleccione categoría..."
+                                            searchPlaceholder="Buscar categoría..."
                                             className="mt-1"
                                         />
                                     </div>

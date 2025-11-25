@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 
 class PublicTicketController extends Controller
@@ -13,34 +14,7 @@ class PublicTicketController extends Controller
      */
     public function create()
     {
-        // Obtener ubicaciones
-        $locations = DB::table('glpi_locations')
-            ->select('id', 'name', 'completename')
-            ->orderBy('completename')
-            ->get();
-
-        // Obtener categorías de tickets
-        $categories = DB::table('glpi_itilcategories')
-            ->select('id', 'name', 'completename')
-            ->where('is_incident', 1)
-            ->orderBy('completename')
-            ->get();
-
-        // Tipos de elementos asociados
-        $itemTypes = [
-            ['value' => 'Computer', 'label' => 'Computador'],
-            ['value' => 'Monitor', 'label' => 'Monitor'],
-            ['value' => 'Printer', 'label' => 'Impresora'],
-            ['value' => 'Phone', 'label' => 'Teléfono'],
-            ['value' => 'NetworkEquipment', 'label' => 'Equipo de Red'],
-            ['value' => 'Peripheral', 'label' => 'Periférico'],
-        ];
-
-        return Inertia::render('public/reportar-caso', [
-            'locations' => $locations,
-            'categories' => $categories,
-            'itemTypes' => $itemTypes,
-        ]);
+        return Inertia::render('public/reportar-caso');
     }
 
     /**
@@ -57,17 +31,18 @@ class PublicTicketController extends Controller
             'name' => 'required|string|max:255',
             'content' => 'required|string',
             'priority' => 'required|integer|min:1|max:6',
-            'locations_id' => 'nullable|integer',
+            'device_type' => 'nullable|string|max:50',
+            'equipment_ecom' => 'nullable|string|max:100',
             'itilcategories_id' => 'nullable|integer',
-            'items' => 'nullable|array',
-            'items.*.type' => 'required_with:items|string',
-            'items.*.id' => 'required_with:items|integer',
         ]);
 
-        // Crear el ticket
+        // Mejorar título y descripción con IA
+        $improved = $this->improveWithAI($validated);
+        
+        // Crear el ticket con datos mejorados
         $ticketId = DB::table('glpi_tickets')->insertGetId([
             'entities_id' => 0,
-            'name' => $validated['name'],
+            'name' => $improved['name'],
             'date' => now(),
             'date_mod' => now(),
             'date_creation' => now(),
@@ -75,26 +50,15 @@ class PublicTicketController extends Controller
             'priority' => $validated['priority'],
             'urgency' => $validated['priority'],
             'impact' => 3, // Media
-            'content' => $this->formatContent($validated),
+            'content' => $this->formatContent($validated, $improved['content']),
             'type' => 1, // Incidencia
-            'locations_id' => $validated['locations_id'] ?? 0,
+            'locations_id' => 0,
             'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
             'users_id_recipient' => 0, // Usuario anónimo/externo
             'users_id_lastupdater' => 0,
             'is_deleted' => 0,
             'requesttypes_id' => 1, // Solicitud web
         ]);
-
-        // Guardar elementos asociados
-        if (!empty($validated['items'])) {
-            foreach ($validated['items'] as $item) {
-                DB::table('glpi_items_tickets')->insert([
-                    'tickets_id' => $ticketId,
-                    'itemtype' => $item['type'],
-                    'items_id' => $item['id'],
-                ]);
-            }
-        }
 
         return redirect()->route('reportar')->with('success', [
             'message' => '¡Reporte enviado exitosamente!',
@@ -103,10 +67,98 @@ class PublicTicketController extends Controller
     }
 
     /**
+     * Mejorar título y descripción usando IA
+     */
+    private function improveWithAI(array $data): array
+    {
+        $deviceLabels = [
+            'computer' => 'Computador',
+            'monitor' => 'Monitor',
+            'printer' => 'Impresora',
+            'phone' => 'Teléfono',
+            'network' => 'Red / Internet',
+            'software' => 'Programa / Sistema',
+            'other' => 'Otro',
+        ];
+
+        $deviceType = $deviceLabels[$data['device_type'] ?? ''] ?? 'No especificado';
+
+        $prompt = <<<PROMPT
+Eres un asistente técnico de un hospital. Tu tarea es mejorar y clarificar un reporte de problema técnico.
+
+DATOS DEL REPORTE:
+- Título original: {$data['name']}
+- Descripción original: {$data['content']}
+- Tipo de dispositivo: {$deviceType}
+- Servicio/Área: {$data['reporter_service']}
+
+INSTRUCCIONES:
+1. Genera un título claro, profesional y específico (máximo 80 caracteres)
+2. Genera una descripción técnica clara y detallada que incluya:
+   - Qué dispositivo está afectado
+   - Cuál es el problema específico
+   - Información relevante del contexto
+
+Responde ÚNICAMENTE en formato JSON así:
+{"name": "título mejorado", "content": "descripción mejorada"}
+PROMPT;
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->timeout(10)->post('https://api.groq.com/openai/v1/chat/completions', [
+                'model' => 'llama-3.1-8b-instant',
+                'messages' => [
+                    ['role' => 'system', 'content' => 'Responde únicamente en JSON válido.'],
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+                'temperature' => 0.3,
+                'max_tokens' => 500,
+            ]);
+
+            if ($response->successful()) {
+                $content = $response->json()['choices'][0]['message']['content'] ?? '';
+                
+                // Intentar parsear JSON
+                $jsonMatch = [];
+                if (preg_match('/\{[^}]+\}/', $content, $jsonMatch)) {
+                    $parsed = json_decode($jsonMatch[0], true);
+                    if ($parsed && isset($parsed['name']) && isset($parsed['content'])) {
+                        return [
+                            'name' => substr($parsed['name'], 0, 255),
+                            'content' => $parsed['content'],
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Si falla la IA, usar datos originales
+        }
+
+        // Fallback: usar datos originales
+        return [
+            'name' => $data['name'],
+            'content' => $data['content'],
+        ];
+    }
+
+    /**
      * Formatear el contenido del ticket con la información del reportante
      */
-    private function formatContent(array $data): string
+    private function formatContent(array $data, string $improvedContent): string
     {
+        // Mapeo de tipos de dispositivo
+        $deviceLabels = [
+            'computer' => 'Computador',
+            'monitor' => 'Monitor',
+            'printer' => 'Impresora',
+            'phone' => 'Teléfono',
+            'network' => 'Red / Internet',
+            'software' => 'Programa / Sistema',
+            'other' => 'Otro',
+        ];
+
         $content = "<p><strong>Información del Reportante:</strong></p>";
         $content .= "<ul>";
         $content .= "<li><strong>Nombre:</strong> {$data['reporter_name']}</li>";
@@ -122,9 +174,26 @@ class PublicTicketController extends Controller
         }
         
         $content .= "</ul>";
+        
+        if (!empty($data['device_type'])) {
+            $deviceLabel = $deviceLabels[$data['device_type']] ?? $data['device_type'];
+            $content .= "<p><strong>Tipo de dispositivo:</strong> {$deviceLabel}</p>";
+        }
+        
+        if (!empty($data['equipment_ecom'])) {
+            $content .= "<p><strong>ECOM del equipo:</strong> {$data['equipment_ecom']}</p>";
+        }
+        
         $content .= "<hr>";
         $content .= "<p><strong>Descripción del Problema:</strong></p>";
-        $content .= "<p>{$data['content']}</p>";
+        $content .= "<p>{$improvedContent}</p>";
+        
+        // Agregar descripción original si es diferente
+        if ($improvedContent !== $data['content']) {
+            $content .= "<hr>";
+            $content .= "<p><em><strong>Descripción original del usuario:</strong></em></p>";
+            $content .= "<p><em>{$data['content']}</em></p>";
+        }
 
         return $content;
     }
