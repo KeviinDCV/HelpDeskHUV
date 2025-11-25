@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import React from 'react';
 import { Upload, X } from 'lucide-react';
 
@@ -36,19 +37,34 @@ interface Location {
     completename: string;
 }
 
+interface ItemType {
+    value: string;
+    label: string;
+}
+
+interface Item {
+    id: number;
+    name: string;
+}
+
 interface CreateTicketProps {
     users: User[];
     glpiUsers: GLPIUser[];
     locations: Location[];
+    itemTypes: ItemType[];
     auth: {
         user: User;
     };
 }
 
-export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateTicketProps) {
+export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth }: CreateTicketProps) {
     const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
     const [observerIds, setObserverIds] = React.useState<number[]>([]);
     const [assignedIds, setAssignedIds] = React.useState<number[]>([]);
+    const [selectedItemType, setSelectedItemType] = React.useState<string>('');
+    const [availableItems, setAvailableItems] = React.useState<Item[]>([]);
+    const [selectedItems, setSelectedItems] = React.useState<{type: string, id: number, name: string}[]>([]);
+    const [loadingItems, setLoadingItems] = React.useState(false);
 
     const { data, setData, post, processing, errors } = useForm({
         name: '',
@@ -73,6 +89,37 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
 
     const removeFile = (index: number) => {
         setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleItemTypeChange = async (type: string) => {
+        setSelectedItemType(type);
+        setAvailableItems([]);
+        
+        if (type) {
+            setLoadingItems(true);
+            try {
+                const response = await fetch(`/soporte/items/${type}`);
+                const items = await response.json();
+                setAvailableItems(items);
+            } catch (error) {
+                console.error('Error loading items:', error);
+            } finally {
+                setLoadingItems(false);
+            }
+        }
+    };
+
+    const addSelectedItem = (itemId: string) => {
+        const item = availableItems.find(i => i.id === parseInt(itemId));
+        const typeLabel = itemTypes.find(t => t.value === selectedItemType)?.label || selectedItemType;
+        
+        if (item && !selectedItems.some(s => s.type === selectedItemType && s.id === item.id)) {
+            setSelectedItems([...selectedItems, { type: selectedItemType, id: item.id, name: `${typeLabel}: ${item.name}` }]);
+        }
+    };
+
+    const removeSelectedItem = (type: string, id: number) => {
+        setSelectedItems(selectedItems.filter(item => !(item.type === type && item.id === id)));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -105,6 +152,12 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
             formData.append(`attachments[${index}]`, file);
         });
 
+        // Agregar elementos asociados
+        selectedItems.forEach((item, index) => {
+            formData.append(`items[${index}][type]`, item.type);
+            formData.append(`items[${index}][id]`, item.id.toString());
+        });
+
         router.post('/soporte/casos', formData, {
             forceFormData: true,
             onSuccess: () => {
@@ -112,6 +165,9 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                 setSelectedFiles([]);
                 setObserverIds([]);
                 setAssignedIds([]);
+                setSelectedItems([]);
+                setSelectedItemType('');
+                setAvailableItems([]);
             }
         });
     };
@@ -146,41 +202,39 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                 <p className="text-sm text-gray-600 mt-1">Complete el formulario para registrar un nuevo caso en el sistema</p>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Título */}
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="name">Título *</Label>
+                            <form onSubmit={handleSubmit} className="p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {/* Título - Fila 1 (Full width) */}
+                                    <div className="md:col-span-4">
+                                        <Label htmlFor="name" className="text-xs">Título *</Label>
                                         <Input
                                             id="name"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
                                             placeholder="Título del caso"
                                             required
-                                            className="mt-1"
+                                            className="mt-1 h-8 text-sm"
                                         />
-                                        {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
+                                        {errors.name && <p className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
                                     </div>
 
-                                    {/* Fecha de Apertura */}
+                                    {/* Fila 2: Fecha, Estado, Prioridad, Localización */}
                                     <div>
-                                        <Label htmlFor="date">Fecha de Apertura *</Label>
+                                        <Label htmlFor="date" className="text-xs">Fecha Apertura *</Label>
                                         <Input
                                             id="date"
                                             type="datetime-local"
                                             value={data.date}
                                             onChange={(e) => setData('date', e.target.value)}
                                             required
-                                            className="mt-1"
+                                            className="mt-1 h-8 text-xs"
                                         />
-                                        {errors.date && <p className="text-red-600 text-sm mt-1">{errors.date}</p>}
                                     </div>
 
-                                    {/* Estado */}
                                     <div>
-                                        <Label htmlFor="status">Estado *</Label>
+                                        <Label htmlFor="status" className="text-xs">Estado *</Label>
                                         <Select value={data.status} onValueChange={(value) => setData('status', value)}>
-                                            <SelectTrigger className="mt-1">
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -192,14 +246,12 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                                 <SelectItem value="6">Cerrado</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {errors.status && <p className="text-red-600 text-sm mt-1">{errors.status}</p>}
                                     </div>
 
-                                    {/* Prioridad */}
                                     <div>
-                                        <Label htmlFor="priority">Prioridad *</Label>
+                                        <Label htmlFor="priority" className="text-xs">Prioridad *</Label>
                                         <Select value={data.priority} onValueChange={(value) => setData('priority', value)}>
-                                            <SelectTrigger className="mt-1">
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -211,15 +263,13 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                                 <SelectItem value="6">Urgente</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {errors.priority && <p className="text-red-600 text-sm mt-1">{errors.priority}</p>}
                                     </div>
 
-                                    {/* Localización */}
                                     <div>
-                                        <Label htmlFor="locations_id">Localización</Label>
+                                        <Label htmlFor="locations_id" className="text-xs">Localización</Label>
                                         <Select value={data.locations_id} onValueChange={(value) => setData('locations_id', value)}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="Seleccione una localización" />
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                                <SelectValue placeholder="Seleccione..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {locations.map(location => (
@@ -229,41 +279,14 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        {errors.locations_id && <p className="text-red-600 text-sm mt-1">{errors.locations_id}</p>}
                                     </div>
 
-                                    {/* Tiempo de solución */}
-                                    <div>
-                                        <Label htmlFor="time_to_resolve">Tiempo de Solución</Label>
-                                        <Input
-                                            id="time_to_resolve"
-                                            type="datetime-local"
-                                            value={data.time_to_resolve}
-                                            onChange={(e) => setData('time_to_resolve', e.target.value)}
-                                            className="mt-1"
-                                        />
-                                        {errors.time_to_resolve && <p className="text-red-600 text-sm mt-1">{errors.time_to_resolve}</p>}
-                                    </div>
-
-                                    {/* Tiempo interno para resolver */}
-                                    <div>
-                                        <Label htmlFor="internal_time_to_resolve">Tiempo Interno para Resolver</Label>
-                                        <Input
-                                            id="internal_time_to_resolve"
-                                            type="datetime-local"
-                                            value={data.internal_time_to_resolve}
-                                            onChange={(e) => setData('internal_time_to_resolve', e.target.value)}
-                                            className="mt-1"
-                                        />
-                                        {errors.internal_time_to_resolve && <p className="text-red-600 text-sm mt-1">{errors.internal_time_to_resolve}</p>}
-                                    </div>
-
-                                    {/* Solicitante */}
-                                    <div>
-                                        <Label htmlFor="requester_id">Solicitante *</Label>
+                                    {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
+                                    <div className="md:col-span-2">
+                                        <Label htmlFor="requester_id" className="text-xs">Solicitante *</Label>
                                         <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="Seleccione un solicitante" />
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                                <SelectValue placeholder="Buscar solicitante..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {glpiUsers.map(user => (
@@ -273,12 +296,10 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        {errors.requester_id && <p className="text-red-600 text-sm mt-1">{errors.requester_id}</p>}
                                     </div>
 
-                                    {/* Observador */}
                                     <div>
-                                        <Label htmlFor="observer">Observador</Label>
+                                        <Label htmlFor="observer" className="text-xs">Observador</Label>
                                         <Select onValueChange={(value) => {
                                             const id = parseInt(value);
                                             if (!observerIds.includes(id)) {
@@ -286,8 +307,8 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                                 setData('observer_ids', [...observerIds, id]);
                                             }
                                         }}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="Agregar observador" />
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                                <SelectValue placeholder="Agregar..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {glpiUsers.filter(u => !observerIds.includes(u.id)).map(user => (
@@ -298,22 +319,23 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                             </SelectContent>
                                         </Select>
                                         {observerIds.length > 0 && (
-                                            <div className="mt-2 flex flex-wrap gap-2">
+                                            <div className="mt-1 flex flex-wrap gap-1">
                                                 {observerIds.map(id => {
                                                     const user = glpiUsers.find(u => u.id === id);
                                                     return user ? (
-                                                        <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100">
                                                             {user.fullname}
                                                             <button
                                                                 type="button"
-                                                                onClick={() => {
+                                                                onClick={(e: React.MouseEvent) => {
+                                                                    e.preventDefault();
                                                                     const newIds = observerIds.filter(i => i !== id);
                                                                     setObserverIds(newIds);
                                                                     setData('observer_ids', newIds);
                                                                 }}
                                                                 className="hover:text-blue-900"
                                                             >
-                                                                <X className="h-3 w-3" />
+                                                                <X className="h-2.5 w-2.5" />
                                                             </button>
                                                         </span>
                                                     ) : null;
@@ -322,9 +344,8 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                         )}
                                     </div>
 
-                                    {/* Asignado a */}
                                     <div>
-                                        <Label htmlFor="assigned">Asignado a</Label>
+                                        <Label htmlFor="assigned" className="text-xs">Asignado a</Label>
                                         <Select onValueChange={(value) => {
                                             const id = parseInt(value);
                                             if (!assignedIds.includes(id)) {
@@ -332,8 +353,8 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                                 setData('assigned_ids', [...assignedIds, id]);
                                             }
                                         }}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="Asignar técnico" />
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                                <SelectValue placeholder="Asignar..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {glpiUsers.filter(u => !assignedIds.includes(u.id)).map(user => (
@@ -344,22 +365,23 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                             </SelectContent>
                                         </Select>
                                         {assignedIds.length > 0 && (
-                                            <div className="mt-2 flex flex-wrap gap-2">
+                                            <div className="mt-1 flex flex-wrap gap-1">
                                                 {assignedIds.map(id => {
                                                     const user = glpiUsers.find(u => u.id === id);
                                                     return user ? (
-                                                        <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100">
                                                             {user.fullname}
                                                             <button
                                                                 type="button"
-                                                                onClick={() => {
+                                                                onClick={(e: React.MouseEvent) => {
+                                                                    e.preventDefault();
                                                                     const newIds = assignedIds.filter(i => i !== id);
                                                                     setAssignedIds(newIds);
                                                                     setData('assigned_ids', newIds);
                                                                 }}
                                                                 className="hover:text-green-900"
                                                             >
-                                                                <X className="h-3 w-3" />
+                                                                <X className="h-2.5 w-2.5" />
                                                             </button>
                                                         </span>
                                                     ) : null;
@@ -368,81 +390,152 @@ export default function CrearCaso({ users, glpiUsers, locations, auth }: CreateT
                                         )}
                                     </div>
 
-                                    {/* Descripción */}
+                                    {/* Fila 4: Elementos Asociados */}
                                     <div className="md:col-span-2">
-                                        <Label htmlFor="content">Descripción *</Label>
+                                        <Label htmlFor="item_type" className="text-xs">Elementos Asociados</Label>
+                                        <Select value={selectedItemType} onValueChange={handleItemTypeChange}>
+                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                                <SelectValue placeholder="Tipo de elemento..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {itemTypes.map(type => (
+                                                    <SelectItem key={type.value} value={type.value}>
+                                                        {type.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <Label htmlFor="item_id" className="text-xs text-gray-500">Seleccionar elemento</Label>
+                                        <SearchableSelect
+                                            options={availableItems.map(item => ({ value: item.id.toString(), label: item.name }))}
+                                            onValueChange={addSelectedItem}
+                                            placeholder="Buscar elemento..."
+                                            searchPlaceholder="Escriba para buscar..."
+                                            disabled={!selectedItemType}
+                                            loading={loadingItems}
+                                            className="mt-1"
+                                        />
+                                    </div>
+
+                                    {/* Lista de elementos seleccionados */}
+                                    {selectedItems.length > 0 && (
+                                        <div className="md:col-span-4 flex flex-wrap gap-1">
+                                            {selectedItems.map((item, idx) => (
+                                                <span key={`${item.type}-${item.id}-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[10px] rounded border border-purple-100">
+                                                    {item.name}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e: React.MouseEvent) => {
+                                                            e.preventDefault();
+                                                            removeSelectedItem(item.type, item.id);
+                                                        }}
+                                                        className="hover:text-purple-900"
+                                                    >
+                                                        <X className="h-2.5 w-2.5" />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Fila 5: Tiempos (Opcionales, colapsados visualmente) */}
+                                    <div className="md:col-span-2">
+                                        <Label htmlFor="time_to_resolve" className="text-xs text-gray-500">Tiempo Solución (Opcional)</Label>
+                                        <Input
+                                            id="time_to_resolve"
+                                            type="datetime-local"
+                                            value={data.time_to_resolve}
+                                            onChange={(e) => setData('time_to_resolve', e.target.value)}
+                                            className="mt-1 h-8 text-xs"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <Label htmlFor="internal_time_to_resolve" className="text-xs text-gray-500">Tiempo Interno (Opcional)</Label>
+                                        <Input
+                                            id="internal_time_to_resolve"
+                                            type="datetime-local"
+                                            value={data.internal_time_to_resolve}
+                                            onChange={(e) => setData('internal_time_to_resolve', e.target.value)}
+                                            className="mt-1 h-8 text-xs"
+                                        />
+                                    </div>
+
+                                    {/* Descripción y Adjuntos en paralelo */}
+                                    <div className="md:col-span-3">
+                                        <Label htmlFor="content" className="text-xs">Descripción *</Label>
                                         <Textarea
                                             id="content"
                                             value={data.content}
-                                            onChange={(e) => setData('content', e.target.value)}
-                                            placeholder="Describa el caso en detalle..."
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('content', e.target.value)}
+                                            placeholder="Detalle el caso..."
                                             required
-                                            rows={6}
-                                            className="mt-1"
+                                            rows={4}
+                                            className="mt-1 text-sm resize-none"
                                         />
-                                        {errors.content && <p className="text-red-600 text-sm mt-1">{errors.content}</p>}
                                     </div>
 
-                                    {/* Archivos adjuntos */}
-                                    <div className="md:col-span-2">
-                                        <Label>Archivos Adjuntos (Máx. 100MB cada uno)</Label>
-                                        <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                                            <div className="mt-2">
-                                                <label htmlFor="file-upload" className="cursor-pointer">
-                                                    <span className="text-sm font-medium text-[#2c4370] hover:text-[#3d5583]">
-                                                        Seleccionar archivos
-                                                    </span>
-                                                    <input
-                                                        id="file-upload"
-                                                        type="file"
-                                                        multiple
-                                                        onChange={handleFileChange}
-                                                        className="sr-only"
-                                                    />
-                                                </label>
-                                            </div>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                PNG, JPG, PDF, DOC, VIDEO hasta 100MB
-                                            </p>
+                                    <div className="md:col-span-1 flex flex-col">
+                                        <Label className="text-xs mb-1">Adjuntos</Label>
+                                        <div className="flex-1 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center p-2 hover:border-gray-400 transition-colors bg-gray-50/50">
+                                            <Upload className="h-6 w-6 text-gray-400 mb-1" />
+                                            <label htmlFor="file-upload" className="cursor-pointer text-center">
+                                                <span className="text-xs font-medium text-[#2c4370] hover:underline block">
+                                                    Subir archivos
+                                                </span>
+                                                <span className="text-[10px] text-gray-400 block leading-tight">
+                                                    Máx 100MB
+                                                </span>
+                                                <input
+                                                    id="file-upload"
+                                                    type="file"
+                                                    multiple
+                                                    onChange={handleFileChange}
+                                                    className="sr-only"
+                                                />
+                                            </label>
                                         </div>
-
-                                        {selectedFiles.length > 0 && (
-                                            <div className="mt-4 space-y-2">
-                                                {selectedFiles.map((file, index) => (
-                                                    <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                                                                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeFile(index)}
-                                                            className="ml-2 text-red-600 hover:text-red-800"
-                                                        >
-                                                            <X className="h-5 w-5" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
+                                    
+                                    {/* Lista de archivos adjuntos (Full width) */}
+                                    {selectedFiles.length > 0 && (
+                                        <div className="md:col-span-4 flex flex-wrap gap-2">
+                                            {selectedFiles.map((file, index) => (
+                                                <div key={index} className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-medium text-gray-700 truncate max-w-[150px]">{file.name}</span>
+                                                        <span className="text-[9px] text-gray-500">{formatFileSize(file.size)}</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeFile(index)}
+                                                        className="text-gray-400 hover:text-red-600"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="mt-6 flex items-center justify-end gap-3">
+                                <div className="mt-4 flex items-center justify-end gap-2 pt-2 border-t">
                                     <Button
                                         type="button"
-                                        variant="outline"
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => router.visit('/soporte/casos')}
+                                        className="h-8 text-xs"
                                     >
                                         Cancelar
                                     </Button>
                                     <Button
                                         type="submit"
                                         disabled={processing}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                        size="sm"
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs px-6"
                                     >
                                         {processing ? 'Creando...' : 'Crear Caso'}
                                     </Button>

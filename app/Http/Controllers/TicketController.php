@@ -124,14 +124,85 @@ class TicketController extends Controller
             ->orderBy('firstname')
             ->get();
 
+        // Tipos de elementos asociados disponibles
+        $itemTypes = [
+            ['value' => 'Computer', 'label' => 'Computador'],
+            ['value' => 'Monitor', 'label' => 'Monitor'],
+            ['value' => 'NetworkEquipment', 'label' => 'Dispositivo para red'],
+            ['value' => 'Peripheral', 'label' => 'Dispositivo'],
+            ['value' => 'Printer', 'label' => 'Impresora'],
+            ['value' => 'Phone', 'label' => 'Teléfono'],
+            ['value' => 'Enclosure', 'label' => 'Gabinete'],
+        ];
+
         return Inertia::render('soporte/crear-caso', [
             'users' => $users,
             'glpiUsers' => $glpiUsers,
             'locations' => $locations,
+            'itemTypes' => $itemTypes,
             'auth' => [
                 'user' => auth()->user()
             ]
         ]);
+    }
+
+    public function getItemsByType(Request $request, $type)
+    {
+        $items = [];
+        
+        switch ($type) {
+            case 'Computer':
+                $items = DB::table('glpi_computers')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+            case 'Monitor':
+                $items = DB::table('glpi_monitors')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+            case 'NetworkEquipment':
+                $items = DB::table('glpi_networkequipments')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+            case 'Peripheral':
+                $items = DB::table('glpi_peripherals')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+            case 'Printer':
+                $items = DB::table('glpi_printers')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+            case 'Phone':
+                $items = DB::table('glpi_phones')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+            case 'Enclosure':
+                $items = DB::table('glpi_enclosures')
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->orderBy('name')
+                    ->get();
+                break;
+        }
+
+        return response()->json($items);
     }
 
     public function store(Request $request)
@@ -152,6 +223,9 @@ class TicketController extends Controller
             'assigned_ids.*' => 'integer',
             'attachments' => 'nullable|array',
             'attachments.*' => 'file|max:102400', // 100MB
+            'items' => 'nullable|array',
+            'items.*.type' => 'string',
+            'items.*.id' => 'integer',
         ]);
 
         DB::beginTransaction();
@@ -212,6 +286,17 @@ class TicketController extends Controller
                     
                     // Aquí podrías guardar información del archivo en una tabla si lo necesitas
                     // Por ahora solo los guardamos en storage
+                }
+            }
+
+            // Agregar elementos asociados
+            if (!empty($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    DB::table('glpi_items_tickets')->insert([
+                        'tickets_id' => $ticketId,
+                        'itemtype' => $item['type'],
+                        'items_id' => $item['id'],
+                    ]);
                 }
             }
 
