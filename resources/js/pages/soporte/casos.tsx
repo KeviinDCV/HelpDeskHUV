@@ -10,9 +10,17 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     Select,
     SelectContent,
@@ -20,6 +28,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+
+interface User {
+    id: number;
+    username: string;
+    name: string;
+    role: string;
+}
 
 interface Ticket {
     id: number;
@@ -34,6 +49,7 @@ interface Ticket {
     requester_name: string | null;
     assigned_name: string | null;
     category_name: string | null;
+    users_id_recipient: number;
 }
 
 interface PaginationLinks {
@@ -57,10 +73,47 @@ interface TicketsProps {
         direction: string;
         search: string;
     };
+    auth: {
+        user: User;
+    };
 }
 
-export default function Casos({ tickets, filters }: TicketsProps) {
+export default function Casos({ tickets, filters, auth }: TicketsProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
+    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+    const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
+
+    // Verificar si el usuario puede eliminar un ticket
+    const canDelete = (ticket: Ticket) => {
+        if (auth.user.role === 'Administrador') return true;
+        if (auth.user.role === 'Técnico') {
+            // Técnico solo puede eliminar tickets que él creó
+            return ticket.users_id_recipient === auth.user.id;
+        }
+        return false;
+    };
+
+    // Verificar si el usuario puede editar (Admin y Técnico pueden editar)
+    const canEdit = () => {
+        return auth.user.role === 'Administrador' || auth.user.role === 'Técnico';
+    };
+
+    const handleDeleteClick = (ticket: Ticket) => {
+        setTicketToDelete(ticket);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (ticketToDelete) {
+            router.delete(`/soporte/casos/${ticketToDelete.id}`, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setDeleteDialogOpen(false);
+                    setTicketToDelete(null);
+                }
+            });
+        }
+    };
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -281,6 +334,11 @@ export default function Casos({ tickets, filters }: TicketsProps) {
                                         <TableHead className="font-semibold text-gray-900 text-xs">
                                             Categoría
                                         </TableHead>
+                                        {canEdit() && (
+                                            <TableHead className="font-semibold text-gray-900 text-xs text-center w-24">
+                                                Acciones
+                                            </TableHead>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -318,11 +376,37 @@ export default function Casos({ tickets, filters }: TicketsProps) {
                                             <TableCell className="text-xs">{ticket.requester_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{ticket.assigned_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{ticket.category_name || '-'}</TableCell>
+                                            {canEdit() && (
+                                                <TableCell className="text-xs">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                                            onClick={() => router.visit(`/soporte/casos/${ticket.id}/editar`)}
+                                                            title="Editar"
+                                                        >
+                                                            <Edit className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        {canDelete(ticket) && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                                                onClick={() => handleDeleteClick(ticket)}
+                                                                title="Eliminar"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     ))}
                                     {tickets.data.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                                            <TableCell colSpan={canEdit() ? 11 : 10} className="text-center py-8 text-gray-500">
                                                 No se encontraron casos
                                             </TableCell>
                                         </TableRow>
@@ -391,6 +475,35 @@ export default function Casos({ tickets, filters }: TicketsProps) {
                 </main>
                 <GLPIFooter />
             </div>
+
+            {/* Dialog de confirmación para eliminar */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Eliminar Caso</DialogTitle>
+                        <DialogDescription>
+                            ¿Está seguro que desea eliminar el caso <strong>#{ticketToDelete?.id}</strong>?
+                            <br />
+                            <span className="text-gray-600">{ticketToDelete?.name}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setDeleteDialogOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDelete}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            Eliminar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

@@ -38,6 +38,7 @@ class TicketController extends Controller
                 't.date_mod',
                 't.priority',
                 't.status',
+                't.users_id_recipient',
                 'e.name as entity_name',
                 'cat.completename as category_name',
                 DB::raw("(SELECT CONCAT(u.firstname, ' ', u.realname) 
@@ -98,6 +99,9 @@ class TicketController extends Controller
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'search' => $search
+            ],
+            'auth' => [
+                'user' => auth()->user()
             ]
         ]);
     }
@@ -307,6 +311,160 @@ class TicketController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Error al crear el caso: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    public function edit($id)
+    {
+        $ticket = DB::table('glpi_tickets as t')
+            ->select(
+                't.*',
+                'e.name as entity_name',
+                'l.completename as location_name'
+            )
+            ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_locations as l', 't.locations_id', '=', 'l.id')
+            ->where('t.id', $id)
+            ->where('t.is_deleted', 0)
+            ->first();
+
+        if (!$ticket) {
+            return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
+        }
+
+        // Obtener usuarios asignados
+        $ticketUsers = DB::table('glpi_tickets_users')
+            ->where('tickets_id', $id)
+            ->get();
+
+        // Obtener elementos asociados
+        $ticketItems = DB::table('glpi_items_tickets')
+            ->where('tickets_id', $id)
+            ->get();
+
+        // Obtener localizaciones
+        $locations = DB::table('glpi_locations')
+            ->select('id', 'name', 'completename')
+            ->orderBy('completename')
+            ->get();
+
+        // Obtener usuarios de GLPI
+        $glpiUsers = DB::table('glpi_users')
+            ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
+            ->where('is_deleted', 0)
+            ->where('is_active', 1)
+            ->orderBy('firstname')
+            ->get();
+
+        // Tipos de elementos
+        $itemTypes = [
+            ['value' => 'Computer', 'label' => 'Computador'],
+            ['value' => 'Monitor', 'label' => 'Monitor'],
+            ['value' => 'NetworkEquipment', 'label' => 'Dispositivo para red'],
+            ['value' => 'Peripheral', 'label' => 'Dispositivo'],
+            ['value' => 'Printer', 'label' => 'Impresora'],
+            ['value' => 'Phone', 'label' => 'Teléfono'],
+            ['value' => 'Enclosure', 'label' => 'Gabinete'],
+        ];
+
+        return Inertia::render('soporte/editar-caso', [
+            'ticket' => $ticket,
+            'ticketUsers' => $ticketUsers,
+            'ticketItems' => $ticketItems,
+            'locations' => $locations,
+            'glpiUsers' => $glpiUsers,
+            'itemTypes' => $itemTypes,
+            'auth' => [
+                'user' => auth()->user()
+            ]
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'content' => 'required|string',
+            'date' => 'required|date',
+            'time_to_resolve' => 'nullable|date',
+            'internal_time_to_resolve' => 'nullable|date',
+            'status' => 'required|integer|between:1,6',
+            'priority' => 'required|integer|between:1,6',
+            'locations_id' => 'nullable|integer',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->update([
+                    'name' => $validated['name'],
+                    'content' => $validated['content'],
+                    'date' => $validated['date'],
+                    'date_mod' => now(),
+                    'time_to_resolve' => $validated['time_to_resolve'] ?? null,
+                    'internal_time_to_resolve' => $validated['internal_time_to_resolve'] ?? null,
+                    'status' => $validated['status'],
+                    'priority' => $validated['priority'],
+                    'locations_id' => $validated['locations_id'] ?? 0,
+                ]);
+
+            DB::commit();
+
+            return redirect()->route('soporte.casos')->with('success', 'Caso actualizado exitosamente');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al actualizar el caso: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    public function destroy($id)
+    {
+        $user = auth()->user();
+        
+        // Verificar permisos
+        if ($user->role === 'Técnico') {
+            // Técnicos solo pueden eliminar casos que ellos crearon
+            $ticket = DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->first();
+
+            if (!$ticket) {
+                return redirect()->back()->with('error', 'Caso no encontrado');
+            }
+
+            // Verificar si el técnico es el creador (users_id_recipient)
+            // También verificamos en glpi_tickets_users con type=1 (requester)
+            $isCreator = DB::table('glpi_tickets_users')
+                ->where('tickets_id', $id)
+                ->where('type', 1) // Requester/Creator
+                ->where('users_id', $user->id)
+                ->exists();
+
+            // O si el usuario está registrado como el recipient
+            $isRecipient = $ticket->users_id_recipient == $user->id;
+
+            if (!$isCreator && !$isRecipient) {
+                return redirect()->back()->with('error', 'No tienes permisos para eliminar este caso');
+            }
+        }
+        // Administradores pueden eliminar cualquier caso
+
+        DB::beginTransaction();
+        try {
+            // Marcar como eliminado (soft delete)
+            DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->update(['is_deleted' => 1]);
+
+            DB::commit();
+
+            return redirect()->route('soporte.casos')->with('success', 'Caso eliminado exitosamente');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al eliminar el caso: ' . $e->getMessage());
         }
     }
 }

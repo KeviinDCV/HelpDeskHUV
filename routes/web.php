@@ -40,6 +40,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/soporte/casos', [App\Http\Controllers\TicketController::class, 'index'])->name('soporte.casos');
     Route::get('/soporte/crear-caso', [App\Http\Controllers\TicketController::class, 'create'])->name('soporte.crear-caso');
     Route::post('/soporte/casos', [App\Http\Controllers\TicketController::class, 'store'])->name('soporte.casos.store');
+    Route::get('/soporte/casos/{id}/editar', [App\Http\Controllers\TicketController::class, 'edit'])->name('soporte.casos.edit');
+    Route::put('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'update'])->name('soporte.casos.update');
+    Route::delete('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'destroy'])->name('soporte.casos.destroy');
     Route::get('/soporte/items/{type}', [App\Http\Controllers\TicketController::class, 'getItemsByType'])->name('soporte.items');
 
     // Administración
