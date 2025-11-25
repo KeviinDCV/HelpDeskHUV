@@ -11,6 +11,10 @@ Route::get('/', function () {
     return redirect()->route('login');
 })->name('home');
 
+// Rutas públicas (sin autenticación)
+Route::get('/reportar', [App\Http\Controllers\PublicTicketController::class, 'create'])->name('reportar');
+Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 'store'])->name('reportar.store');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('dashboard');

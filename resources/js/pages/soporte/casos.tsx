@@ -513,6 +513,101 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Modal de visualización del caso */}
+            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <span className="text-[#2c4370]">Caso #{ticketToView?.id}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${ticketToView ? getStatusColor(ticketToView.status) : ''}`}>
+                                {ticketToView?.status_name}
+                            </span>
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    {ticketToView && (
+                        <div className="space-y-4">
+                            {/* Título */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900">{ticketToView.name}</h3>
+                            </div>
+
+                            {/* Info Grid */}
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block">Prioridad</span>
+                                    <span className="font-medium">{ticketToView.priority_name}</span>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block">Entidad</span>
+                                    <span className="font-medium">{ticketToView.entity_name || '-'}</span>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block">Fecha de Apertura</span>
+                                    <span className="font-medium">
+                                        {ticketToView.date ? new Date(ticketToView.date).toLocaleDateString('es-CO', {
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        }) : '-'}
+                                    </span>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block">Última Actualización</span>
+                                    <span className="font-medium">
+                                        {ticketToView.date_mod ? new Date(ticketToView.date_mod).toLocaleDateString('es-CO', {
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        }) : '-'}
+                                    </span>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block">Solicitante</span>
+                                    <span className="font-medium">{ticketToView.requester_name || '-'}</span>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                    <span className="text-gray-500 block">Asignado a</span>
+                                    <span className="font-medium">{ticketToView.assigned_name || '-'}</span>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded col-span-2">
+                                    <span className="text-gray-500 block">Categoría</span>
+                                    <span className="font-medium">{ticketToView.category_name || '-'}</span>
+                                </div>
+                            </div>
+
+                            {/* Acciones */}
+                            <div className="flex justify-end gap-2 pt-2 border-t">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setViewDialogOpen(false)}
+                                    className="h-8 text-xs"
+                                >
+                                    Cerrar
+                                </Button>
+                                {canEdit() && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            setViewDialogOpen(false);
+                                            router.visit(`/soporte/casos/${ticketToView.id}/editar`);
+                                        }}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
+                                    >
+                                        Editar Caso
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
