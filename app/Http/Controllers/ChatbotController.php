@@ -37,23 +37,39 @@ class ChatbotController extends Controller
             ['role' => 'system', 'content' => $systemPrompt],
         ];
 
-        // Agregar contexto previo de la conversación
-        foreach ($context as $msg) {
+        // Agregar solo los últimos 4 mensajes del contexto para reducir tokens
+        $recentContext = array_slice($context, -4);
+        foreach ($recentContext as $msg) {
             $messages[] = $msg;
         }
 
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
-                'Content-Type' => 'application/json',
-            ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => 'llama-3.1-8b-instant',
-                'messages' => $messages,
-                'temperature' => 0.3,
-                'max_tokens' => 800,
-            ]);
+            $maxRetries = 3;
+            $response = null;
+            
+            for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+                $response = Http::timeout(30)->withHeaders([
+                    'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                    'Content-Type' => 'application/json',
+                ])->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model' => 'llama-3.1-8b-instant',
+                    'messages' => $messages,
+                    'temperature' => 0.3,
+                    'max_tokens' => 500,
+                ]);
+
+                // Si es exitoso o no es rate limit, salir del loop
+                if ($response->successful() || $response->status() !== 429) {
+                    break;
+                }
+
+                // Si es rate limit, esperar y reintentar
+                if ($attempt < $maxRetries) {
+                    sleep(2 * $attempt); // Espera progresiva: 2s, 4s
+                }
+            }
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -75,16 +91,25 @@ class ChatbotController extends Controller
                 'body' => $response->body(),
             ]);
 
+            // Mensaje más amigable para rate limit
+            if ($response->status() === 429) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Estoy procesando muchas solicitudes. Por favor espera unos segundos e intenta de nuevo.',
+                    'fields' => [],
+                ]);
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error al comunicarse con el asistente. Status: ' . $response->status(),
+                'message' => 'Error al comunicarse con el asistente.',
             ], 500);
 
         } catch (\Exception $e) {
             \Log::error('Chatbot Exception', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Error de conexión. Por favor intenta de nuevo.',
             ], 500);
         }
     }
@@ -124,7 +149,7 @@ class ChatbotController extends Controller
             ->where('is_incident', 1)
             ->where('level', '=', 1) // Solo categorías de primer nivel
             ->orderBy('name')
-            ->limit(30) // Limitar para no sobrecargar el prompt
+            ->limit(15) // Limitar para no sobrecargar el prompt
             ->get()
             ->map(fn($c) => ['id' => $c->id, 'name' => $c->name]) // Usar name corto
             ->toArray();
@@ -141,7 +166,7 @@ class ChatbotController extends Controller
             ->whereNotNull('name')
             ->where('name', '!=', '')
             ->orderBy('name')
-            ->limit(500) // Limitar para no sobrecargar
+            ->limit(100) // Limitar para no sobrecargar
             ->get()
             ->map(fn($c) => $c->name)
             ->toArray();
@@ -178,8 +203,8 @@ class ChatbotController extends Controller
             ? "Ninguno"
             : implode(', ', $filledFields);
 
-        // Crear muestra de ECOMs para el prompt (primeros 50)
-        $ecomSample = array_slice($ecomList, 0, 50);
+        // Crear muestra de ECOMs para el prompt (primeros 15)
+        $ecomSample = array_slice($ecomList, 0, 15);
         $ecomListStr = implode(', ', $ecomSample);
         $totalEcoms = count($ecomList);
 

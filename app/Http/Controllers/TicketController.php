@@ -324,6 +324,112 @@ class TicketController extends Controller
         }
     }
 
+    public function show($id)
+    {
+        $ticket = DB::table('glpi_tickets as t')
+            ->select(
+                't.*',
+                'e.name as entity_name',
+                'l.completename as location_name',
+                'cat.completename as category_name',
+                DB::raw("CASE 
+                    WHEN t.status = 1 THEN 'Nuevo'
+                    WHEN t.status = 2 THEN 'En curso (asignado)'
+                    WHEN t.status = 3 THEN 'En curso (planificado)'
+                    WHEN t.status = 4 THEN 'En espera'
+                    WHEN t.status = 5 THEN 'Resuelto'
+                    WHEN t.status = 6 THEN 'Cerrado'
+                    ELSE 'Desconocido'
+                END as status_name"),
+                DB::raw("CASE 
+                    WHEN t.priority = 1 THEN 'Muy baja'
+                    WHEN t.priority = 2 THEN 'Baja'
+                    WHEN t.priority = 3 THEN 'Media'
+                    WHEN t.priority = 4 THEN 'Alta'
+                    WHEN t.priority = 5 THEN 'Muy alta'
+                    WHEN t.priority = 6 THEN 'Urgente'
+                    ELSE 'Media'
+                END as priority_name"),
+                DB::raw("CASE 
+                    WHEN t.urgency = 1 THEN 'Muy baja'
+                    WHEN t.urgency = 2 THEN 'Baja'
+                    WHEN t.urgency = 3 THEN 'Media'
+                    WHEN t.urgency = 4 THEN 'Alta'
+                    WHEN t.urgency = 5 THEN 'Muy alta'
+                    ELSE 'Media'
+                END as urgency_name"),
+                DB::raw("CASE 
+                    WHEN t.impact = 1 THEN 'Muy bajo'
+                    WHEN t.impact = 2 THEN 'Bajo'
+                    WHEN t.impact = 3 THEN 'Medio'
+                    WHEN t.impact = 4 THEN 'Alto'
+                    WHEN t.impact = 5 THEN 'Muy alto'
+                    ELSE 'Medio'
+                END as impact_name")
+            )
+            ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_locations as l', 't.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
+            ->where('t.id', $id)
+            ->where('t.is_deleted', 0)
+            ->first();
+
+        if (!$ticket) {
+            return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
+        }
+
+        // Obtener solicitante
+        $requester = DB::table('glpi_tickets_users as tu')
+            ->select('u.id', 'u.firstname', 'u.realname', DB::raw("CONCAT(u.firstname, ' ', u.realname) as fullname"))
+            ->join('glpi_users as u', 'tu.users_id', '=', 'u.id')
+            ->where('tu.tickets_id', $id)
+            ->where('tu.type', 1)
+            ->first();
+
+        // Obtener técnico asignado
+        $technician = DB::table('glpi_tickets_users as tu')
+            ->select('u.id', 'u.firstname', 'u.realname', DB::raw("CONCAT(u.firstname, ' ', u.realname) as fullname"))
+            ->join('glpi_users as u', 'tu.users_id', '=', 'u.id')
+            ->where('tu.tickets_id', $id)
+            ->where('tu.type', 2)
+            ->first();
+
+        // Obtener elementos asociados
+        $ticketItems = DB::table('glpi_items_tickets as it')
+            ->select('it.*')
+            ->where('it.tickets_id', $id)
+            ->get()
+            ->map(function($item) {
+                $itemData = null;
+                $tableName = 'glpi_' . strtolower($item->itemtype) . 's';
+                
+                try {
+                    $itemData = DB::table($tableName)
+                        ->select('id', 'name')
+                        ->where('id', $item->items_id)
+                        ->first();
+                } catch (\Exception $e) {
+                    // Tabla no existe o error
+                }
+                
+                return [
+                    'itemtype' => $item->itemtype,
+                    'items_id' => $item->items_id,
+                    'name' => $itemData->name ?? 'N/A',
+                ];
+            });
+
+        return Inertia::render('soporte/ver-caso', [
+            'ticket' => $ticket,
+            'requester' => $requester,
+            'technician' => $technician,
+            'ticketItems' => $ticketItems,
+            'auth' => [
+                'user' => auth()->user()
+            ]
+        ]);
+    }
+
     public function edit($id)
     {
         $ticket = DB::table('glpi_tickets as t')

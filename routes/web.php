@@ -17,9 +17,8 @@ Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 's
 Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->name('chatbot');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
+    Route::post('dashboard/take-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'takeTicket'])->name('dashboard.take-ticket');
 
     // Rutas de Inventario
     Route::get('/inventario/computadores', [App\Http\Controllers\ComputerController::class, 'index'])->name('inventario.computadores');
@@ -45,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/soporte/casos', [App\Http\Controllers\TicketController::class, 'index'])->name('soporte.casos');
     Route::get('/soporte/crear-caso', [App\Http\Controllers\TicketController::class, 'create'])->name('soporte.crear-caso');
     Route::post('/soporte/casos', [App\Http\Controllers\TicketController::class, 'store'])->name('soporte.casos.store');
+    Route::get('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'show'])->name('soporte.casos.show');
     Route::get('/soporte/casos/{id}/editar', [App\Http\Controllers\TicketController::class, 'edit'])->name('soporte.casos.edit');
     Route::put('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'update'])->name('soporte.casos.update');
     Route::delete('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'destroy'])->name('soporte.casos.destroy');

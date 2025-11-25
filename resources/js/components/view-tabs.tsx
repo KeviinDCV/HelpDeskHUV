@@ -1,15 +1,14 @@
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
-export function ViewTabs() {
-  const [activeTab, setActiveTab] = useState("Vista personal")
+interface ViewTabsProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
 
+export function ViewTabs({ activeTab, onTabChange }: ViewTabsProps) {
   const tabs = [
-    "Vista personal",
-    "Vista de Grupo",
-    "Vista Global",
-    "Canales RSS",
-    "Todo",
+    "Reportes Públicos",
+    "Mis Reportes",
   ]
 
   return (
@@ -19,7 +18,7 @@ export function ViewTabs() {
           <Button
             key={tab}
             variant="ghost"
-            onClick={() => setActiveTab(tab)}
+            onClick={() => onTabChange(tab)}
             className={`px-6 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
               activeTab === tab
                 ? "bg-[#2c4370] text-white hover:bg-[#2c4370]"

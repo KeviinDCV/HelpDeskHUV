@@ -1,0 +1,239 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+
+class DashboardController extends Controller
+{
+    /**
+     * Mostrar el dashboard con tickets
+     */
+    public function index()
+    {
+        $user = auth()->user();
+        
+        // Obtener reportes públicos sin asignar (creados desde /reportar - users_id_recipient = 0)
+        $publicTickets = $this->getPublicUnassignedTickets();
+        
+        // Obtener mis reportes (asignados a mí, no cerrados)
+        $myTickets = $this->getMyTickets($user);
+
+        // Estadísticas rápidas
+        $stats = [
+            'publicUnassigned' => $publicTickets->count(),
+            'myTickets' => $myTickets->count(),
+            'resolvedToday' => $this->getResolvedTodayCount(),
+        ];
+
+        return Inertia::render('dashboard', [
+            'publicTickets' => $publicTickets,
+            'myTickets' => $myTickets,
+            'stats' => $stats,
+            'auth' => [
+                'user' => $user
+            ]
+        ]);
+    }
+
+    /**
+     * Obtener reportes públicos sin asignar (creados desde /reportar)
+     */
+    private function getPublicUnassignedTickets()
+    {
+        return DB::table('glpi_tickets as t')
+            ->select(
+                't.id',
+                't.name',
+                't.content',
+                't.date',
+                't.date_creation',
+                't.priority',
+                't.status',
+                'cat.completename as category_name',
+                DB::raw("CASE 
+                    WHEN t.priority = 1 THEN 'Muy baja'
+                    WHEN t.priority = 2 THEN 'Baja'
+                    WHEN t.priority = 3 THEN 'Media'
+                    WHEN t.priority = 4 THEN 'Alta'
+                    WHEN t.priority = 5 THEN 'Muy alta'
+                    WHEN t.priority = 6 THEN 'Urgente'
+                    ELSE 'Media'
+                END as priority_name"),
+                DB::raw("CASE 
+                    WHEN t.status = 1 THEN 'Nuevo'
+                    WHEN t.status = 2 THEN 'En curso (asignado)'
+                    WHEN t.status = 3 THEN 'En curso (planificado)'
+                    WHEN t.status = 4 THEN 'En espera'
+                    WHEN t.status = 5 THEN 'Resuelto'
+                    WHEN t.status = 6 THEN 'Cerrado'
+                    ELSE 'Nuevo'
+                END as status_name")
+            )
+            ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
+            ->where('t.is_deleted', 0)
+            ->where('t.users_id_recipient', 0) // Creados desde reporte público
+            ->where('t.status', 1) // Solo tickets nuevos (sin asignar)
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('glpi_tickets_users')
+                    ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                    ->where('glpi_tickets_users.type', 2); // Sin técnico asignado
+            })
+            ->orderBy('t.priority', 'desc')
+            ->orderBy('t.date_creation', 'desc')
+            ->limit(50)
+            ->get();
+    }
+
+    /**
+     * Obtener mis tickets (asignados a mí, no cerrados)
+     */
+    private function getMyTickets($user)
+    {
+        // Buscar el usuario en GLPI
+        $glpiUser = DB::table('glpi_users')
+            ->where('name', $user->username ?? $user->name)
+            ->first();
+        
+        $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+
+        return DB::table('glpi_tickets as t')
+            ->select(
+                't.id',
+                't.name',
+                't.content',
+                't.date',
+                't.date_creation',
+                't.date_mod',
+                't.priority',
+                't.status',
+                'cat.completename as category_name',
+                DB::raw("CASE 
+                    WHEN t.priority = 1 THEN 'Muy baja'
+                    WHEN t.priority = 2 THEN 'Baja'
+                    WHEN t.priority = 3 THEN 'Media'
+                    WHEN t.priority = 4 THEN 'Alta'
+                    WHEN t.priority = 5 THEN 'Muy alta'
+                    WHEN t.priority = 6 THEN 'Urgente'
+                    ELSE 'Media'
+                END as priority_name"),
+                DB::raw("CASE 
+                    WHEN t.status = 1 THEN 'Nuevo'
+                    WHEN t.status = 2 THEN 'En curso (asignado)'
+                    WHEN t.status = 3 THEN 'En curso (planificado)'
+                    WHEN t.status = 4 THEN 'En espera'
+                    WHEN t.status = 5 THEN 'Resuelto'
+                    WHEN t.status = 6 THEN 'Cerrado'
+                    ELSE 'Nuevo'
+                END as status_name")
+            )
+            ->join('glpi_tickets_users as tu', function($join) use ($glpiUserId) {
+                $join->on('t.id', '=', 'tu.tickets_id')
+                    ->where('tu.users_id', '=', $glpiUserId)
+                    ->where('tu.type', '=', 2); // Técnico asignado
+            })
+            ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
+            ->where('t.is_deleted', 0)
+            ->where('t.status', '!=', 6) // No cerrados
+            ->orderBy('t.priority', 'desc')
+            ->orderBy('t.date_mod', 'desc')
+            ->limit(50)
+            ->get();
+    }
+
+    /**
+     * Tomar un ticket (asignarse a sí mismo)
+     */
+    public function takeTicket(Request $request, $id)
+    {
+        $user = auth()->user();
+        
+        // Verificar que el ticket existe y está sin asignar
+        $ticket = DB::table('glpi_tickets')
+            ->where('id', $id)
+            ->where('is_deleted', 0)
+            ->where('status', 1)
+            ->first();
+
+        if (!$ticket) {
+            return redirect()->back()->with('error', 'Ticket no encontrado o ya está en proceso.');
+        }
+
+        // Verificar que no tenga técnico asignado
+        $hasAssigned = DB::table('glpi_tickets_users')
+            ->where('tickets_id', $id)
+            ->where('type', 2) // Técnico asignado
+            ->exists();
+
+        if ($hasAssigned) {
+            return redirect()->back()->with('error', 'Este ticket ya fue tomado por otro técnico.');
+        }
+
+        // Obtener el ID del usuario en GLPI (buscar por email o username)
+        $glpiUser = DB::table('glpi_users')
+            ->where('name', $user->username)
+            ->orWhere(function($q) use ($user) {
+                $q->where('firstname', 'LIKE', '%' . explode(' ', $user->name)[0] . '%');
+            })
+            ->first();
+
+        $glpiUserId = $glpiUser ? $glpiUser->id : $user->id;
+
+        DB::beginTransaction();
+        try {
+            // Asignar el técnico
+            DB::table('glpi_tickets_users')->insert([
+                'tickets_id' => $id,
+                'users_id' => $glpiUserId,
+                'type' => 2, // Técnico asignado
+                'use_notification' => 1,
+            ]);
+
+            // Cambiar estado a "En curso (asignado)"
+            DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->update([
+                    'status' => 2, // En curso (asignado)
+                    'date_mod' => now(),
+                ]);
+
+            DB::commit();
+
+            return redirect()->back()->with('success', '¡Ticket tomado exitosamente! Ahora está asignado a ti.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al tomar el ticket: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Contar tickets asignados al usuario actual
+     */
+    private function getMyTicketsCount(): int
+    {
+        $user = auth()->user();
+        
+        return DB::table('glpi_tickets as t')
+            ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
+            ->where('tu.type', 2) // Técnico asignado
+            ->where('t.is_deleted', 0)
+            ->whereIn('t.status', [1, 2, 3, 4]) // Activos
+            ->count();
+    }
+
+    /**
+     * Contar tickets resueltos hoy
+     */
+    private function getResolvedTodayCount(): int
+    {
+        return DB::table('glpi_tickets')
+            ->where('is_deleted', 0)
+            ->where('status', 5) // Resuelto
+            ->whereDate('date_mod', today())
+            ->count();
+    }
+}
