@@ -82,6 +82,8 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
+    const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
+    const [ticketToView, setTicketToView] = React.useState<Ticket | null>(null);
 
     // Verificar si el usuario puede eliminar un ticket
     const canDelete = (ticket: Ticket) => {
@@ -346,9 +348,16 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
                                         <TableRow key={ticket.id} className="hover:bg-gray-50">
                                             <TableCell className="text-xs font-medium">{ticket.id}</TableCell>
                                             <TableCell className="font-medium text-xs">
-                                                <a href={`/soporte/casos/${ticket.id}`} className="text-[#2c4370] hover:underline block truncate max-w-md" title={ticket.name}>
+                                                <button 
+                                                    onClick={() => {
+                                                        setTicketToView(ticket);
+                                                        setViewDialogOpen(true);
+                                                    }}
+                                                    className="text-[#2c4370] hover:underline block truncate max-w-md text-left"
+                                                    title={ticket.name}
+                                                >
                                                     {ticket.name || '(Sin título)'}
-                                                </a>
+                                                </button>
                                             </TableCell>
                                             <TableCell className="text-xs">
                                                 <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${getStatusColor(ticket.status)}`}>

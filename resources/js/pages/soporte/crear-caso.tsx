@@ -98,7 +98,12 @@ export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth
         if (type) {
             setLoadingItems(true);
             try {
-                const response = await fetch(`/soporte/items/${type}`);
+                const response = await fetch(`/soporte/items/${type}`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
                 const items = await response.json();
                 setAvailableItems(items);
             } catch (error) {
@@ -125,41 +130,15 @@ export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        const formData = new FormData();
-        formData.append('name', data.name);
-        formData.append('content', data.content);
-        formData.append('date', data.date);
-        formData.append('status', data.status);
-        formData.append('priority', data.priority);
-        
-        if (data.time_to_resolve) formData.append('time_to_resolve', data.time_to_resolve);
-        if (data.internal_time_to_resolve) formData.append('internal_time_to_resolve', data.internal_time_to_resolve);
-        if (data.locations_id) formData.append('locations_id', data.locations_id);
-        if (data.requester_id) formData.append('requester_id', data.requester_id);
+        // Preparar datos para enviar
+        const submitData = {
+            ...data,
+            observer_ids: observerIds,
+            assigned_ids: assignedIds,
+            items: selectedItems.map(item => ({ type: item.type, id: item.id })),
+        };
 
-        // Agregar observadores
-        observerIds.forEach((id, index) => {
-            formData.append(`observer_ids[${index}]`, id.toString());
-        });
-
-        // Agregar asignados
-        assignedIds.forEach((id, index) => {
-            formData.append(`assigned_ids[${index}]`, id.toString());
-        });
-
-        // Agregar archivos
-        selectedFiles.forEach((file, index) => {
-            formData.append(`attachments[${index}]`, file);
-        });
-
-        // Agregar elementos asociados
-        selectedItems.forEach((item, index) => {
-            formData.append(`items[${index}][type]`, item.type);
-            formData.append(`items[${index}][id]`, item.id.toString());
-        });
-
-        router.post('/soporte/casos', formData, {
-            forceFormData: true,
+        router.post('/soporte/casos', submitData, {
             onSuccess: () => {
                 // Reset form
                 setSelectedFiles([]);
@@ -267,18 +246,14 @@ export default function CrearCaso({ users, glpiUsers, locations, itemTypes, auth
 
                                     <div>
                                         <Label htmlFor="locations_id" className="text-xs">Localización</Label>
-                                        <Select value={data.locations_id} onValueChange={(value) => setData('locations_id', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
-                                                <SelectValue placeholder="Seleccione..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {locations.map(location => (
-                                                    <SelectItem key={location.id} value={location.id.toString()}>
-                                                        {location.completename}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            options={locations.map(loc => ({ value: loc.id.toString(), label: loc.completename }))}
+                                            value={data.locations_id}
+                                            onValueChange={(value) => setData('locations_id', value)}
+                                            placeholder="Seleccione..."
+                                            searchPlaceholder="Buscar ubicación..."
+                                            className="mt-1"
+                                        />
                                     </div>
 
                                     {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
