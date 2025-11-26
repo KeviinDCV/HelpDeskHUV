@@ -35,11 +35,7 @@ const inventarioItems = [
 const soporteItems = [
   { name: 'Crear caso', href: '/soporte/crear-caso' },
   { name: 'Casos', href: '/soporte/casos' },
-  { name: 'Problemas', href: '/soporte/problemas' },
-  { name: 'Cambios', href: '/soporte/cambios' },
-  { name: 'Planificación', href: '/soporte/planificacion' },
   { name: 'Estadísticas', href: '/soporte/estadisticas' },
-  { name: 'Casos recurrentes', href: '/soporte/casos-recurrentes' },
 ]
 
 const gestionItems = [
@@ -233,18 +229,13 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
         {/* Right Side Actions */}
         <div className="flex items-center gap-3">
           {/* Search Bar */}
-          <div className="relative">
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 group-focus-within:text-white/80 transition-colors" />
             <Input
               type="text"
-              placeholder="Buscar"
-              className="bg-[#1f3152] border-[#3d5583] text-white placeholder:text-gray-400 w-64 pr-10"
+              placeholder="Buscar..."
+              className="w-56 h-9 pl-9 pr-3 bg-white/10 border-0 text-white placeholder:text-white/50 rounded-lg focus:bg-white/20 focus:ring-1 focus:ring-white/30 transition-all"
             />
-            <Button
-              size="sm"
-              className="absolute right-0 top-0 h-full bg-gray-600 hover:bg-gray-700 text-white px-3"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
           </div>
 
           {/* Icons */}
@@ -283,12 +274,9 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           <div className="flex items-center gap-2">
             {breadcrumb || <span className="text-sm font-medium">Inicio</span>}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm">HUV (estructura en árbol)</span>
-            <Button variant="outline" size="sm" className="text-sm cursor-default">
-              {user?.role || 'Usuario'}
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" className="text-sm cursor-default">
+            {user?.role || 'Usuario'}
+          </Button>
         </div>
       </div>
     </header>

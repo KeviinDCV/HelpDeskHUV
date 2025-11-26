@@ -50,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'destroy'])->name('soporte.casos.destroy');
     Route::post('/soporte/casos/{id}/solucion', [App\Http\Controllers\TicketController::class, 'addSolution'])->name('soporte.casos.solution');
     Route::get('/soporte/items/{type}', [App\Http\Controllers\TicketController::class, 'getItemsByType'])->name('soporte.items');
+    Route::get('/soporte/estadisticas', [App\Http\Controllers\StatisticsController::class, 'index'])->name('soporte.estadisticas');
+    Route::get('/soporte/estadisticas/export', [App\Http\Controllers\StatisticsController::class, 'export'])->name('soporte.estadisticas.export');
 
     // Administración
     Route::get('/administracion/usuarios', [App\Http\Controllers\UserController::class, 'index'])->name('administracion.usuarios');
