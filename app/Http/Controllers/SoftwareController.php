@@ -15,6 +15,7 @@ class SoftwareController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -43,8 +44,14 @@ class SoftwareController extends Controller
             ->leftJoin('glpi_softwareversions as sv', 's.id', '=', 'sv.softwares_id')
             ->leftJoin('glpi_computers_softwareversions as csv', 'sv.id', '=', 'csv.softwareversions_id')
             ->leftJoin('glpi_softwarelicenses as sl', 's.id', '=', 'sl.softwares_id')
-            ->where('s.is_deleted', 0)
-            ->groupBy('s.id', 's.name', 'm.name', 'e.name');
+            ->where('s.is_deleted', 0);
+
+        // Aplicar filtro de fabricante antes del groupBy
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') {
+            $query->where('s.manufacturers_id', $manufacturerFilter);
+        }
+
+        $query->groupBy('s.id', 's.name', 'm.name', 'e.name');
 
         // Aplicar búsqueda si existe
         if ($search) {
@@ -59,16 +66,22 @@ class SoftwareController extends Controller
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
-                'search' => $search
+                'search' => $search,
+                'manufacturer' => $manufacturerFilter
             ]);
+
+        // Obtener datos para filtros
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
 
         return Inertia::render('inventario/programas', [
             'softwares' => $softwares,
+            'manufacturers' => $manufacturers,
             'filters' => [
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
-                'search' => $search
+                'search' => $search,
+                'manufacturer' => $manufacturerFilter
             ]
         ]);
     }
@@ -78,6 +91,7 @@ class SoftwareController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
 
         $sortableFields = [
             'name' => 's.name',
@@ -104,8 +118,14 @@ class SoftwareController extends Controller
             ->leftJoin('glpi_softwareversions as sv', 's.id', '=', 'sv.softwares_id')
             ->leftJoin('glpi_computers_softwareversions as csv', 'sv.id', '=', 'csv.softwareversions_id')
             ->leftJoin('glpi_softwarelicenses as sl', 's.id', '=', 'sl.softwares_id')
-            ->where('s.is_deleted', 0)
-            ->groupBy('s.id', 's.name', 'm.name', 'e.name');
+            ->where('s.is_deleted', 0);
+
+        // Aplicar filtro de fabricante antes del groupBy
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') {
+            $query->where('s.manufacturers_id', $manufacturerFilter);
+        }
+
+        $query->groupBy('s.id', 's.name', 'm.name', 'e.name');
 
         if ($search) {
             $query->having(DB::raw('LOWER(s.name)'), 'LIKE', "%".strtolower($search)."%")

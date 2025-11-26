@@ -109,10 +109,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [showFilters, setShowFilters] = React.useState(false);
     
     // Estados de filtros
-    const [statusFilter, setStatusFilter] = React.useState(filters.status || '');
-    const [priorityFilter, setPriorityFilter] = React.useState(filters.priority || '');
-    const [categoryFilter, setCategoryFilter] = React.useState(filters.category || '');
-    const [assignedFilter, setAssignedFilter] = React.useState(filters.assigned || '');
+    const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
+    const [priorityFilter, setPriorityFilter] = React.useState(filters.priority || 'all');
+    const [categoryFilter, setCategoryFilter] = React.useState(filters.category || 'all');
+    const [assignedFilter, setAssignedFilter] = React.useState(filters.assigned || 'all');
     const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
     const [dateTo, setDateTo] = React.useState(filters.date_to || '');
     
@@ -176,19 +176,26 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const handleSearch = () => {
-        router.get('/soporte/casos', { 
-            ...filters, 
-            search: searchValue,
-            status: statusFilter === 'all' ? '' : statusFilter,
-            priority: priorityFilter === 'all' ? '' : priorityFilter,
-            category: categoryFilter === 'all' ? '' : categoryFilter,
-            assigned: assignedFilter === 'all' ? '' : assignedFilter,
-            date_from: dateFrom,
-            date_to: dateTo,
-            page: 1 
-        }, { 
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1
+        };
+
+        // Solo agregar parámetros si tienen valor
+        if (searchValue) params.search = searchValue;
+        if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+        if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
+        if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+        if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+
+        router.get('/soporte/casos', params, {
             preserveState: false,
-            preserveScroll: true
+            preserveScroll: false,
+            replace: true
         });
     };
 
@@ -204,38 +211,48 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const applyFilters = () => {
-        router.get('/soporte/casos', { 
-            ...filters, 
-            search: searchValue,
-            status: statusFilter === 'all' ? '' : statusFilter,
-            priority: priorityFilter === 'all' ? '' : priorityFilter,
-            category: categoryFilter === 'all' ? '' : categoryFilter,
-            assigned: assignedFilter === 'all' ? '' : assignedFilter,
-            date_from: dateFrom,
-            date_to: dateTo,
-            page: 1 
-        }, { 
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1
+        };
+
+        // Solo agregar parámetros si tienen valor
+        if (searchValue) params.search = searchValue;
+        if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+        if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
+        if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+        if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+
+        console.log('Applying filters:', params);
+        router.get('/soporte/casos', params, {
             preserveState: false,
-            preserveScroll: true
+            preserveScroll: false,
+            replace: true
         });
     };
 
     const clearFilters = () => {
-        setStatusFilter('');
-        setPriorityFilter('');
-        setCategoryFilter('');
-        setAssignedFilter('');
+        setStatusFilter('all');
+        setPriorityFilter('all');
+        setCategoryFilter('all');
+        setAssignedFilter('all');
         setDateFrom('');
         setDateTo('');
         setSearchValue('');
-        router.get('/soporte/casos', { 
+
+        router.get('/soporte/casos', {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-            page: 1 
-        }, { 
+            page: 1
+        }, {
             preserveState: false,
-            preserveScroll: true
+            preserveScroll: false,
+            replace: true
         });
     };
 

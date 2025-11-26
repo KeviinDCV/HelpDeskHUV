@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -40,6 +40,27 @@ interface PaginationLinks {
     active: boolean;
 }
 
+interface State {
+    id: number;
+    name: string;
+}
+
+interface Manufacturer {
+    id: number;
+    name: string;
+}
+
+interface PeripheralType {
+    id: number;
+    name: string;
+}
+
+interface Location {
+    id: number;
+    name: string;
+    completename: string;
+}
+
 interface PeripheralsProps {
     peripherals: {
         data: Peripheral[];
@@ -49,42 +70,94 @@ interface PeripheralsProps {
         total: number;
         links: PaginationLinks[];
     };
+    states: State[];
+    manufacturers: Manufacturer[];
+    types: PeripheralType[];
+    locations: Location[];
     filters: {
         per_page: number;
         sort: string;
         direction: string;
         search: string;
+        state: string;
+        manufacturer: string;
+        type: string;
+        location: string;
+        date_from: string;
+        date_to: string;
     };
 }
 
-export default function Dispositivos({ peripherals, filters }: PeripheralsProps) {
+export default function Dispositivos({ peripherals, states, manufacturers, types, locations, filters }: PeripheralsProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
+    const [showFilters, setShowFilters] = React.useState(false);
+    
+    const [stateFilter, setStateFilter] = React.useState(filters.state || 'all');
+    const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
+    const [typeFilter, setTypeFilter] = React.useState(filters.type || 'all');
+    const [locationFilter, setLocationFilter] = React.useState(filters.location || 'all');
+    const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
+    const [dateTo, setDateTo] = React.useState(filters.date_to || '');
+    
+    const hasActiveFilters = (stateFilter && stateFilter !== 'all') || 
+                            (manufacturerFilter && manufacturerFilter !== 'all') || 
+                            (typeFilter && typeFilter !== 'all') || 
+                            (locationFilter && locationFilter !== 'all') ||
+                            dateFrom || dateTo;
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        router.get('/inventario/dispositivos', {
-            per_page: filters.per_page,
-            sort: field,
-            direction: newDirection,
-            search: filters.search
-        }, { preserveState: false });
+        const params: Record<string, any> = { per_page: filters.per_page, sort: field, direction: newDirection };
+        if (filters.search) params.search = filters.search;
+        if (filters.state && filters.state !== 'all') params.state = filters.state;
+        if (filters.manufacturer && filters.manufacturer !== 'all') params.manufacturer = filters.manufacturer;
+        if (filters.type && filters.type !== 'all') params.type = filters.type;
+        if (filters.location && filters.location !== 'all') params.location = filters.location;
+        if (filters.date_from) params.date_from = filters.date_from;
+        if (filters.date_to) params.date_to = filters.date_to;
+        router.get('/inventario/dispositivos', params, { preserveState: false });
     };
 
     const handleSearch = () => {
-        router.get('/inventario/dispositivos', {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            search: searchValue
-        }, { preserveState: false });
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        router.get('/inventario/dispositivos', params, { preserveState: false });
+    };
+
+    const applyFilters = () => {
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        router.get('/inventario/dispositivos', params, { preserveState: false, replace: true });
+    };
+
+    const clearFilters = () => {
+        setStateFilter('all'); setManufacturerFilter('all'); setTypeFilter('all'); setLocationFilter('all');
+        setDateFrom(''); setDateTo(''); setSearchValue('');
+        router.get('/inventario/dispositivos', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
     };
 
     const handleExport = () => {
-        const params = new URLSearchParams({
-            sort: filters.sort,
-            direction: filters.direction,
-            search: filters.search
-        });
+        const params = new URLSearchParams();
+        params.append('sort', filters.sort); params.append('direction', filters.direction);
+        if (filters.search) params.append('search', filters.search);
+        if (filters.state && filters.state !== 'all') params.append('state', filters.state);
+        if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
+        if (filters.type && filters.type !== 'all') params.append('type', filters.type);
+        if (filters.location && filters.location !== 'all') params.append('location', filters.location);
+        if (filters.date_from) params.append('date_from', filters.date_from);
+        if (filters.date_to) params.append('date_to', filters.date_to);
         window.location.href = `/inventario/dispositivos/export?${params}`;
     };
 
@@ -121,36 +194,85 @@ export default function Dispositivos({ peripherals, filters }: PeripheralsProps)
                                 <h1 className="text-xl font-semibold text-gray-900">Dispositivos</h1>
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar..."
-                                            className="w-64 pr-10"
-                                            value={searchValue}
+                                        <Input type="text" placeholder="Buscar..." className="w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    handleSearch();
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="absolute right-0 top-0 h-full px-3"
-                                            onClick={handleSearch}
-                                        >
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
+                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button 
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
-                                        onClick={handleExport}
-                                    >
-                                        Exportar
+                                    <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
+                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
+                                        <Filter className="h-4 w-4 mr-1" /> Filtros
+                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
                                     </Button>
+                                    <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>Exportar</Button>
                                 </div>
                             </div>
                         </div>
+
+                        {showFilters && (
+                            <div className="px-6 py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <Select value={stateFilter} onValueChange={setStateFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {states?.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Fabricante</label>
+                                        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {manufacturers?.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Tipo</label>
+                                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {types?.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Localización</label>
+                                        <Select value={locationFilter} onValueChange={setLocationFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                {locations?.map((l) => <SelectItem key={l.id} value={l.id.toString()}>{l.completename}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-xs" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs" />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 mt-3">
+                                    {hasActiveFilters && (
+                                        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-gray-600">
+                                            <X className="h-3 w-3 mr-1" /> Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs">Aplicar filtros</Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Stats */}
                         <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">

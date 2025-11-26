@@ -15,6 +15,8 @@ class ConsumableItemController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $typeFilter = $request->input('type', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -48,8 +50,12 @@ class ConsumableItemController extends Controller
             ->leftJoin('glpi_manufacturers as mf', 'ci.manufacturers_id', '=', 'mf.id')
             ->leftJoin('glpi_users as u', 'ci.users_id_tech', '=', 'u.id')
             ->leftJoin('glpi_consumables as c', 'ci.id', '=', 'c.consumableitems_id')
-            ->where('ci.is_deleted', 0)
-            ->groupBy('ci.id', 'ci.name', 'ci.ref', 't.name', 'mf.name', 'u.name', 'ci.comment', 'e.name');
+            ->where('ci.is_deleted', 0);
+
+        if ($typeFilter && $typeFilter !== 'all') { $query->where('ci.consumableitemtypes_id', $typeFilter); }
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') { $query->where('ci.manufacturers_id', $manufacturerFilter); }
+
+        $query->groupBy('ci.id', 'ci.name', 'ci.ref', 't.name', 'mf.name', 'u.name', 'ci.comment', 'e.name');
 
         // Aplicar búsqueda si existe
         if ($search) {
@@ -64,19 +70,18 @@ class ConsumableItemController extends Controller
         $consumables = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
             ->appends([
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'type' => $typeFilter, 'manufacturer' => $manufacturerFilter
             ]);
 
+        $types = DB::table('glpi_consumableitemtypes')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+
         return Inertia::render('inventario/consumibles', [
-            'consumables' => $consumables,
+            'consumables' => $consumables, 'types' => $types, 'manufacturers' => $manufacturers,
             'filters' => [
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'type' => $typeFilter, 'manufacturer' => $manufacturerFilter
             ]
         ]);
     }
@@ -86,6 +91,8 @@ class ConsumableItemController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $typeFilter = $request->input('type', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
 
         $sortableFields = [
             'name' => 'ci.name',
@@ -117,8 +124,12 @@ class ConsumableItemController extends Controller
             ->leftJoin('glpi_manufacturers as mf', 'ci.manufacturers_id', '=', 'mf.id')
             ->leftJoin('glpi_users as u', 'ci.users_id_tech', '=', 'u.id')
             ->leftJoin('glpi_consumables as c', 'ci.id', '=', 'c.consumableitems_id')
-            ->where('ci.is_deleted', 0)
-            ->groupBy('ci.id', 'ci.name', 'e.name', 'ci.ref', 't.name', 'mf.name', 'ci.comment', 'u.name');
+            ->where('ci.is_deleted', 0);
+
+        if ($typeFilter && $typeFilter !== 'all') { $query->where('ci.consumableitemtypes_id', $typeFilter); }
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') { $query->where('ci.manufacturers_id', $manufacturerFilter); }
+
+        $query->groupBy('ci.id', 'ci.name', 'e.name', 'ci.ref', 't.name', 'mf.name', 'ci.comment', 'u.name');
 
         if ($search) {
             $query->having(DB::raw('LOWER(ci.name)'), 'LIKE', "%".strtolower($search)."%")

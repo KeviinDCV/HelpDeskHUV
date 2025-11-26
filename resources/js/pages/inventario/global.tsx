@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -34,6 +34,11 @@ interface PaginationLinks {
     active: boolean;
 }
 
+interface State {
+    id: number;
+    name: string;
+}
+
 interface GlobalInventoryProps {
     items: {
         data: GlobalItem[];
@@ -43,42 +48,63 @@ interface GlobalInventoryProps {
         total: number;
         links: PaginationLinks[];
     };
+    states: State[];
+    itemTypes: string[];
     filters: {
         per_page: number;
         sort: string;
         direction: string;
         search: string;
+        state: string;
+        item_type: string;
     };
 }
 
-export default function Global({ items, filters }: GlobalInventoryProps) {
+export default function Global({ items, states, itemTypes, filters }: GlobalInventoryProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
+    const [showFilters, setShowFilters] = React.useState(false);
+    
+    const [stateFilter, setStateFilter] = React.useState(filters.state || 'all');
+    const [itemTypeFilter, setItemTypeFilter] = React.useState(filters.item_type || 'all');
+    
+    const hasActiveFilters = (stateFilter && stateFilter !== 'all') || (itemTypeFilter && itemTypeFilter !== 'all');
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        router.get('/inventario/global', {
-            per_page: filters.per_page,
-            sort: field,
-            direction: newDirection,
-            search: filters.search
-        }, { preserveState: false });
+        const params: Record<string, any> = { per_page: filters.per_page, sort: field, direction: newDirection };
+        if (filters.search) params.search = filters.search;
+        if (filters.state && filters.state !== 'all') params.state = filters.state;
+        if (filters.item_type && filters.item_type !== 'all') params.item_type = filters.item_type;
+        router.get('/inventario/global', params, { preserveState: false });
     };
 
     const handleSearch = () => {
-        router.get('/inventario/global', {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            search: searchValue
-        }, { preserveState: false });
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (itemTypeFilter && itemTypeFilter !== 'all') params.item_type = itemTypeFilter;
+        router.get('/inventario/global', params, { preserveState: false });
+    };
+
+    const applyFilters = () => {
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (itemTypeFilter && itemTypeFilter !== 'all') params.item_type = itemTypeFilter;
+        router.get('/inventario/global', params, { preserveState: false, replace: true });
+    };
+
+    const clearFilters = () => {
+        setStateFilter('all'); setItemTypeFilter('all'); setSearchValue('');
+        router.get('/inventario/global', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
     };
 
     const handleExport = () => {
-        const params = new URLSearchParams({
-            sort: filters.sort,
-            direction: filters.direction,
-            search: filters.search
-        });
+        const params = new URLSearchParams();
+        params.append('sort', filters.sort); params.append('direction', filters.direction);
+        if (filters.search) params.append('search', filters.search);
+        if (filters.state && filters.state !== 'all') params.append('state', filters.state);
+        if (filters.item_type && filters.item_type !== 'all') params.append('item_type', filters.item_type);
         window.location.href = `/inventario/global/export?${params}`;
     };
 
@@ -115,36 +141,57 @@ export default function Global({ items, filters }: GlobalInventoryProps) {
                                 <h1 className="text-xl font-semibold text-gray-900">Inventario Global</h1>
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar..."
-                                            className="w-64 pr-10"
-                                            value={searchValue}
+                                        <Input type="text" placeholder="Buscar..." className="w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    handleSearch();
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="absolute right-0 top-0 h-full px-3"
-                                            onClick={handleSearch}
-                                        >
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
+                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button 
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
-                                        onClick={handleExport}
-                                    >
-                                        Exportar
+                                    <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
+                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
+                                        <Filter className="h-4 w-4 mr-1" /> Filtros
+                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
                                     </Button>
+                                    <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>Exportar</Button>
                                 </div>
                             </div>
                         </div>
+
+                        {showFilters && (
+                            <div className="px-6 py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <Select value={stateFilter} onValueChange={setStateFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {states?.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Tipo de elemento</label>
+                                        <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {itemTypes?.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 mt-3">
+                                    {hasActiveFilters && (
+                                        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-gray-600">
+                                            <X className="h-3 w-3 mr-1" /> Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs">Aplicar filtros</Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Stats */}
                         <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">

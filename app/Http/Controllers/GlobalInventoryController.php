@@ -14,6 +14,8 @@ class GlobalInventoryController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $stateFilter = $request->input('state', '');
+        $itemTypeFilter = $request->input('item_type', '');
 
         // Construir query UNION de todos los tipos de activos
         $computersQuery = DB::table('glpi_computers as c')
@@ -82,27 +84,45 @@ class GlobalInventoryController extends Controller
             ->leftJoin('glpi_states as s', 'ph.states_id', '=', 's.id')
             ->where('ph.is_deleted', 0);
 
-        // Combinar todas las queries con UNION
-        $query = $computersQuery
-            ->unionAll($monitorsQuery)
-            ->unionAll($networkQuery)
-            ->unionAll($peripheralsQuery)
-            ->unionAll($printersQuery)
-            ->unionAll($phonesQuery);
+        // Aplicar filtro de tipo de elemento antes del UNION
+        $itemTypeMap = [
+            'Computadores' => $computersQuery,
+            'Monitores' => $monitorsQuery,
+            'Dispositivos para redes' => $networkQuery,
+            'Dispositivos' => $peripheralsQuery,
+            'Impresoras' => $printersQuery,
+            'Teléfonos' => $phonesQuery,
+        ];
 
-        // Aplicar búsqueda si existe
-        if ($search) {
-            $query = DB::table(DB::raw("({$query->toSql()}) as items"))
-                ->mergeBindings($query)
-                ->where(function($q) use ($search) {
-                    $q->where('name', 'LIKE', "%{$search}%")
-                      ->orWhere('entity_name', 'LIKE', "%{$search}%")
-                      ->orWhere('state_name', 'LIKE', "%{$search}%")
-                      ->orWhere('item_type', 'LIKE', "%{$search}%");
-                });
+        if ($itemTypeFilter && $itemTypeFilter !== 'all' && isset($itemTypeMap[$itemTypeFilter])) {
+            $query = $itemTypeMap[$itemTypeFilter];
         } else {
-            $query = DB::table(DB::raw("({$query->toSql()}) as items"))
-                ->mergeBindings($query);
+            $query = $computersQuery
+                ->unionAll($monitorsQuery)
+                ->unionAll($networkQuery)
+                ->unionAll($peripheralsQuery)
+                ->unionAll($printersQuery)
+                ->unionAll($phonesQuery);
+        }
+
+        // Aplicar búsqueda y filtro de estado
+        $query = DB::table(DB::raw("({$query->toSql()}) as items"))
+            ->mergeBindings($query);
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('entity_name', 'LIKE', "%{$search}%")
+                  ->orWhere('state_name', 'LIKE', "%{$search}%")
+                  ->orWhere('item_type', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($stateFilter && $stateFilter !== 'all') {
+            $stateName = DB::table('glpi_states')->where('id', $stateFilter)->value('name');
+            if ($stateName) {
+                $query->where('state_name', $stateName);
+            }
         }
 
         // Mapeo de campos para ordenamiento
@@ -118,19 +138,18 @@ class GlobalInventoryController extends Controller
         $items = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
             ->appends([
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'state' => $stateFilter, 'item_type' => $itemTypeFilter
             ]);
 
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $itemTypes = ['Computadores', 'Monitores', 'Dispositivos para redes', 'Dispositivos', 'Impresoras', 'Teléfonos'];
+
         return Inertia::render('inventario/global', [
-            'items' => $items,
+            'items' => $items, 'states' => $states, 'itemTypes' => $itemTypes,
             'filters' => [
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'state' => $stateFilter, 'item_type' => $itemTypeFilter
             ]
         ]);
     }
@@ -140,6 +159,8 @@ class GlobalInventoryController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $stateFilter = $request->input('state', '');
+        $itemTypeFilter = $request->input('item_type', '');
 
         // Construir query UNION de todos los tipos de activos
         $computersQuery = DB::table('glpi_computers as c')
@@ -208,27 +229,44 @@ class GlobalInventoryController extends Controller
             ->leftJoin('glpi_states as s', 'ph.states_id', '=', 's.id')
             ->where('ph.is_deleted', 0);
 
-        // Combinar todas las queries con UNION
-        $query = $computersQuery
-            ->unionAll($monitorsQuery)
-            ->unionAll($networkQuery)
-            ->unionAll($peripheralsQuery)
-            ->unionAll($printersQuery)
-            ->unionAll($phonesQuery);
+        // Aplicar filtro de tipo de elemento antes del UNION
+        $itemTypeMap = [
+            'Computadores' => $computersQuery,
+            'Monitores' => $monitorsQuery,
+            'Dispositivos para redes' => $networkQuery,
+            'Dispositivos' => $peripheralsQuery,
+            'Impresoras' => $printersQuery,
+            'Teléfonos' => $phonesQuery,
+        ];
 
-        // Aplicar búsqueda si existe
-        if ($search) {
-            $query = DB::table(DB::raw("({$query->toSql()}) as items"))
-                ->mergeBindings($query)
-                ->where(function($q) use ($search) {
-                    $q->where('name', 'LIKE', "%{$search}%")
-                      ->orWhere('entity_name', 'LIKE', "%{$search}%")
-                      ->orWhere('state_name', 'LIKE', "%{$search}%")
-                      ->orWhere('item_type', 'LIKE', "%{$search}%");
-                });
+        if ($itemTypeFilter && $itemTypeFilter !== 'all' && isset($itemTypeMap[$itemTypeFilter])) {
+            $query = $itemTypeMap[$itemTypeFilter];
         } else {
-            $query = DB::table(DB::raw("({$query->toSql()}) as items"))
-                ->mergeBindings($query);
+            $query = $computersQuery
+                ->unionAll($monitorsQuery)
+                ->unionAll($networkQuery)
+                ->unionAll($peripheralsQuery)
+                ->unionAll($printersQuery)
+                ->unionAll($phonesQuery);
+        }
+
+        $query = DB::table(DB::raw("({$query->toSql()}) as items"))
+            ->mergeBindings($query);
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('entity_name', 'LIKE', "%{$search}%")
+                  ->orWhere('state_name', 'LIKE', "%{$search}%")
+                  ->orWhere('item_type', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($stateFilter && $stateFilter !== 'all') {
+            $stateName = DB::table('glpi_states')->where('id', $stateFilter)->value('name');
+            if ($stateName) {
+                $query->where('state_name', $stateName);
+            }
         }
 
         $sortableFields = [

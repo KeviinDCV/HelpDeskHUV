@@ -16,7 +16,7 @@ class TicketController extends Controller
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
         $search = $request->input('search', '');
-        
+
         // Filtros selectivos
         $statusFilter = $request->input('status', '');
         $priorityFilter = $request->input('priority', '');
@@ -24,6 +24,17 @@ class TicketController extends Controller
         $assignedFilter = $request->input('assigned', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+
+        // Log para debug
+        \Log::info('Ticket filters received', [
+            'status' => $statusFilter,
+            'priority' => $priorityFilter,
+            'category' => $categoryFilter,
+            'assigned' => $assignedFilter,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'search' => $search,
+        ]);
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -106,6 +117,32 @@ class TicketController extends Controller
         }
         
         if ($assignedFilter !== '') {
+            // Log para debug
+            \Log::info('Filtering by assigned', ['assigned_id' => $assignedFilter]);
+
+            // Verificar si existe algún técnico con ese ID
+            $technicianExists = DB::table('glpi_users')
+                ->where('id', $assignedFilter)
+                ->where('is_deleted', 0)
+                ->where('is_active', 1)
+                ->exists();
+
+            \Log::info('Technician exists check', [
+                'technician_id' => $assignedFilter,
+                'exists' => $technicianExists
+            ]);
+
+            // Verificar cuántos tickets tiene asignados este técnico
+            $assignedCount = DB::table('glpi_tickets_users')
+                ->where('users_id', $assignedFilter)
+                ->where('type', 2)
+                ->count();
+
+            \Log::info('Assigned tickets count', [
+                'technician_id' => $assignedFilter,
+                'count' => $assignedCount
+            ]);
+
             $query->whereExists(function ($q) use ($assignedFilter) {
                 $q->select(DB::raw(1))
                   ->from('glpi_tickets_users')
@@ -137,6 +174,14 @@ class TicketController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
             ]);
+
+        // Log resultado de la consulta
+        \Log::info('Tickets query result', [
+            'total' => $tickets->total(),
+            'per_page' => $tickets->perPage(),
+            'current_page' => $tickets->currentPage(),
+            'count' => $tickets->count()
+        ]);
         
         // Obtener categorías para el filtro
         $categories = DB::table('glpi_itilcategories')

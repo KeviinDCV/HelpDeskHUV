@@ -15,6 +15,12 @@ class PhoneController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $stateFilter = $request->input('state', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
+        $typeFilter = $request->input('type', '');
+        $locationFilter = $request->input('location', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -65,23 +71,33 @@ class PhoneController extends Controller
                   ->orWhere('md.name', 'LIKE', "%{$search}%");
             });
         }
+
+        if ($stateFilter && $stateFilter !== 'all') { $query->where('p.states_id', $stateFilter); }
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') { $query->where('p.manufacturers_id', $manufacturerFilter); }
+        if ($typeFilter && $typeFilter !== 'all') { $query->where('p.phonetypes_id', $typeFilter); }
+        if ($locationFilter && $locationFilter !== 'all') { $query->where('p.locations_id', $locationFilter); }
+        if ($dateFrom) { $query->whereDate('p.date_mod', '>=', $dateFrom); }
+        if ($dateTo) { $query->whereDate('p.date_mod', '<=', $dateTo); }
         
         $phones = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
             ->appends([
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'state' => $stateFilter, 'manufacturer' => $manufacturerFilter, 'type' => $typeFilter,
+                'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
             ]);
 
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_phonetypes')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+
         return Inertia::render('inventario/telefonos', [
-            'phones' => $phones,
+            'phones' => $phones, 'states' => $states, 'manufacturers' => $manufacturers, 'types' => $types, 'locations' => $locations,
             'filters' => [
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'state' => $stateFilter, 'manufacturer' => $manufacturerFilter, 'type' => $typeFilter,
+                'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
             ]
         ]);
     }
@@ -91,6 +107,12 @@ class PhoneController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $stateFilter = $request->input('state', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
+        $typeFilter = $request->input('type', '');
+        $locationFilter = $request->input('location', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         $sortableFields = [
             'name' => 'p.name',
@@ -138,6 +160,13 @@ class PhoneController extends Controller
                   ->orWhere('md.name', 'LIKE', "%{$search}%");
             });
         }
+
+        if ($stateFilter && $stateFilter !== 'all') { $query->where('p.states_id', $stateFilter); }
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') { $query->where('p.manufacturers_id', $manufacturerFilter); }
+        if ($typeFilter && $typeFilter !== 'all') { $query->where('p.phonetypes_id', $typeFilter); }
+        if ($locationFilter && $locationFilter !== 'all') { $query->where('p.locations_id', $locationFilter); }
+        if ($dateFrom) { $query->whereDate('p.date_mod', '>=', $dateFrom); }
+        if ($dateTo) { $query->whereDate('p.date_mod', '<=', $dateTo); }
 
         $phones = $query->orderBy($orderByField, $sortDirection)->get();
 

@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -37,6 +37,11 @@ interface PaginationLinks {
     active: boolean;
 }
 
+interface Manufacturer {
+    id: number;
+    name: string;
+}
+
 interface SoftwaresProps {
     softwares: {
         data: Software[];
@@ -46,42 +51,78 @@ interface SoftwaresProps {
         total: number;
         links: PaginationLinks[];
     };
+    manufacturers: Manufacturer[];
     filters: {
         per_page: number;
         sort: string;
         direction: string;
         search: string;
+        manufacturer: string;
     };
 }
 
-export default function Programas({ softwares, filters }: SoftwaresProps) {
+export default function Programas({ softwares, manufacturers, filters }: SoftwaresProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
+    const [showFilters, setShowFilters] = React.useState(false);
+    
+    // Estados de filtros
+    const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
+    
+    const hasActiveFilters = (manufacturerFilter && manufacturerFilter !== 'all');
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        router.get('/inventario/programas', {
+        const params: Record<string, any> = {
             per_page: filters.per_page,
             sort: field,
-            direction: newDirection,
-            search: filters.search
-        }, { preserveState: false });
+            direction: newDirection
+        };
+        if (filters.search) params.search = filters.search;
+        if (filters.manufacturer && filters.manufacturer !== 'all') params.manufacturer = filters.manufacturer;
+        router.get('/inventario/programas', params, { preserveState: false });
     };
 
     const handleSearch = () => {
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1
+        };
+        if (searchValue) params.search = searchValue;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        router.get('/inventario/programas', params, { preserveState: false });
+    };
+
+    const applyFilters = () => {
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1
+        };
+        if (searchValue) params.search = searchValue;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        router.get('/inventario/programas', params, { preserveState: false, replace: true });
+    };
+
+    const clearFilters = () => {
+        setManufacturerFilter('all');
+        setSearchValue('');
         router.get('/inventario/programas', {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-            search: searchValue
-        }, { preserveState: false });
+            page: 1
+        }, { preserveState: false, replace: true });
     };
 
     const handleExport = () => {
-        const params = new URLSearchParams({
-            sort: filters.sort,
-            direction: filters.direction,
-            search: filters.search
-        });
+        const params = new URLSearchParams();
+        params.append('sort', filters.sort);
+        params.append('direction', filters.direction);
+        if (filters.search) params.append('search', filters.search);
+        if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
         window.location.href = `/inventario/programas/export?${params}`;
     };
 
@@ -121,7 +162,7 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                                         <Input
                                             type="text"
                                             placeholder="Buscar..."
-                                            className="w-64 pr-10"
+                                            className="w-64 pr-10 h-9"
                                             value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => {
@@ -140,7 +181,18 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                                         </Button>
                                     </div>
                                     <Button 
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowFilters(!showFilters)}
+                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
+                                    >
+                                        <Filter className="h-4 w-4 mr-1" />
+                                        Filtros
+                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                    </Button>
+                                    <Button 
+                                        size="sm"
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9"
                                         onClick={handleExport}
                                     >
                                         Exportar
@@ -148,6 +200,50 @@ export default function Programas({ softwares, filters }: SoftwaresProps) {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Panel de Filtros */}
+                        {showFilters && (
+                            <div className="px-6 py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Editor</label>
+                                        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todos" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {manufacturers?.map((manufacturer) => (
+                                                    <SelectItem key={manufacturer.id} value={manufacturer.id.toString()}>
+                                                        {manufacturer.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 mt-3">
+                                    {hasActiveFilters && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={clearFilters}
+                                            className="h-8 text-xs text-gray-600"
+                                        >
+                                            <X className="h-3 w-3 mr-1" />
+                                            Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="sm"
+                                        onClick={applyFilters}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
+                                    >
+                                        Aplicar filtros
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Stats */}
                         <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">

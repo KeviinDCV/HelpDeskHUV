@@ -15,6 +15,12 @@ class ComputerController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $stateFilter = $request->input('state', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
+        $typeFilter = $request->input('type', '');
+        $locationFilter = $request->input('location', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -65,6 +71,26 @@ class ComputerController extends Controller
                   ->orWhere('l.completename', 'LIKE', "%{$search}%");
             });
         }
+
+        // Aplicar filtros
+        if ($stateFilter && $stateFilter !== 'all') {
+            $query->where('c.states_id', $stateFilter);
+        }
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') {
+            $query->where('c.manufacturers_id', $manufacturerFilter);
+        }
+        if ($typeFilter && $typeFilter !== 'all') {
+            $query->where('c.computertypes_id', $typeFilter);
+        }
+        if ($locationFilter && $locationFilter !== 'all') {
+            $query->where('c.locations_id', $locationFilter);
+        }
+        if ($dateFrom) {
+            $query->whereDate('c.date_mod', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('c.date_mod', '<=', $dateTo);
+        }
         
         $computers = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -72,16 +98,38 @@ class ComputerController extends Controller
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
-                'search' => $search
+                'search' => $search,
+                'state' => $stateFilter,
+                'manufacturer' => $manufacturerFilter,
+                'type' => $typeFilter,
+                'location' => $locationFilter,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo
             ]);
+
+        // Obtener datos para filtros
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_computertypes')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
 
         return Inertia::render('inventario/computadores', [
             'computers' => $computers,
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'locations' => $locations,
             'filters' => [
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
-                'search' => $search
+                'search' => $search,
+                'state' => $stateFilter,
+                'manufacturer' => $manufacturerFilter,
+                'type' => $typeFilter,
+                'location' => $locationFilter,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo
             ]
         ]);
     }
@@ -91,6 +139,12 @@ class ComputerController extends Controller
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $stateFilter = $request->input('state', '');
+        $manufacturerFilter = $request->input('manufacturer', '');
+        $typeFilter = $request->input('type', '');
+        $locationFilter = $request->input('location', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         $sortableFields = [
             'name' => 'c.name',
@@ -137,6 +191,26 @@ class ComputerController extends Controller
                   ->orWhere('cm.name', 'LIKE', "%{$search}%")
                   ->orWhere('l.completename', 'LIKE', "%{$search}%");
             });
+        }
+
+        // Aplicar filtros
+        if ($stateFilter && $stateFilter !== 'all') {
+            $query->where('c.states_id', $stateFilter);
+        }
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') {
+            $query->where('c.manufacturers_id', $manufacturerFilter);
+        }
+        if ($typeFilter && $typeFilter !== 'all') {
+            $query->where('c.computertypes_id', $typeFilter);
+        }
+        if ($locationFilter && $locationFilter !== 'all') {
+            $query->where('c.locations_id', $locationFilter);
+        }
+        if ($dateFrom) {
+            $query->whereDate('c.date_mod', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('c.date_mod', '<=', $dateTo);
         }
 
         $computers = $query->orderBy($orderByField, $sortDirection)->get();
