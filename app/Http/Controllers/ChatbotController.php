@@ -46,28 +46,36 @@ class ChatbotController extends Controller
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
-            $maxRetries = 3;
+            $maxRetries = 2;
             $response = null;
             
             for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-                $response = Http::timeout(30)->withHeaders([
-                    'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
-                    'Content-Type' => 'application/json',
-                ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                    'model' => 'llama-3.1-8b-instant',
-                    'messages' => $messages,
-                    'temperature' => 0.3,
-                    'max_tokens' => 500,
-                ]);
+                try {
+                    $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
+                        'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                        'Content-Type' => 'application/json',
+                    ])->post('https://api.groq.com/openai/v1/chat/completions', [
+                        'model' => 'llama-3.3-70b-versatile',
+                        'messages' => $messages,
+                        'temperature' => 0.3,
+                        'max_tokens' => 600,
+                    ]);
 
-                // Si es exitoso o no es rate limit, salir del loop
-                if ($response->successful() || $response->status() !== 429) {
-                    break;
-                }
+                    // Si es exitoso o no es rate limit, salir del loop
+                    if ($response->successful() || $response->status() !== 429) {
+                        break;
+                    }
 
-                // Si es rate limit, esperar y reintentar
-                if ($attempt < $maxRetries) {
-                    sleep(2 * $attempt); // Espera progresiva: 2s, 4s
+                    // Si es rate limit, esperar y reintentar
+                    if ($attempt < $maxRetries) {
+                        sleep(2);
+                    }
+                } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                    \Log::warning('Chatbot Connection Retry', ['attempt' => $attempt, 'error' => $e->getMessage()]);
+                    if ($attempt >= $maxRetries) {
+                        throw $e;
+                    }
+                    sleep(1);
                 }
             }
 
@@ -75,8 +83,19 @@ class ChatbotController extends Controller
                 $data = $response->json();
                 $assistantResponse = $data['choices'][0]['message']['content'] ?? '';
                 
+                // Log para debug
+                \Log::info('Chatbot Response', [
+                    'raw_response' => $assistantResponse,
+                ]);
+                
                 // Parsear la respuesta para extraer campos y mensaje
                 $parsed = $this->parseResponse($assistantResponse);
+                
+                // Log del parsing
+                \Log::info('Chatbot Parsed', [
+                    'fields' => $parsed['fields'],
+                    'message' => $parsed['message'],
+                ]);
                 
                 return response()->json([
                     'success' => true,
@@ -145,13 +164,12 @@ class ChatbotController extends Controller
     private function getCategoryList(): array
     {
         return DB::table('glpi_itilcategories')
-            ->select('id', 'name', 'completename')
+            ->select('id', 'name')
             ->where('is_incident', 1)
-            ->where('level', '=', 1) // Solo categorías de primer nivel
-            ->orderBy('name')
-            ->limit(15) // Limitar para no sobrecargar el prompt
+            ->whereIn('id', [1, 2, 6, 11, 12, 14, 17, 18]) // Categorías principales útiles
+            ->orderBy('id')
             ->get()
-            ->map(fn($c) => ['id' => $c->id, 'name' => $c->name]) // Usar name corto
+            ->map(fn($c) => ['id' => $c->id, 'name' => $c->name])
             ->toArray();
     }
 
@@ -199,105 +217,59 @@ class ChatbotController extends Controller
      */
     private function getSystemPrompt(array $formData, array $filledFields, array $ecomList, array $categories): string
     {
-        $filledInfo = empty($filledFields) 
-            ? "Ninguno"
-            : implode(', ', $filledFields);
+        // Construir info de campos ya llenados con sus valores actuales
+        $currentData = [];
+        foreach ($formData as $key => $value) {
+            if (!empty($value) && $value !== '') {
+                $currentData[] = "$key: \"$value\"";
+            }
+        }
+        $currentDataStr = empty($currentData) ? "Ninguno" : implode(", ", $currentData);
 
-        // Crear muestra de ECOMs para el prompt (primeros 15)
-        $ecomSample = array_slice($ecomList, 0, 15);
+        // Crear muestra de ECOMs para el prompt
+        $ecomSample = array_slice($ecomList, 0, 10);
         $ecomListStr = implode(', ', $ecomSample);
-        $totalEcoms = count($ecomList);
 
-        // Crear lista de categorías para el prompt
-        $categoryListStr = implode("\n", array_map(fn($c) => "- ID: {$c['id']} = {$c['name']}", $categories));
+        // Crear lista de categorías
+        $categoryListStr = implode(", ", array_map(fn($c) => "{$c['id']}={$c['name']}", $categories));
 
         return <<<PROMPT
-Eres Evarisbot. Ayudas a crear reportes de problemas técnicos en el Hospital Universitario del Valle.
+Eres Evarisbot del Hospital Universitario del Valle. Capturas datos para reportes técnicos.
 
-REGLA CRÍTICA: Cada respuesta DEBE empezar con un bloque {FIELDS} si el usuario proporcionó información útil.
+DATOS ACTUALES: {$currentDataStr}
 
-CAMPOS YA LLENADOS: {$filledInfo}
+REGLA PRINCIPAL: Si el usuario da MÚLTIPLES datos en un mensaje, captúralos TODOS.
 
-FORMATO DE RESPUESTA:
-{FIELDS}{"campo1": "valor1", "campo2": "valor2"}{/FIELDS}
-Tu mensaje amigable aquí
+FORMATO OBLIGATORIO:
+{FIELDS}{"campo": "valor", ...}{/FIELDS}
+Una sola pregunta corta sobre lo que falta
 
-CAMPOS DISPONIBLES:
-- reporter_name = nombre de la persona
-- reporter_position = cargo (Médico, Enfermero, Administrativo, etc.)
-- reporter_service = área donde trabaja
-- reporter_extension = número de extensión telefónica
-- name = título corto del problema (máx 80 caracteres)
-- content = descripción detallada del problema
-- priority = "3" normal, "4" alta, "5" muy alta, "6" urgente
-- device_type = tipo de dispositivo: "computer", "monitor", "printer", "phone", "network", "software", "other"
-- equipment_ecom = ECOM del equipo (solo para computadores, ej: "ecom02306", "ecom01274")
-- itilcategories_id = ID de la categoría del problema (OBLIGATORIO, deducir según el contexto)
+CAMPOS:
+- reporter_name: nombre
+- reporter_position: cargo (Administrativo, Médico, Enfermero, Técnico)
+- reporter_service: área/servicio
+- reporter_extension: extensión (4 dígitos)
+- device_type: computer|printer|monitor|phone|network|software
+- equipment_ecom: código ECOM (ecomXXXXX)
+- name: título corto del problema
+- content: descripción del problema
+- priority: 3
+- itilcategories_id: {$categoryListStr}
 
-CATEGORÍAS DISPONIBLES (usa el ID):
-{$categoryListStr}
+EJEMPLO CRÍTICO:
+Usuario: "Soy Kevin, Administrativo, mi PC no imprime"
+{FIELDS}{"reporter_name": "Kevin", "reporter_position": "Administrativo", "device_type": "computer", "name": "PC no imprime", "content": "El computador no imprime", "priority": "3", "itilcategories_id": "12"}{/FIELDS}
+¿En qué área trabajas y cuál es tu extensión?
 
-LISTA DE ECOMs VÁLIDOS (muestra de {$totalEcoms} total):
-{$ecomListStr}
+FLUJO:
+1. Nombre → reporter_name
+2. Cargo → reporter_position
+3. Área → reporter_service
+4. Extensión → reporter_extension
+5. Problema → name, content, device_type, itilcategories_id
+6. Si es hardware sin ECOM → preguntar ECOM
 
-FLUJO DE CONVERSACIÓN:
-1. Si falta reporter_name → preguntar nombre
-2. Si falta reporter_position → preguntar cargo
-3. Si falta reporter_service → preguntar área/servicio
-4. Si falta reporter_extension → preguntar extensión
-5. Preguntar qué problema tiene y con qué dispositivo
-6. SI ES UN COMPUTADOR → preguntar "¿Cuál es el ECOM del equipo? (está en una etiqueta en el computador, empieza con 'ecom')"
-7. Validar el ECOM:
-   - Si el ECOM existe en la lista → guardarlo en equipment_ecom
-   - Si NO existe pero es similar a uno de la lista → sugerir: "No encontré ese ECOM. ¿Quizás quisiste decir 'ecomXXXX'?"
-   - Si no se parece a ninguno → decir: "No encontré ese ECOM. Por favor verifica la etiqueta del equipo."
-8. Cuando tenga toda la info → generar name, content, priority, device_type (y equipment_ecom si aplica)
-
-EJEMPLOS CORRECTOS:
-
-Usuario: "Hola, soy María García"
-Respuesta:
-{FIELDS}{"reporter_name": "María García"}{/FIELDS}
-¡Hola María! ¿Cuál es tu cargo en el hospital?
-
-Usuario: "Soy enfermera de UCI"
-Respuesta:
-{FIELDS}{"reporter_position": "Enfermera", "reporter_service": "UCI"}{/FIELDS}
-Perfecto. ¿Cuál es tu extensión telefónica?
-
-Usuario: "Ext 2045"
-Respuesta:
-{FIELDS}{"reporter_extension": "2045"}{/FIELDS}
-¡Listo! Ahora cuéntame, ¿qué problema tienes?
-
-Usuario: "Mi computador está muy lento"
-Respuesta:
-{FIELDS}{"device_type": "computer"}{/FIELDS}
-Entendido, es un problema con el computador. ¿Cuál es el ECOM del equipo? (lo encuentras en una etiqueta pegada al computador, empieza con "ecom")
-
-Usuario: "Es el ecom02306"
-Respuesta:
-{FIELDS}{"equipment_ecom": "ecom02306", "name": "Computador lento - ecom02306", "content": "El equipo de cómputo ecom02306 presenta lentitud. Se requiere revisión.", "priority": "3", "itilcategories_id": "1"}{/FIELDS}
-¡Perfecto! Ya llené el formulario. Revisa los datos y haz clic en "Enviar Reporte" 📝
-
-Usuario: "Es el ecom99999" (no existe)
-Respuesta:
-No encontré ese ECOM en el sistema. Por favor verifica la etiqueta del equipo. Debería verse algo como "ecom02306" o similar.
-
-Usuario: "El teléfono no tiene sonido"
-Respuesta:
-{FIELDS}{"name": "Teléfono sin sonido", "content": "El teléfono del área no tiene sonido. Se requiere revisión.", "priority": "4", "device_type": "phone", "itilcategories_id": "2"}{/FIELDS}
-¡Listo! Como es un teléfono, usaré tu extensión como referencia. Revisa los datos y envía tu reporte 📝
-
-REGLAS IMPORTANTES:
-- Respuestas cortas y amigables (1-2 oraciones)
-- Siempre en español
-- Siempre incluir {FIELDS} si hay info que extraer
-- Para COMPUTADORES: SIEMPRE pedir el ECOM antes de completar el formulario
-- Para TELÉFONOS: usar la extensión del usuario como referencia
-- NUNCA mostrar al usuario los valores técnicos de los campos
-- Solo confirmar que el formulario está listo para enviar
-- SIEMPRE incluir itilcategories_id cuando completes el formulario (deducir la categoría más apropiada según el problema)
+IMPORTANTE: Solo HAZ UNA PREGUNTA por respuesta. No hagas múltiples preguntas.
 PROMPT;
     }
 }

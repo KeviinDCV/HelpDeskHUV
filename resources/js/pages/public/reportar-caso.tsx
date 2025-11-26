@@ -121,16 +121,67 @@ export default function ReportarCaso() {
             if (data.success) {
                 if (data.fields && typeof data.fields === 'object') {
                     const newFilledFields: string[] = [...filledFields];
-                    Object.entries(data.fields).forEach(([field, value]) => {
-                        if (value && typeof value === 'string' && value.trim()) {
-                            handleChange(field, value);
-                            if (!newFilledFields.includes(field)) newFilledFields.push(field);
+                    const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada'];
+                    
+                    // Procesar campos
+                    const fieldsToProcess = { ...data.fields };
+                    
+                    // Detectar si hay ECOM en extensión y corregirlo
+                    if (fieldsToProcess.reporter_extension && 
+                        typeof fieldsToProcess.reporter_extension === 'string' &&
+                        fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
+                        // Mover a equipment_ecom si no existe
+                        if (!fieldsToProcess.equipment_ecom) {
+                            fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
+                        }
+                        fieldsToProcess.reporter_extension = ''; // Limpiar extensión
+                    }
+                    
+                    Object.entries(fieldsToProcess).forEach(([field, value]) => {
+                        if (value && typeof value === 'string') {
+                            const trimmedValue = value.trim().toLowerCase();
+                            // Solo guardar si el valor es válido y no es un placeholder
+                            if (trimmedValue && !invalidValues.includes(trimmedValue)) {
+                                const currentValue = formData[field as keyof FormData] || '';
+                                // Actualizar si está vacío o el nuevo valor es más largo
+                                if (!currentValue || value.length > currentValue.length) {
+                                    handleChange(field, value);
+                                    if (!newFilledFields.includes(field)) newFilledFields.push(field);
+                                }
+                            }
                         }
                     });
                     setFilledFields(newFilledFields);
-                }
-                // Solo agregar mensaje si no está vacío
-                if (data.message && data.message.trim()) {
+                    
+                    // Verificar si el formulario ya está completo
+                    const updatedFormData = { ...formData };
+                    Object.entries(fieldsToProcess).forEach(([field, value]) => {
+                        if (value && typeof value === 'string' && value.trim()) {
+                            updatedFormData[field as keyof FormData] = value;
+                        }
+                    });
+                    
+                    // Campos básicos requeridos
+                    const basicFieldsComplete = updatedFormData.reporter_name && 
+                                                updatedFormData.reporter_position && 
+                                                updatedFormData.reporter_service && 
+                                                updatedFormData.name && 
+                                                updatedFormData.content;
+                    
+                    // Si es hardware, también requiere ECOM
+                    const isHardware = ['computer', 'printer', 'monitor', 'phone'].includes(updatedFormData.device_type || '');
+                    const needsEcom = isHardware && !updatedFormData.equipment_ecom;
+                    
+                    const formIsComplete = basicFieldsComplete && !needsEcom;
+                    
+                    // Si el formulario está completo, mostrar mensaje de listo
+                    if (formIsComplete) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
+                    } else if (data.message && data.message.trim()) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+                    }
+                } else if (data.message && data.message.trim()) {
+                    // Si no hay campos pero hay mensaje
                     setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
                 }
             } else {
@@ -176,21 +227,45 @@ export default function ReportarCaso() {
         }
     };
 
+    // Si hay éxito, mostrar pantalla de confirmación
+    if (flash?.success) {
+        return (
+            <>
+                <Head title="Reporte Enviado - HelpDesk HUV" />
+                <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center">
+                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <CheckCircle className="w-12 h-12 text-green-600" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-800 mb-2">¡Reporte Enviado!</h1>
+                        <p className="text-gray-600 mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
+                        
+                        <div className="bg-[#2c4370] text-white rounded-xl p-6 mb-6">
+                            <p className="text-sm text-white/80 mb-1">Número de caso</p>
+                            <p className="text-4xl font-bold">#{flash.success.ticket_id}</p>
+                        </div>
+                        
+                        <p className="text-sm text-gray-500 mb-6">
+                            Guarda este número para hacer seguimiento de tu caso.
+                        </p>
+                        
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full bg-[#2c4370] text-white py-3 px-6 rounded-xl font-semibold hover:bg-[#3d5583] transition-colors"
+                        >
+                            Crear Nuevo Reporte
+                        </button>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
             <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
                 <div className="w-full max-w-5xl">
-                    {flash?.success && (
-                        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-5 flex items-start gap-4 shadow-lg">
-                            <CheckCircle className="w-8 h-8 text-green-600 flex-shrink-0" />
-                            <div>
-                                <h3 className="font-bold text-green-800 text-lg">{flash.success.message}</h3>
-                                <p className="text-green-700 mt-1">Su número de caso es: <strong className="text-xl">#{flash.success.ticket_id}</strong></p>
-                                <p className="text-green-600 text-sm mt-2">Guarde este número para hacer seguimiento.</p>
-                            </div>
-                        </div>
-                    )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Chat Principal */}

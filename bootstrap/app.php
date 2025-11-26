@@ -15,6 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        
+        // Excluir rutas públicas del CSRF para evitar errores 419 por token expirado
+        $middleware->validateCsrfTokens(except: [
+            'reportar',
+            'chatbot',
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,
