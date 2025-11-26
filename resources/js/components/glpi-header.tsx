@@ -1,7 +1,7 @@
 import { Bell, LogOut, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { router } from '@inertiajs/react'
+import { router, usePage } from '@inertiajs/react'
 import { ReactNode } from 'react'
 import {
   DropdownMenu,
@@ -75,7 +75,18 @@ interface GLPIHeaderProps {
   breadcrumb?: ReactNode;
 }
 
+interface AuthUser {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+}
+
 export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
+  const { auth } = usePage<{ auth: { user: AuthUser } }>().props;
+  const user = auth?.user;
+  
   const handleLogout = () => {
     router.post('/logout')
   }
@@ -244,12 +255,12 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-white hover:bg-[#3d5583] text-sm">
-                Chavarro Erazo Kevin ...
+                {user?.name ? (user.name.length > 25 ? user.name.substring(0, 25) + '...' : user.name) : 'Usuario'}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>Perfil</DropdownMenuItem>
-              <DropdownMenuItem>Configuración</DropdownMenuItem>
+              <DropdownMenuItem className="text-xs text-gray-500 cursor-default">{user?.role || 'Usuario'}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.visit('/settings/profile')}>Perfil</DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout}>Cerrar sesión</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -274,18 +285,9 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm">HUV (estructura en árbol)</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="text-sm">
-                  Technician
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>Technician</DropdownMenuItem>
-                <DropdownMenuItem>Administrator</DropdownMenuItem>
-                <DropdownMenuItem>User</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="outline" size="sm" className="text-sm cursor-default">
+              {user?.role || 'Usuario'}
+            </Button>
           </div>
         </div>
       </div>

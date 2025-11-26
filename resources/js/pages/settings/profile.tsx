@@ -1,148 +1,225 @@
-import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import { send } from '@/routes/verification';
-import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Transition } from '@headlessui/react';
-import { Form, Head, Link, usePage } from '@inertiajs/react';
-
-import DeleteUser from '@/components/delete-user';
-import HeadingSmall from '@/components/heading-small';
-import InputError from '@/components/input-error';
+import { GLPIHeader } from '@/components/glpi-header';
+import { GLPIFooter } from '@/components/glpi-footer';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
-import SettingsLayout from '@/layouts/settings/layout';
-import { edit } from '@/routes/profile';
+import { User, Mail, Phone, Camera } from 'lucide-react';
+import React, { useState, useRef } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Profile settings',
-        href: edit().url,
-    },
-];
+interface AuthUser {
+    id: number;
+    name: string;
+    username: string;
+    email: string;
+    phone: string | null;
+    avatar: string | null;
+    role: string;
+}
 
-export default function Profile({
-    mustVerifyEmail,
-    status,
-}: {
+interface ProfileProps {
     mustVerifyEmail: boolean;
     status?: string;
-}) {
-    const { auth } = usePage<SharedData>().props;
+    flash?: { success?: string };
+}
+
+export default function Profile({ status, flash }: ProfileProps) {
+    const { auth } = usePage<{ auth: { user: AuthUser } }>().props;
+    const user = auth.user;
+    
+    const [formData, setFormData] = useState({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+    });
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(
+        user.avatar ? `/storage/${user.avatar}` : null
+    );
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [processing, setProcessing] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setAvatarFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatarPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        setErrors({});
+
+        const data = new FormData();
+        data.append('name', formData.name);
+        data.append('email', formData.email);
+        data.append('phone', formData.phone);
+        data.append('_method', 'PATCH');
+        if (avatarFile) {
+            data.append('avatar', avatarFile);
+        }
+
+        router.post('/settings/profile', data, {
+            forceFormData: true,
+            onSuccess: () => {
+                setProcessing(false);
+                setAvatarFile(null);
+            },
+            onError: (errs) => {
+                setErrors(errs as Record<string, string>);
+                setProcessing(false);
+            },
+        });
+    };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Profile settings" />
+        <>
+            <Head title="Mi Perfil - HelpDesk HUV" />
+            <div className="min-h-screen flex flex-col bg-gray-50">
+                <GLPIHeader breadcrumb={
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Inicio</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="font-medium text-gray-900">Mi Perfil</span>
+                    </div>
+                } />
 
-            <SettingsLayout>
-                <div className="space-y-6">
-                    <HeadingSmall
-                        title="Profile information"
-                        description="Update your name and email address"
-                    />
+                <main className="flex-1 px-6 py-6">
+                    <div className="max-w-2xl mx-auto">
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b">
+                                <h1 className="text-xl font-semibold text-gray-900">Mi Perfil</h1>
+                                <p className="text-sm text-gray-500 mt-1">Actualiza tu información personal</p>
+                            </div>
 
-                    <Form
-                        {...ProfileController.update.form()}
-                        options={{
-                            preserveScroll: true,
-                        }}
-                        className="space-y-6"
-                    >
-                        {({ processing, recentlySuccessful, errors }) => (
-                            <>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="name">Name</Label>
+                            {flash?.success && (
+                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <p className="text-sm text-green-700">{flash.success}</p>
+                                </div>
+                            )}
 
+                            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                                {/* Avatar */}
+                                <div className="flex items-center gap-6">
+                                    <div className="relative">
+                                        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                                            {avatarPreview ? (
+                                                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <User className="w-12 h-12 text-gray-400" />
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="absolute bottom-0 right-0 w-8 h-8 bg-[#2c4370] text-white rounded-full flex items-center justify-center shadow-md hover:bg-[#3d5583] transition-colors"
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                        </button>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleAvatarChange}
+                                            className="hidden"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">{user.name}</p>
+                                        <p className="text-sm text-gray-500">{user.role}</p>
+                                        <p className="text-xs text-gray-400 mt-1">@{user.username}</p>
+                                    </div>
+                                </div>
+                                {errors.avatar && <p className="text-sm text-red-600">{errors.avatar}</p>}
+
+                                {/* Nombre */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="name" className="flex items-center gap-2">
+                                        <User className="w-4 h-4 text-gray-400" />
+                                        Nombre Completo
+                                    </Label>
                                     <Input
                                         id="name"
-                                        className="mt-1 block w-full"
-                                        defaultValue={auth.user.name}
-                                        name="name"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="Tu nombre completo"
                                         required
-                                        autoComplete="name"
-                                        placeholder="Full name"
                                     />
-
-                                    <InputError
-                                        className="mt-2"
-                                        message={errors.name}
-                                    />
+                                    {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
                                 </div>
 
-                                <div className="grid gap-2">
-                                    <Label htmlFor="email">Email address</Label>
-
+                                {/* Email */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="email" className="flex items-center gap-2">
+                                        <Mail className="w-4 h-4 text-gray-400" />
+                                        Correo Electrónico
+                                    </Label>
                                     <Input
                                         id="email"
                                         type="email"
-                                        className="mt-1 block w-full"
-                                        defaultValue={auth.user.email}
-                                        name="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        placeholder="tu@email.com"
                                         required
-                                        autoComplete="username"
-                                        placeholder="Email address"
                                     />
-
-                                    <InputError
-                                        className="mt-2"
-                                        message={errors.email}
-                                    />
+                                    {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
                                 </div>
 
-                                {mustVerifyEmail &&
-                                    auth.user.email_verified_at === null && (
+                                {/* Teléfono */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone" className="flex items-center gap-2">
+                                        <Phone className="w-4 h-4 text-gray-400" />
+                                        Teléfono
+                                    </Label>
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                        placeholder="Ej: 3001234567"
+                                    />
+                                    {errors.phone && <p className="text-sm text-red-600">{errors.phone}</p>}
+                                </div>
+
+                                {/* Info de solo lectura */}
+                                <div className="pt-4 border-t space-y-3">
+                                    <p className="text-xs text-gray-500 uppercase font-semibold">Información de la cuenta</p>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <p className="-mt-4 text-sm text-muted-foreground">
-                                                Your email address is
-                                                unverified.{' '}
-                                                <Link
-                                                    href={send()}
-                                                    as="button"
-                                                    className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
-                                                >
-                                                    Click here to resend the
-                                                    verification email.
-                                                </Link>
-                                            </p>
-
-                                            {status ===
-                                                'verification-link-sent' && (
-                                                <div className="mt-2 text-sm font-medium text-green-600">
-                                                    A new verification link has
-                                                    been sent to your email
-                                                    address.
-                                                </div>
-                                            )}
+                                            <span className="text-gray-500">Usuario:</span>
+                                            <span className="ml-2 font-medium">{user.username}</span>
                                         </div>
-                                    )}
-
-                                <div className="flex items-center gap-4">
-                                    <Button
-                                        disabled={processing}
-                                        data-test="update-profile-button"
-                                    >
-                                        Save
-                                    </Button>
-
-                                    <Transition
-                                        show={recentlySuccessful}
-                                        enter="transition ease-in-out"
-                                        enterFrom="opacity-0"
-                                        leave="transition ease-in-out"
-                                        leaveTo="opacity-0"
-                                    >
-                                        <p className="text-sm text-neutral-600">
-                                            Saved
-                                        </p>
-                                    </Transition>
+                                        <div>
+                                            <span className="text-gray-500">Rol:</span>
+                                            <span className="ml-2 font-medium">{user.role}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </>
-                        )}
-                    </Form>
-                </div>
 
-                <DeleteUser />
-            </SettingsLayout>
-        </AppLayout>
+                                {/* Botón guardar */}
+                                <div className="pt-4 flex justify-end">
+                                    <Button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
+                                    >
+                                        {processing ? 'Guardando...' : 'Guardar Cambios'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </main>
+
+                <GLPIFooter />
+            </div>
+        </>
     );
 }
