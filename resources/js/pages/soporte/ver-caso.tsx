@@ -1,9 +1,11 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Edit, Clock, User, UserCheck, MapPin, Tag, AlertTriangle, Monitor } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Wrench, Edit, Monitor } from 'lucide-react';
+import { useState } from 'react';
 
 interface Ticket {
     id: number;
@@ -48,12 +50,12 @@ interface VerCasoProps {
 }
 
 const statusColors: Record<number, string> = {
-    1: 'bg-blue-100 text-blue-700 border-blue-200',
-    2: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    3: 'bg-purple-100 text-purple-700 border-purple-200',
-    4: 'bg-orange-100 text-orange-700 border-orange-200',
-    5: 'bg-green-100 text-green-700 border-green-200',
-    6: 'bg-gray-100 text-gray-600 border-gray-200',
+    1: 'bg-blue-100 text-blue-700',
+    2: 'bg-yellow-100 text-yellow-700',
+    3: 'bg-purple-100 text-purple-700',
+    4: 'bg-orange-100 text-orange-700',
+    5: 'bg-green-100 text-green-700',
+    6: 'bg-gray-100 text-gray-600',
 };
 
 const priorityColors: Record<number, string> = {
@@ -76,6 +78,10 @@ const itemTypeLabels: Record<string, string> = {
 };
 
 export default function VerCaso({ ticket, requester, technician, ticketItems }: VerCasoProps) {
+    const [showSolution, setShowSolution] = useState(false);
+    const [solution, setSolution] = useState('');
+    const [processing, setProcessing] = useState(false);
+
     const stripHtml = (html: string) => {
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
@@ -83,207 +89,234 @@ export default function VerCaso({ ticket, requester, technician, ticketItems }: 
     };
 
     const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return 'No especificada';
+        if (!dateStr) return '-';
         return new Date(dateStr).toLocaleDateString('es-CO', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
         });
     };
 
+    const handleAddSolution = async () => {
+        if (!solution.trim() || solution.length < 10) {
+            alert('La solución debe tener al menos 10 caracteres');
+            return;
+        }
+        setProcessing(true);
+        
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            const response = await fetch(`/soporte/casos/${ticket.id}/solucion`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken || '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'include',
+                body: JSON.stringify({ solution }),
+            });
+
+            if (response.status === 419) {
+                alert('Tu sesión ha expirado. La página se recargará.');
+                window.location.reload();
+                return;
+            }
+
+            if (response.ok || response.redirected) {
+                // Redirigir al dashboard con éxito
+                router.visit('/dashboard', { 
+                    preserveState: false,
+                    replace: true,
+                });
+            } else {
+                const data = await response.json().catch(() => ({}));
+                alert(data.message || 'Error al cerrar el caso. Intenta de nuevo.');
+            }
+        } catch {
+            alert('Error de conexión. Verifica tu internet e intenta de nuevo.');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const canProcess = ticket.status !== 5 && ticket.status !== 6;
+
     return (
         <>
-            <Head title={`Caso #${ticket.id} - ${ticket.name}`} />
-            <div className="min-h-screen flex flex-col">
-                <GLPIHeader />
-                <main className="flex-1 bg-gray-50 p-6">
-                    {/* Header */}
+            <Head title={`Caso #${ticket.id} - HelpDesk HUV`} />
+            <div className="min-h-screen flex flex-col bg-gray-50">
+                <GLPIHeader breadcrumb={
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Inicio</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-gray-600">Soporte</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-gray-600">Casos</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="font-medium text-gray-900">Ver #{ticket.id}</span>
+                    </div>
+                } />
+
+                <main className="flex-1 px-6 py-6">
                     <div className="max-w-5xl mx-auto">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-4">
-                                <Link href="/dashboard">
-                                    <Button variant="outline" size="sm">
-                                        <ArrowLeft className="w-4 h-4 mr-2" />
-                                        Volver
-                                    </Button>
-                                </Link>
+                        <div className="bg-white rounded-lg shadow">
+                            {/* Header */}
+                            <div className="px-6 py-4 border-b flex items-center justify-between">
                                 <div>
-                                    <h1 className="text-2xl font-bold text-gray-800">Caso #{ticket.id}</h1>
-                                    <p className="text-sm text-gray-500">Creado: {formatDate(ticket.date_creation)}</p>
+                                    <div className="flex items-center gap-3">
+                                        <h1 className="text-xl font-semibold text-gray-900">Caso #{ticket.id}</h1>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${statusColors[ticket.status]}`}>
+                                            {ticket.status_name}
+                                        </span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${priorityColors[ticket.priority]}`}>
+                                            {ticket.priority_name}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-1">{ticket.name}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    {canProcess && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => setShowSolution(!showSolution)}
+                                            className={`h-8 text-xs ${showSolution ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-600 hover:bg-green-700'}`}
+                                        >
+                                            <Wrench className="w-3.5 h-3.5 mr-1" />
+                                            {showSolution ? 'Cancelar' : 'Procesar caso'}
+                                        </Button>
+                                    )}
+                                    <Link href={`/soporte/casos/${ticket.id}/editar`}>
+                                        <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] h-8 text-xs">
+                                            <Edit className="w-3.5 h-3.5 mr-1" />
+                                            Editar
+                                        </Button>
+                                    </Link>
                                 </div>
                             </div>
-                            <Link href={`/soporte/casos/${ticket.id}/editar`}>
-                                <Button className="bg-[#2c4370] hover:bg-[#3d5583]">
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Editar Caso
-                                </Button>
-                            </Link>
-                        </div>
 
-                        {/* Main Content */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Left Column - Ticket Details */}
-                            <div className="lg:col-span-2 space-y-6">
-                                {/* Title and Status */}
-                                <Card>
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-start justify-between gap-4">
-                                            <CardTitle className="text-xl">{ticket.name}</CardTitle>
-                                            <span className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[ticket.status]}`}>
-                                                {ticket.status_name}
-                                            </span>
+
+                            {/* Content */}
+                            <div className="p-4">
+                                {/* Sección Solución */}
+                                {showSolution && (
+                                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                        <Label className="text-xs font-semibold text-green-800">Solución *</Label>
+                                        <Textarea
+                                            value={solution}
+                                            onChange={(e) => setSolution(e.target.value)}
+                                            placeholder="Describe cómo se solucionó el problema (mínimo 10 caracteres)..."
+                                            rows={3}
+                                            className="mt-1 text-sm bg-white"
+                                        />
+                                        <div className="mt-2 flex items-center justify-between">
+                                            <p className="text-xs text-green-700">Al agregar la solución, el caso se cerrará automáticamente.</p>
+                                            <Button
+                                                size="sm"
+                                                onClick={handleAddSolution}
+                                                disabled={processing || solution.length < 10}
+                                                className="bg-green-600 hover:bg-green-700 h-8 text-xs"
+                                            >
+                                                {processing ? 'Cerrando...' : 'Cerrar Caso'}
+                                            </Button>
                                         </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[ticket.priority]}`}>
-                                                Prioridad: {ticket.priority_name}
-                                            </span>
-                                            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                Urgencia: {ticket.urgency_name}
-                                            </span>
-                                            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                Impacto: {ticket.impact_name}
-                                            </span>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {/* Información General */}
+                                    <div className="md:col-span-2 space-y-3">
+                                        <div>
+                                            <Label className="text-xs text-gray-500">Solicitante</Label>
+                                            <p className="text-sm font-medium">{requester?.fullname || 'Reporte Público'}</p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs text-gray-500">Técnico Asignado</Label>
+                                            <p className="text-sm font-medium">{technician?.fullname || <span className="text-orange-500">Sin asignar</span>}</p>
                                         </div>
                                         {ticket.category_name && (
-                                            <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                                                <Tag className="w-4 h-4" />
-                                                <span>Categoría: {ticket.category_name}</span>
+                                            <div>
+                                                <Label className="text-xs text-gray-500">Categoría</Label>
+                                                <p className="text-sm">{ticket.category_name}</p>
                                             </div>
                                         )}
-                                    </CardContent>
-                                </Card>
-
-                                {/* Description */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Descripción del Problema</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-                                            {stripHtml(ticket.content)}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Associated Items */}
-                                {ticketItems.length > 0 && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-lg flex items-center gap-2">
-                                                <Monitor className="w-5 h-5" />
-                                                Elementos Asociados
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-2">
-                                                {ticketItems.map((item, index) => (
-                                                    <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                                        <Monitor className="w-4 h-4 text-gray-500" />
-                                                        <div>
-                                                            <span className="font-medium">{item.name}</span>
-                                                            <span className="text-sm text-gray-500 ml-2">
-                                                                ({itemTypeLabels[item.itemtype] || item.itemtype})
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
-
-                            {/* Right Column - Sidebar */}
-                            <div className="space-y-6">
-                                {/* People */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Personas</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="flex items-start gap-3">
-                                            <User className="w-5 h-5 text-blue-500 mt-0.5" />
+                                        {ticket.location_name && (
                                             <div>
-                                                <p className="text-xs text-gray-500 uppercase">Solicitante</p>
-                                                <p className="font-medium">
-                                                    {requester?.fullname || 'Reporte Público'}
-                                                </p>
+                                                <Label className="text-xs text-gray-500">Ubicación</Label>
+                                                <p className="text-sm">{ticket.location_name}</p>
                                             </div>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <UserCheck className="w-5 h-5 text-green-500 mt-0.5" />
+                                        )}
+                                    </div>
+
+                                    {/* Fechas y Métricas */}
+                                    <div className="md:col-span-2 space-y-3">
+                                        <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <p className="text-xs text-gray-500 uppercase">Técnico Asignado</p>
-                                                <p className="font-medium">
-                                                    {technician?.fullname || (
-                                                        <span className="text-orange-500">Sin asignar</span>
-                                                    )}
-                                                </p>
+                                                <Label className="text-xs text-gray-500">Fecha Apertura</Label>
+                                                <p className="text-sm">{formatDate(ticket.date)}</p>
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Location */}
-                                {ticket.location_name && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-lg flex items-center gap-2">
-                                                <MapPin className="w-5 h-5" />
-                                                Ubicación
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <p className="text-gray-700">{ticket.location_name}</p>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {/* Dates */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <Clock className="w-5 h-5" />
-                                            Fechas
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3 text-sm">
-                                        <div>
-                                            <p className="text-gray-500">Fecha de Apertura</p>
-                                            <p className="font-medium">{formatDate(ticket.date)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">Última Modificación</p>
-                                            <p className="font-medium">{formatDate(ticket.date_mod)}</p>
+                                            <div>
+                                                <Label className="text-xs text-gray-500">Última Modificación</Label>
+                                                <p className="text-sm">{formatDate(ticket.date_mod)}</p>
+                                            </div>
+                                            <div>
+                                                <Label className="text-xs text-gray-500">Urgencia</Label>
+                                                <p className="text-sm">{ticket.urgency_name}</p>
+                                            </div>
+                                            <div>
+                                                <Label className="text-xs text-gray-500">Impacto</Label>
+                                                <p className="text-sm">{ticket.impact_name}</p>
+                                            </div>
                                         </div>
                                         {ticket.time_to_resolve && (
                                             <div>
-                                                <p className="text-gray-500">Fecha Límite</p>
-                                                <p className="font-medium">{formatDate(ticket.time_to_resolve)}</p>
+                                                <Label className="text-xs text-gray-500">Fecha Límite</Label>
+                                                <p className="text-sm">{formatDate(ticket.time_to_resolve)}</p>
                                             </div>
                                         )}
-                                    </CardContent>
-                                </Card>
+                                    </div>
 
-                                {/* Entity */}
-                                {ticket.entity_name && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-lg">Entidad</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <p className="text-gray-700">{ticket.entity_name}</p>
-                                        </CardContent>
-                                    </Card>
-                                )}
+                                    {/* Descripción */}
+                                    <div className="md:col-span-4">
+                                        <Label className="text-xs text-gray-500">Descripción del Problema</Label>
+                                        <div className="mt-1 p-3 bg-gray-50 rounded border text-sm whitespace-pre-wrap">
+                                            {stripHtml(ticket.content)}
+                                        </div>
+                                    </div>
+
+                                    {/* Elementos Asociados */}
+                                    {ticketItems.length > 0 && (
+                                        <div className="md:col-span-4">
+                                            <Label className="text-xs text-gray-500">Elementos Asociados</Label>
+                                            <div className="mt-1 flex flex-wrap gap-2">
+                                                {ticketItems.map((item, index) => (
+                                                    <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded text-sm">
+                                                        <Monitor className="w-3.5 h-3.5 text-blue-600" />
+                                                        <span>{item.name}</span>
+                                                        <span className="text-xs text-blue-600">({itemTypeLabels[item.itemtype] || item.itemtype})</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="mt-4 flex items-center justify-end gap-2 pt-3 border-t">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => router.visit('/dashboard')}
+                                        className="h-8 text-xs"
+                                    >
+                                        Volver al Dashboard
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </main>
+
                 <GLPIFooter />
             </div>
         </>

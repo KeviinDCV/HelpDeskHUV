@@ -141,15 +141,47 @@ class ChatbotController extends Controller
         $fields = [];
         $message = $response;
 
-        // Buscar patrón JSON en la respuesta
-        if (preg_match('/\{FIELDS\}(.*?)\{\/FIELDS\}/s', $response, $matches)) {
+        // Buscar patrón JSON en la respuesta (case insensitive)
+        if (preg_match('/\{FIELDS\}(.*?)\{\/FIELDS\}/si', $response, $matches)) {
             $jsonStr = trim($matches[1]);
+            
+            // Log del JSON encontrado
+            \Log::info('Chatbot JSON Found', ['json_str' => $jsonStr]);
+            
             $decoded = json_decode($jsonStr, true);
             if (is_array($decoded)) {
                 $fields = $decoded;
+            } else {
+                \Log::warning('Chatbot JSON Parse Failed', [
+                    'json_str' => $jsonStr,
+                    'json_error' => json_last_error_msg()
+                ]);
             }
             // Remover el bloque de campos del mensaje
-            $message = trim(preg_replace('/\{FIELDS\}.*?\{\/FIELDS\}/s', '', $response));
+            $message = trim(preg_replace('/\{FIELDS\}.*?\{\/FIELDS\}/si', '', $response));
+        } else {
+            // Intentar buscar JSON directo si no hay tags FIELDS
+            if (preg_match('/\{[^}]+\}/s', $response, $jsonMatch)) {
+                $decoded = json_decode($jsonMatch[0], true);
+                if (is_array($decoded) && !empty($decoded)) {
+                    // Verificar que tenga campos válidos del formulario
+                    $validFields = ['reporter_name', 'reporter_position', 'reporter_service', 
+                                   'reporter_extension', 'name', 'content', 'device_type', 
+                                   'equipment_ecom', 'priority', 'itilcategories_id'];
+                    $hasValidField = false;
+                    foreach (array_keys($decoded) as $key) {
+                        if (in_array($key, $validFields)) {
+                            $hasValidField = true;
+                            break;
+                        }
+                    }
+                    if ($hasValidField) {
+                        $fields = $decoded;
+                        $message = trim(preg_replace('/\{[^}]+\}/', '', $response));
+                        \Log::info('Chatbot JSON Found (no tags)', ['fields' => $fields]);
+                    }
+                }
+            }
         }
 
         return [
@@ -236,9 +268,12 @@ class ChatbotController extends Controller
         return <<<PROMPT
 Eres Evarisbot del Hospital Universitario del Valle. Capturas datos para reportes técnicos.
 
-DATOS ACTUALES: {$currentDataStr}
+DATOS YA CAPTURADOS: {$currentDataStr}
 
-REGLA PRINCIPAL: Si el usuario da MÚLTIPLES datos en un mensaje, captúralos TODOS.
+REGLAS CRÍTICAS:
+1. REVISA los DATOS YA CAPTURADOS antes de preguntar algo
+2. NO vuelvas a preguntar por datos que YA TIENES
+3. Si el usuario da MÚLTIPLES datos nuevos, captúralos TODOS
 
 FORMATO OBLIGATORIO:
 {FIELDS}{"campo": "valor", ...}{/FIELDS}
@@ -248,28 +283,68 @@ CAMPOS:
 - reporter_name: nombre
 - reporter_position: cargo (Administrativo, Médico, Enfermero, Técnico)
 - reporter_service: área/servicio
-- reporter_extension: extensión (4 dígitos)
-- device_type: computer|printer|monitor|phone|network|software
+- reporter_extension: extensión telefónica
+- device_type: IMPORTANTE - tipo de equipo CON el problema:
+  * computer = COMPUTADOR (incluso si el problema es que no imprime)
+  * printer = IMPRESORA (el problema ES la impresora física)
+  * monitor = MONITOR
+  * phone = TELÉFONO
+  * network = RED/WIFI
+  * software = PROGRAMA/SISTEMA
 - equipment_ecom: código ECOM (ecomXXXXX)
 - name: título corto del problema
 - content: descripción del problema
 - priority: 3
-- itilcategories_id: {$categoryListStr}
+- itilcategories_id: CATEGORÍA DEL PROBLEMA (ver guía abajo)
 
-EJEMPLO CRÍTICO:
-Usuario: "Soy Kevin, Administrativo, mi PC no imprime"
-{FIELDS}{"reporter_name": "Kevin", "reporter_position": "Administrativo", "device_type": "computer", "name": "PC no imprime", "content": "El computador no imprime", "priority": "3", "itilcategories_id": "12"}{/FIELDS}
-¿En qué área trabajas y cuál es tu extensión?
+CATEGORÍAS DISPONIBLES ({$categoryListStr}):
+GUÍA DE SELECCIÓN DE CATEGORÍAS:
+- Problemas de IMPRESIÓN (impresora no imprime, atasco, toner): id=12
+- Problemas de RED/INTERNET (sin conexión, lento, wifi): id=11
+- Problemas de HARDWARE/PC (computador no enciende, lento, pantalla): id=2
+- Problemas de SOFTWARE/PROGRAMAS (Excel, Word, sistema): id=6
+- Problemas de TELÉFONO: id=17
+- Problemas GENERALES: id=1
+
+EJEMPLOS CRÍTICOS:
+Usuario: "La impresora no imprime"
+{FIELDS}{"name": "Impresora no imprime", "content": "La impresora no imprime", "device_type": "printer", "itilcategories_id": "12"}{/FIELDS}
+
+Usuario: "Mi PC no imprime"
+{FIELDS}{"name": "Computador no imprime", "content": "El computador no puede imprimir", "device_type": "computer", "itilcategories_id": "12"}{/FIELDS}
+
+Usuario: "No tengo internet"
+{FIELDS}{"name": "Sin conexión a internet", "content": "No tengo conexión a internet", "device_type": "network", "itilcategories_id": "11"}{/FIELDS}
 
 FLUJO:
 1. Nombre → reporter_name
-2. Cargo → reporter_position
+2. Cargo → reporter_position (VALORES: Administrativo, Médico, Enfermero, Técnico)
 3. Área → reporter_service
 4. Extensión → reporter_extension
-5. Problema → name, content, device_type, itilcategories_id
+5. Problema → name, content, device_type, itilcategories_id (USA LA GUÍA ARRIBA)
 6. Si es hardware sin ECOM → preguntar ECOM
 
-IMPORTANTE: Solo HAZ UNA PREGUNTA por respuesta. No hagas múltiples preguntas.
+EJEMPLOS DE CAPTURA DE CARGO:
+Usuario: "Soy Administrativo" o "Administrativo"
+{FIELDS}{"reporter_position": "Administrativo"}{/FIELDS}
+
+Usuario: "Soy médico" o "Médico"
+{FIELDS}{"reporter_position": "Médico"}{/FIELDS}
+
+Usuario: "Trabajo como enfermero"
+{FIELDS}{"reporter_position": "Enfermero"}{/FIELDS}
+
+ESTILO DE RESPUESTA:
+- Sé CONCISO y directo
+- NO uses múltiples saltos de línea entre tus mensajes
+- Usa máximo un salto de línea entre el saludo y la pregunta
+- Mantén un tono amigable pero eficiente
+
+IMPORTANTE: 
+1. NUNCA preguntes por datos que YA ESTÁN en "DATOS YA CAPTURADOS"
+2. Solo HAZ UNA PREGUNTA por respuesta
+3. SIEMPRE asigna la categoría más específica según la GUÍA DE CATEGORÍAS
+4. device_type es el equipo CON el problema, NO el equipo que falla como consecuencia
 PROMPT;
     }
 }

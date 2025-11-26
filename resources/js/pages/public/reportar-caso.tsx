@@ -38,12 +38,12 @@ export default function ReportarCaso() {
 
     const [processing, setProcessing] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot, tu asistente para reportar problemas técnicos en el Hospital. Vamos a crear tu reporte juntos.\n\nPara comenzar, ¿me podrías decir tu nombre completo?' },
+        { role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot, tu asistente para reportar problemas técnicos en el Hospital. Vamos a crear tu reporte juntos.\n\n¿Me podrías decir tu nombre completo?' },
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [filledFields, setFilledFields] = useState<string[]>([]);
-    
+
     const [formData, setFormData] = useState<FormData>({
         reporter_name: '', reporter_position: '', reporter_service: '', reporter_extension: '',
         reporter_email: '', name: '', content: '', priority: '3', device_type: '', equipment_ecom: '', itilcategories_id: '',
@@ -63,13 +63,16 @@ export default function ReportarCaso() {
     };
 
     const isFormComplete = () => {
-        return formData.reporter_name && formData.reporter_position && 
-               formData.reporter_service && formData.name && formData.content;
+        return formData.reporter_name && formData.reporter_position &&
+            formData.reporter_service && formData.name && formData.content;
     };
 
     const handleSubmit = () => {
         if (!isFormComplete()) return;
         setProcessing(true);
+
+        // Mostrar mensaje de feedback inmediato
+        setMessages(prev => [...prev, { role: 'assistant', content: '📤 Enviando tu reporte... Por favor espera un momento.' }]);
 
         router.post('/reportar', { ...formData }, {
             onSuccess: () => {
@@ -83,7 +86,7 @@ export default function ReportarCaso() {
             },
             onError: () => {
                 setProcessing(false);
-                setMessages(prev => [...prev, { role: 'assistant', content: 'Hubo un problema al enviar. Por favor, intenta de nuevo.' }]);
+                setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema al enviar. Por favor, intenta de nuevo.' }]);
             }
         });
     };
@@ -93,17 +96,17 @@ export default function ReportarCaso() {
 
         const userMessage = input.trim();
         setInput('');
-        
+
         // Agregar mensaje inmediatamente
         setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
         setIsLoading(true);
-        
+
         // Animar el botón
         animateSendButton();
 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            
+
             const response = await fetch('/chatbot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
@@ -117,71 +120,67 @@ export default function ReportarCaso() {
             });
 
             const data = await response.json();
-            
+
+            // Debug: ver qué devuelve la IA
+            console.log('Chatbot response:', data);
+
             if (data.success) {
-                if (data.fields && typeof data.fields === 'object') {
+                if (data.fields && typeof data.fields === 'object' && Object.keys(data.fields).length > 0) {
+                    console.log('Fields received:', data.fields);
+                    
                     const newFilledFields: string[] = [...filledFields];
-                    const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada'];
-                    
-                    // Procesar campos
+                    const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
+
+                    // Procesar campos - crear objeto con los nuevos valores
                     const fieldsToProcess = { ...data.fields };
-                    
+
                     // Detectar si hay ECOM en extensión y corregirlo
-                    if (fieldsToProcess.reporter_extension && 
+                    if (fieldsToProcess.reporter_extension &&
                         typeof fieldsToProcess.reporter_extension === 'string' &&
                         fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
-                        // Mover a equipment_ecom si no existe
                         if (!fieldsToProcess.equipment_ecom) {
                             fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
                         }
-                        fieldsToProcess.reporter_extension = ''; // Limpiar extensión
+                        fieldsToProcess.reporter_extension = '';
                     }
-                    
+
+                    // Construir el nuevo formData directamente
+                    const newFormData = { ...formData };
+
                     Object.entries(fieldsToProcess).forEach(([field, value]) => {
                         if (value && typeof value === 'string') {
                             const trimmedValue = value.trim().toLowerCase();
-                            // Solo guardar si el valor es válido y no es un placeholder
                             if (trimmedValue && !invalidValues.includes(trimmedValue)) {
                                 const currentValue = formData[field as keyof FormData] || '';
-                                // Actualizar si está vacío o el nuevo valor es más largo
-                                if (!currentValue || value.length > currentValue.length) {
-                                    handleChange(field, value);
+                                if (!currentValue || value.trim().length > currentValue.length) {
+                                    newFormData[field as keyof FormData] = value.trim();
                                     if (!newFilledFields.includes(field)) newFilledFields.push(field);
                                 }
                             }
                         }
                     });
+
+                    // Actualizar estado de una sola vez
+                    setFormData(newFormData);
                     setFilledFields(newFilledFields);
-                    
-                    // Verificar si el formulario ya está completo
-                    const updatedFormData = { ...formData };
-                    Object.entries(fieldsToProcess).forEach(([field, value]) => {
-                        if (value && typeof value === 'string' && value.trim()) {
-                            updatedFormData[field as keyof FormData] = value;
-                        }
-                    });
-                    
-                    // Campos básicos requeridos
-                    const basicFieldsComplete = updatedFormData.reporter_name && 
-                                                updatedFormData.reporter_position && 
-                                                updatedFormData.reporter_service && 
-                                                updatedFormData.name && 
-                                                updatedFormData.content;
-                    
-                    // Si es hardware, también requiere ECOM
-                    const isHardware = ['computer', 'printer', 'monitor', 'phone'].includes(updatedFormData.device_type || '');
-                    const needsEcom = isHardware && !updatedFormData.equipment_ecom;
-                    
+
+                    // Verificar si el formulario está completo usando newFormData
+                    const basicFieldsComplete = newFormData.reporter_name &&
+                        newFormData.reporter_position &&
+                        newFormData.reporter_service &&
+                        newFormData.name &&
+                        newFormData.content;
+
+                    const isHardware = ['computer', 'printer', 'monitor', 'phone'].includes(newFormData.device_type || '');
+                    const needsEcom = isHardware && !newFormData.equipment_ecom;
                     const formIsComplete = basicFieldsComplete && !needsEcom;
-                    
-                    // Si el formulario está completo, mostrar mensaje de listo
+
                     if (formIsComplete) {
                         setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
                     } else if (data.message && data.message.trim()) {
                         setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
                     }
                 } else if (data.message && data.message.trim()) {
-                    // Si no hay campos pero hay mensaje
                     setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
                 }
             } else {
@@ -207,10 +206,10 @@ export default function ReportarCaso() {
             duration: 0.1,
             ease: 'power2.in',
             onComplete: () => {
-                gsap.to(button, { 
-                    scale: 1, 
-                    duration: 0.3, 
-                    ease: 'elastic.out(1, 0.5)' 
+                gsap.to(button, {
+                    scale: 1,
+                    duration: 0.3,
+                    ease: 'elastic.out(1, 0.5)'
                 });
             }
         });
@@ -239,16 +238,16 @@ export default function ReportarCaso() {
                         </div>
                         <h1 className="text-2xl font-bold text-gray-800 mb-2">¡Reporte Enviado!</h1>
                         <p className="text-gray-600 mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
-                        
+
                         <div className="bg-[#2c4370] text-white rounded-xl p-6 mb-6">
                             <p className="text-sm text-white/80 mb-1">Número de caso</p>
                             <p className="text-4xl font-bold">#{flash.success.ticket_id}</p>
                         </div>
-                        
+
                         <p className="text-sm text-gray-500 mb-6">
                             Guarda este número para hacer seguimiento de tu caso.
                         </p>
-                        
+
                         <button
                             onClick={() => window.location.reload()}
                             className="w-full bg-[#2c4370] text-white py-3 px-6 rounded-xl font-semibold hover:bg-[#3d5583] transition-colors"
@@ -284,9 +283,9 @@ export default function ReportarCaso() {
 
                             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
                                 {messages.map((msg, index) => (
-                                    <AnimatedMessage 
-                                        key={index} 
-                                        message={msg} 
+                                    <AnimatedMessage
+                                        key={index}
+                                        message={msg}
                                         isNew={index === messages.length - 1}
                                     />
                                 ))}
@@ -333,7 +332,7 @@ export default function ReportarCaso() {
                             <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-4 py-3">
                                 <h2 className="text-white font-semibold text-sm">📋 Resumen del Reporte</h2>
                             </div>
-                            
+
                             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                 <div className="space-y-2">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase">Quien Reporta</h3>
@@ -393,18 +392,18 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
             const isUser = message.role === 'user';
 
             gsap.fromTo(el,
-                { 
-                    opacity: 0, 
-                    scale: 0.8, 
+                {
+                    opacity: 0,
+                    scale: 0.8,
                     x: isUser ? 60 : -60,
                     y: 15
                 },
-                { 
-                    opacity: 1, 
-                    scale: 1, 
+                {
+                    opacity: 1,
+                    scale: 1,
                     x: 0,
                     y: 0,
-                    duration: 0.5, 
+                    duration: 0.5,
                     ease: 'back.out(1.2)'
                 }
             );
@@ -412,15 +411,14 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
     }, [isNew, message.role]);
 
     return (
-        <div 
+        <div
             ref={messageRef}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
         >
-            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
-                message.role === 'user' 
-                    ? 'bg-[#2c4370] text-white rounded-br-sm shadow-lg' 
+            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${message.role === 'user'
+                    ? 'bg-[#2c4370] text-white rounded-br-sm shadow-lg'
                     : 'bg-white text-gray-700 shadow-md rounded-bl-sm border'
-            }`}>
+                }`}>
                 {message.content}
             </div>
         </div>

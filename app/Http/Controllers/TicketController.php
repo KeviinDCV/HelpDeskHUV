@@ -16,6 +16,14 @@ class TicketController extends Controller
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
         $search = $request->input('search', '');
+        
+        // Filtros selectivos
+        $statusFilter = $request->input('status', '');
+        $priorityFilter = $request->input('priority', '');
+        $categoryFilter = $request->input('category', '');
+        $assignedFilter = $request->input('assigned', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -39,6 +47,7 @@ class TicketController extends Controller
                 't.priority',
                 't.status',
                 't.users_id_recipient',
+                't.itilcategories_id',
                 'e.name as entity_name',
                 'cat.completename as category_name',
                 DB::raw("(SELECT CONCAT(u.firstname, ' ', u.realname) 
@@ -82,6 +91,37 @@ class TicketController extends Controller
                   ->orWhere('e.name', 'LIKE', "%{$search}%");
             });
         }
+
+        // Aplicar filtros selectivos
+        if ($statusFilter !== '') {
+            $query->where('t.status', $statusFilter);
+        }
+        
+        if ($priorityFilter !== '') {
+            $query->where('t.priority', $priorityFilter);
+        }
+        
+        if ($categoryFilter !== '') {
+            $query->where('t.itilcategories_id', $categoryFilter);
+        }
+        
+        if ($assignedFilter !== '') {
+            $query->whereExists(function ($q) use ($assignedFilter) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2) // type 2 = assigned
+                  ->where('glpi_tickets_users.users_id', $assignedFilter);
+            });
+        }
+        
+        if ($dateFrom) {
+            $query->whereDate('t.date', '>=', $dateFrom);
+        }
+        
+        if ($dateTo) {
+            $query->whereDate('t.date', '<=', $dateTo);
+        }
         
         $tickets = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -89,16 +129,51 @@ class TicketController extends Controller
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
-                'search' => $search
+                'search' => $search,
+                'status' => $statusFilter,
+                'priority' => $priorityFilter,
+                'category' => $categoryFilter,
+                'assigned' => $assignedFilter,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
             ]);
+        
+        // Obtener categorías para el filtro
+        $categories = DB::table('glpi_itilcategories')
+            ->select('id', 'name', 'completename')
+            ->where('is_incident', 1)
+            ->orderBy('completename')
+            ->get();
+        
+        // Obtener técnicos (usuarios asignados a tickets) para el filtro
+        $technicians = DB::table('glpi_users')
+            ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
+            ->where('is_deleted', 0)
+            ->where('is_active', 1)
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.users_id', 'glpi_users.id')
+                  ->where('glpi_tickets_users.type', 2);
+            })
+            ->orderBy('firstname')
+            ->get();
 
         return Inertia::render('soporte/casos', [
             'tickets' => $tickets,
+            'categories' => $categories,
+            'technicians' => $technicians,
             'filters' => [
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
-                'search' => $search
+                'search' => $search,
+                'status' => $statusFilter,
+                'priority' => $priorityFilter,
+                'category' => $categoryFilter,
+                'assigned' => $assignedFilter,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
             ],
             'auth' => [
                 'user' => auth()->user()
@@ -464,6 +539,13 @@ class TicketController extends Controller
             ->orderBy('completename')
             ->get();
 
+        // Obtener categorías de GLPI
+        $categories = DB::table('glpi_itilcategories')
+            ->select('id', 'name', 'completename')
+            ->where('is_incident', 1)
+            ->orderBy('completename')
+            ->get();
+
         // Obtener usuarios de GLPI
         $glpiUsers = DB::table('glpi_users')
             ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
@@ -488,6 +570,7 @@ class TicketController extends Controller
             'ticketUsers' => $ticketUsers,
             'ticketItems' => $ticketItems,
             'locations' => $locations,
+            'categories' => $categories,
             'glpiUsers' => $glpiUsers,
             'itemTypes' => $itemTypes,
             'auth' => [
@@ -507,6 +590,7 @@ class TicketController extends Controller
             'status' => 'required|integer|between:1,6',
             'priority' => 'required|integer|between:1,6',
             'locations_id' => 'nullable|integer',
+            'itilcategories_id' => 'nullable|integer',
         ]);
 
         DB::beginTransaction();
@@ -523,6 +607,7 @@ class TicketController extends Controller
                     'status' => $validated['status'],
                     'priority' => $validated['priority'],
                     'locations_id' => $validated['locations_id'] ?? 0,
+                    'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
                 ]);
 
             DB::commit();
@@ -532,6 +617,72 @@ class TicketController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Error al actualizar el caso: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    /**
+     * Agregar solución y cerrar el caso
+     */
+    public function addSolution(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'solution' => 'required|string|min:10',
+        ]);
+
+        $ticket = DB::table('glpi_tickets')
+            ->where('id', $id)
+            ->where('is_deleted', 0)
+            ->first();
+
+        if (!$ticket) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Caso no encontrado'], 404);
+            }
+            return redirect()->back()->with('error', 'Caso no encontrado');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Insertar la solución en glpi_itilsolutions
+            DB::table('glpi_itilsolutions')->insert([
+                'itemtype' => 'Ticket',
+                'items_id' => $id,
+                'content' => $validated['solution'],
+                'date_creation' => now(),
+                'date_mod' => now(),
+                'users_id' => auth()->id(),
+                'status' => 2, // Aprobado
+            ]);
+
+            // Actualizar el estado del ticket a Cerrado (6)
+            DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->update([
+                    'status' => 6, // Cerrado
+                    'date_mod' => now(),
+                    'solvedate' => now(),
+                    'closedate' => now(),
+                ]);
+
+            DB::commit();
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true, 
+                    'message' => 'Caso #' . $id . ' cerrado exitosamente'
+                ]);
+            }
+
+            return redirect()->route('dashboard')->with('success', 'Caso #' . $id . ' cerrado exitosamente con la solución agregada');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Error al cerrar el caso: ' . $e->getMessage()], 500);
+            }
+            
+            return redirect()->back()->with('error', 'Error al cerrar el caso: ' . $e->getMessage());
         }
     }
 

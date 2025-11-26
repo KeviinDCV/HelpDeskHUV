@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -34,6 +34,20 @@ interface User {
     username: string;
     name: string;
     role: string;
+}
+
+interface Category {
+    id: number;
+    name: string;
+    completename: string;
+}
+
+interface Technician {
+    id: number;
+    name: string;
+    firstname: string;
+    realname: string;
+    fullname: string;
 }
 
 interface Ticket {
@@ -67,23 +81,46 @@ interface TicketsProps {
         total: number;
         links: PaginationLinks[];
     };
+    categories: Category[];
+    technicians: Technician[];
     filters: {
         per_page: number;
         sort: string;
         direction: string;
         search: string;
+        status: string;
+        priority: string;
+        category: string;
+        assigned: string;
+        date_from: string;
+        date_to: string;
     };
     auth: {
         user: User;
     };
 }
 
-export default function Casos({ tickets, filters, auth }: TicketsProps) {
+export default function Casos({ tickets, categories, technicians, filters, auth }: TicketsProps) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
     const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
     const [ticketToView, setTicketToView] = React.useState<Ticket | null>(null);
+    const [showFilters, setShowFilters] = React.useState(false);
+    
+    // Estados de filtros
+    const [statusFilter, setStatusFilter] = React.useState(filters.status || '');
+    const [priorityFilter, setPriorityFilter] = React.useState(filters.priority || '');
+    const [categoryFilter, setCategoryFilter] = React.useState(filters.category || '');
+    const [assignedFilter, setAssignedFilter] = React.useState(filters.assigned || '');
+    const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
+    const [dateTo, setDateTo] = React.useState(filters.date_to || '');
+    
+    const hasActiveFilters = (statusFilter && statusFilter !== 'all') || 
+                            (priorityFilter && priorityFilter !== 'all') || 
+                            (categoryFilter && categoryFilter !== 'all') || 
+                            (assignedFilter && assignedFilter !== 'all') ||
+                            dateFrom || dateTo;
 
     // Verificar si el usuario puede eliminar un ticket
     const canDelete = (ticket: Ticket) => {
@@ -142,6 +179,12 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
         router.get('/soporte/casos', { 
             ...filters, 
             search: searchValue,
+            status: statusFilter === 'all' ? '' : statusFilter,
+            priority: priorityFilter === 'all' ? '' : priorityFilter,
+            category: categoryFilter === 'all' ? '' : categoryFilter,
+            assigned: assignedFilter === 'all' ? '' : assignedFilter,
+            date_from: dateFrom,
+            date_to: dateTo,
             page: 1 
         }, { 
             preserveState: false,
@@ -157,6 +200,42 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
         }, { 
             preserveState: false,
             preserveScroll: true 
+        });
+    };
+
+    const applyFilters = () => {
+        router.get('/soporte/casos', { 
+            ...filters, 
+            search: searchValue,
+            status: statusFilter === 'all' ? '' : statusFilter,
+            priority: priorityFilter === 'all' ? '' : priorityFilter,
+            category: categoryFilter === 'all' ? '' : categoryFilter,
+            assigned: assignedFilter === 'all' ? '' : assignedFilter,
+            date_from: dateFrom,
+            date_to: dateTo,
+            page: 1 
+        }, { 
+            preserveState: false,
+            preserveScroll: true
+        });
+    };
+
+    const clearFilters = () => {
+        setStatusFilter('');
+        setPriorityFilter('');
+        setCategoryFilter('');
+        setAssignedFilter('');
+        setDateFrom('');
+        setDateTo('');
+        setSearchValue('');
+        router.get('/soporte/casos', { 
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1 
+        }, { 
+            preserveState: false,
+            preserveScroll: true
         });
     };
 
@@ -207,7 +286,7 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
                                         <Input
                                             type="text"
                                             placeholder="Buscar..."
-                                            className="w-64 pr-10"
+                                            className="w-64 pr-10 h-9"
                                             value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => {
@@ -226,13 +305,136 @@ export default function Casos({ tickets, filters, auth }: TicketsProps) {
                                         </Button>
                                     </div>
                                     <Button 
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowFilters(!showFilters)}
+                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
+                                    >
+                                        <Filter className="h-4 w-4 mr-1" />
+                                        Filtros
+                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                    </Button>
+                                    <Button 
+                                        size="sm"
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9"
                                     >
                                         Exportar
                                     </Button>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Panel de Filtros */}
+                        {showFilters && (
+                            <div className="px-6 py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todos" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="1">Nuevo</SelectItem>
+                                                <SelectItem value="2">En curso (asignado)</SelectItem>
+                                                <SelectItem value="3">En curso (planificado)</SelectItem>
+                                                <SelectItem value="4">En espera</SelectItem>
+                                                <SelectItem value="5">Resuelto</SelectItem>
+                                                <SelectItem value="6">Cerrado</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Prioridad</label>
+                                        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todas" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                <SelectItem value="1">Muy baja</SelectItem>
+                                                <SelectItem value="2">Baja</SelectItem>
+                                                <SelectItem value="3">Media</SelectItem>
+                                                <SelectItem value="4">Alta</SelectItem>
+                                                <SelectItem value="5">Muy alta</SelectItem>
+                                                <SelectItem value="6">Urgente</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Asignado a</label>
+                                        <Select value={assignedFilter} onValueChange={setAssignedFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todos" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {technicians.map((tech) => (
+                                                    <SelectItem key={tech.id} value={tech.id.toString()}>
+                                                        {tech.fullname}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Categoría</label>
+                                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todas" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                {categories.map((cat) => (
+                                                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                                                        {cat.completename}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <Input
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <Input
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={(e) => setDateTo(e.target.value)}
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 mt-3">
+                                    {hasActiveFilters && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={clearFilters}
+                                            className="h-8 text-xs text-gray-600"
+                                        >
+                                            <X className="h-3 w-3 mr-1" />
+                                            Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="sm"
+                                        onClick={applyFilters}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
+                                    >
+                                        Aplicar filtros
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Stats */}
                         <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">

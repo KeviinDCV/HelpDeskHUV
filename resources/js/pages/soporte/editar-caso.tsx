@@ -42,6 +42,12 @@ interface ItemType {
     label: string;
 }
 
+interface Category {
+    id: number;
+    name: string;
+    completename: string;
+}
+
 interface Ticket {
     id: number;
     name: string;
@@ -52,6 +58,7 @@ interface Ticket {
     status: number;
     priority: number;
     locations_id: number;
+    itilcategories_id: number;
 }
 
 interface TicketUser {
@@ -73,6 +80,7 @@ interface EditTicketProps {
     ticketUsers: TicketUser[];
     ticketItems: TicketItem[];
     locations: Location[];
+    categories: Category[];
     glpiUsers: GLPIUser[];
     itemTypes: ItemType[];
     auth: {
@@ -80,7 +88,7 @@ interface EditTicketProps {
     };
 }
 
-export default function EditarCaso({ ticket, ticketUsers, ticketItems, locations, glpiUsers, itemTypes, auth }: EditTicketProps) {
+export default function EditarCaso({ ticket, ticketUsers, ticketItems, locations, categories, glpiUsers, itemTypes, auth }: EditTicketProps) {
     // Formatear fecha para input datetime-local
     const formatDateForInput = (dateStr: string | null) => {
         if (!dateStr) return '';
@@ -97,11 +105,12 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, locations
         status: ticket.status.toString(),
         priority: ticket.priority.toString(),
         locations_id: ticket.locations_id?.toString() || '',
+        itilcategories_id: ticket.itilcategories_id?.toString() || '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         router.put(`/soporte/casos/${ticket.id}`, data, {
             onSuccess: () => {
                 // Redirect handled by backend
@@ -204,6 +213,19 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, locations
                                             onValueChange={(value) => setData('locations_id', value)}
                                             placeholder="Seleccione..."
                                             searchPlaceholder="Buscar ubicación..."
+                                            className="mt-1"
+                                        />
+                                    </div>
+
+                                    {/* Categoría */}
+                                    <div className="md:col-span-4">
+                                        <Label htmlFor="itilcategories_id" className="text-xs">Categoría</Label>
+                                        <SearchableSelect
+                                            options={categories.map(cat => ({ value: cat.id.toString(), label: cat.completename }))}
+                                            value={data.itilcategories_id}
+                                            onValueChange={(value) => setData('itilcategories_id', value)}
+                                            placeholder="Seleccione una categoría..."
+                                            searchPlaceholder="Buscar categoría..."
                                             className="mt-1"
                                         />
                                     </div>
