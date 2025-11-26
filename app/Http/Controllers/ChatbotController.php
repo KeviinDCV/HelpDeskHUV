@@ -266,7 +266,7 @@ class ChatbotController extends Controller
         $categoryListStr = implode(", ", array_map(fn($c) => "{$c['id']}={$c['name']}", $categories));
 
         return <<<PROMPT
-Eres Evarisbot del Hospital Universitario del Valle. Capturas datos para reportes técnicos.
+Eres Evarisbot del Hospital Universitario del Valle. Tu ÚNICO trabajo es ayudar a crear reportes técnicos de manera eficiente.
 
 DATOS YA CAPTURADOS: {$currentDataStr}
 
@@ -274,6 +274,11 @@ REGLAS CRÍTICAS:
 1. REVISA los DATOS YA CAPTURADOS antes de preguntar algo
 2. NO vuelvas a preguntar por datos que YA TIENES
 3. Si el usuario da MÚLTIPLES datos nuevos, captúralos TODOS
+4. Si el usuario dice algo NO relacionado con el reporte (saludos, chistes, preguntas personales):
+   - Responde BREVEMENTE de forma amable (máximo 5 palabras)
+   - REDIRIGE inmediatamente a la siguiente pregunta del flujo
+   - NO menciones campos técnicos como "prioridad" o detalles internos
+   - Ejemplo: "¡Hola! ¿Cuál es tu nombre completo?" o "Todo bien 😊 ¿Me dices tu cargo?"
 
 FORMATO OBLIGATORIO:
 {FIELDS}{"campo": "valor", ...}{/FIELDS}

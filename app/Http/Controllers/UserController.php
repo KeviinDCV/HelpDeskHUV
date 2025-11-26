@@ -16,6 +16,10 @@ class UserController extends Controller
         $sortField = $request->input('sort', 'username');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $roleFilter = $request->input('role', '');
+        $statusFilter = $request->input('is_active', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         $sortableFields = [
             'username' => 'username',
@@ -39,23 +43,24 @@ class UserController extends Controller
                   ->orWhere('role', 'LIKE', "%{$search}%");
             });
         }
+
+        if ($roleFilter && $roleFilter !== 'all') { $query->where('role', $roleFilter); }
+        if ($statusFilter && $statusFilter !== 'all') { $query->where('is_active', $statusFilter); }
+        if ($dateFrom) { $query->whereDate('created_at', '>=', $dateFrom); }
+        if ($dateTo) { $query->whereDate('created_at', '<=', $dateTo); }
         
         $users = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
             ->appends([
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'role' => $roleFilter, 'is_active' => $statusFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
             ]);
 
         return Inertia::render('administracion/usuarios', [
             'users' => $users,
             'filters' => [
-                'per_page' => $perPage,
-                'sort' => $sortField,
-                'direction' => $sortDirection,
-                'search' => $search
+                'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
+                'role' => $roleFilter, 'is_active' => $statusFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
             ],
             'auth' => [
                 'user' => auth()->user()
@@ -68,6 +73,10 @@ class UserController extends Controller
         $sortField = $request->input('sort', 'username');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
+        $roleFilter = $request->input('role', '');
+        $statusFilter = $request->input('is_active', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
 
         $sortableFields = [
             'username' => 'username',
@@ -90,6 +99,11 @@ class UserController extends Controller
                   ->orWhere('role', 'LIKE', "%{$search}%");
             });
         }
+
+        if ($roleFilter && $roleFilter !== 'all') { $query->where('role', $roleFilter); }
+        if ($statusFilter && $statusFilter !== 'all') { $query->where('is_active', $statusFilter); }
+        if ($dateFrom) { $query->whereDate('created_at', '>=', $dateFrom); }
+        if ($dateTo) { $query->whereDate('created_at', '<=', $dateTo); }
 
         $users = $query->orderBy($orderByField, $sortDirection)->get();
 

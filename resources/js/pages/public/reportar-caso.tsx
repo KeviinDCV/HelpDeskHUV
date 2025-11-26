@@ -265,23 +265,26 @@ export default function ReportarCaso() {
             <Head title="Reportar Problema - HelpDesk HUV" />
             <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
                 <div className="w-full max-w-5xl">
+                    <div className="text-center mb-8">
+                        <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-md">Reporte Sistemas HUV</h1>
+                    </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Chat Principal */}
-                        <div className="lg:col-span-2 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: '580px' }}>
-                            <div className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-6 py-4 flex-shrink-0">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                                        <Bot className="w-6 h-6 text-white" />
+                        <div className="lg:col-span-2 rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
+                            <div className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-8 py-6 flex-shrink-0">
+                                <div className="flex items-center gap-6">
+                                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
+                                        <Bot className="w-9 h-9 text-white" />
                                     </div>
                                     <div>
-                                        <h1 className="text-white font-bold text-lg">Evarisbot</h1>
-                                        <p className="text-white/80 text-sm">Asistente de Soporte - HUV</p>
+                                        <h1 className="text-white font-bold text-2xl tracking-wide">Evarisbot</h1>
+                                        <p className="text-white/90 text-base font-medium">Asistente de Soporte - HUV</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
                                 {messages.map((msg, index) => (
                                     <AnimatedMessage
                                         key={index}
@@ -291,11 +294,11 @@ export default function ReportarCaso() {
                                 ))}
                                 {isLoading && (
                                     <div className="flex justify-start">
-                                        <div className="bg-white px-4 py-3 rounded-2xl rounded-bl-sm shadow-md border">
-                                            <span className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                                <span className="w-2 h-2 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                                <span className="w-2 h-2 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                        <div className="bg-white px-6 py-4 rounded-2xl rounded-bl-sm shadow-md border">
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-3 h-3 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                                <span className="w-3 h-3 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                                <span className="w-3 h-3 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                                             </span>
                                         </div>
                                     </div>
@@ -303,8 +306,8 @@ export default function ReportarCaso() {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            <div className="p-4 bg-white border-t flex-shrink-0">
-                                <div className="flex items-center gap-3">
+                            <div className="p-6 bg-white border-t flex-shrink-0">
+                                <div className="flex items-center gap-4">
                                     <input
                                         ref={inputRef}
                                         type="text"
@@ -312,60 +315,60 @@ export default function ReportarCaso() {
                                         onChange={(e) => setInput(e.target.value)}
                                         onKeyPress={handleKeyPress}
                                         placeholder="Escribe tu mensaje aquí..."
-                                        className="flex-1 px-4 py-3 text-sm border-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#2c4370]/50 focus:border-[#2c4370]"
+                                        className="flex-1 px-6 py-4 text-lg border-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#2c4370]/50 focus:border-[#2c4370]"
                                         autoFocus
                                     />
                                     <button
                                         ref={sendButtonRef}
                                         onClick={() => { sendMessage(); inputRef.current?.focus(); }}
                                         disabled={!input.trim() || isLoading}
-                                        className="w-12 h-12 bg-[#2c4370] text-white rounded-full flex items-center justify-center hover:bg-[#3d5583] disabled:opacity-50 transition-all"
+                                        className="w-16 h-16 bg-[#2c4370] text-white rounded-full flex items-center justify-center hover:bg-[#3d5583] disabled:opacity-50 transition-all shadow-lg"
                                     >
-                                        <Send className="w-5 h-5" />
+                                        <Send className="w-7 h-7" />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Panel Resumen */}
-                        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: '580px' }}>
-                            <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-4 py-3">
-                                <h2 className="text-white font-semibold text-sm">📋 Resumen del Reporte</h2>
+                        <div className="rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
+                            <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-6 py-5">
+                                <h2 className="text-white font-semibold text-lg">📋 Resumen del Reporte</h2>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                <div className="space-y-2">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase">Quien Reporta</h3>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-white">
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide">Quien Reporta</h3>
                                     <FieldItem icon={User} value={formData.reporter_name} placeholder="Nombre pendiente..." />
                                     <FieldItem icon={Briefcase} value={formData.reporter_position} placeholder="Cargo pendiente..." />
                                     <FieldItem icon={MapPin} value={formData.reporter_service} placeholder="Servicio pendiente..." />
                                     {formData.reporter_extension && <FieldItem icon={Phone} value={`Ext. ${formData.reporter_extension}`} isOptional />}
                                 </div>
 
-                                <div className="space-y-2 pt-2 border-t">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase">El Problema</h3>
+                                <div className="space-y-3 pt-4 border-t">
+                                    <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide">El Problema</h3>
                                     <FieldItem icon={FileText} value={formData.name} placeholder="Título pendiente..." />
                                     {formData.device_type && <FieldItem icon={Monitor} value={deviceLabels[formData.device_type] || formData.device_type} isOptional />}
                                     {formData.equipment_ecom && <FieldItem icon={Cpu} value={`ECOM: ${formData.equipment_ecom}`} isOptional />}
                                     {formData.priority && formData.priority !== '3' && <FieldItem icon={AlertTriangle} value={`Prioridad: ${priorityLabels[formData.priority]}`} isOptional />}
                                     {formData.content && (
-                                        <div className="p-2 rounded-lg bg-green-50 border border-green-200">
-                                            <p className="text-xs text-green-800 line-clamp-3">{formData.content}</p>
+                                        <div className="p-4 rounded-xl bg-green-50 border border-green-200 shadow-sm">
+                                            <p className="text-sm text-green-900 leading-relaxed">{formData.content}</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="p-4 border-t bg-gray-50">
+                            <div className="p-6 border-t bg-gray-50">
                                 <Button
                                     onClick={handleSubmit}
                                     disabled={!isFormComplete() || processing}
-                                    className="w-full bg-[#2c4370] hover:bg-[#3d5583] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                                    className="w-full bg-[#2c4370] hover:bg-[#3d5583] text-white py-4 text-lg rounded-xl font-bold disabled:opacity-50 shadow-md transition-transform transform hover:scale-[1.02]"
                                 >
                                     {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
                                 </Button>
                                 {!isFormComplete() && (
-                                    <p className="text-xs text-gray-500 text-center mt-2">Conversa con Evarisbot para completar tu reporte</p>
+                                    <p className="text-sm text-gray-500 text-center mt-3 font-medium">Conversa con Evarisbot para completar tu reporte</p>
                                 )}
                             </div>
                         </div>
@@ -415,9 +418,9 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
             ref={messageRef}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
         >
-            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${message.role === 'user'
+            <div className={`max-w-[85%] px-6 py-4 rounded-2xl text-lg leading-relaxed whitespace-pre-line shadow-md ${message.role === 'user'
                     ? 'bg-[#2c4370] text-white rounded-br-sm shadow-lg'
-                    : 'bg-white text-gray-700 shadow-md rounded-bl-sm border'
+                    : 'bg-white text-gray-800 shadow-md rounded-bl-sm border border-gray-100'
                 }`}>
                 {message.content}
             </div>
@@ -428,9 +431,9 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
 function FieldItem({ icon: Icon, value, placeholder, isOptional }: { icon: React.ElementType; value?: string; placeholder?: string; isOptional?: boolean }) {
     const filled = !!value;
     return (
-        <div className={`flex items-center gap-2 p-2 rounded-lg ${filled ? (isOptional ? 'bg-blue-50 border border-blue-200' : 'bg-green-50 border border-green-200') : 'bg-gray-50 border border-gray-200'}`}>
-            <Icon className={`w-4 h-4 ${filled ? (isOptional ? 'text-blue-600' : 'text-green-600') : 'text-gray-400'}`} />
-            <span className={`text-sm truncate ${filled ? (isOptional ? 'text-blue-800' : 'text-green-800') : 'text-gray-400'}`}>
+        <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${filled ? (isOptional ? 'bg-blue-50 border border-blue-200' : 'bg-green-50 border border-green-200') : 'bg-gray-50 border border-gray-200'}`}>
+            <Icon className={`w-6 h-6 ${filled ? (isOptional ? 'text-blue-600' : 'text-green-600') : 'text-gray-400'}`} />
+            <span className={`text-base font-medium truncate ${filled ? (isOptional ? 'text-blue-900' : 'text-green-900') : 'text-gray-500'}`}>
                 {value || placeholder}
             </span>
         </div>
