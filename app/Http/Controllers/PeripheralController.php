@@ -213,5 +213,146 @@ class PeripheralController extends Controller
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
-}
 
+    public function create()
+    {
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_peripheraltypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_peripheralmodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/crear-dispositivo', [
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable',
+            'manufacturers_id' => 'nullable',
+            'peripheraltypes_id' => 'nullable',
+            'peripheralmodels_id' => 'nullable',
+            'locations_id' => 'nullable',
+            'entities_id' => 'nullable',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_peripherals')->insert([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?: '',
+            'otherserial' => $validated['otherserial'] ?: '',
+            'contact' => '',
+            'contact_num' => '',
+            'brand' => '',
+            'users_id_tech' => 0,
+            'groups_id_tech' => 0,
+            'states_id' => !empty($validated['states_id']) ? (int)$validated['states_id'] : 0,
+            'manufacturers_id' => !empty($validated['manufacturers_id']) ? (int)$validated['manufacturers_id'] : 0,
+            'peripheraltypes_id' => !empty($validated['peripheraltypes_id']) ? (int)$validated['peripheraltypes_id'] : 0,
+            'peripheralmodels_id' => !empty($validated['peripheralmodels_id']) ? (int)$validated['peripheralmodels_id'] : 0,
+            'locations_id' => !empty($validated['locations_id']) ? (int)$validated['locations_id'] : 0,
+            'entities_id' => !empty($validated['entities_id']) ? (int)$validated['entities_id'] : 0,
+            'comment' => $validated['comment'] ?: '',
+            'is_deleted' => 0,
+            'is_template' => 0,
+            'is_dynamic' => 0,
+            'is_recursive' => 0,
+            'is_global' => 0,
+            'users_id' => 0,
+            'groups_id' => 0,
+            'template_name' => '',
+            'ticket_tco' => 0,
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.dispositivos')->with('success', 'Dispositivo creado exitosamente');
+    }
+
+    public function edit($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $peripheral = DB::table('glpi_peripherals')->where('id', $id)->first();
+        if (!$peripheral) {
+            abort(404);
+        }
+
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_peripheraltypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_peripheralmodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/editar-dispositivo', [
+            'peripheral' => $peripheral,
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable|integer',
+            'manufacturers_id' => 'nullable|integer',
+            'peripheraltypes_id' => 'nullable|integer',
+            'peripheralmodels_id' => 'nullable|integer',
+            'locations_id' => 'nullable|integer',
+            'entities_id' => 'nullable|integer',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_peripherals')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?? null,
+            'otherserial' => $validated['otherserial'] ?? null,
+            'states_id' => $validated['states_id'] ?? 0,
+            'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
+            'peripheraltypes_id' => $validated['peripheraltypes_id'] ?? 0,
+            'peripheralmodels_id' => $validated['peripheralmodels_id'] ?? 0,
+            'locations_id' => $validated['locations_id'] ?? 0,
+            'entities_id' => $validated['entities_id'] ?? 0,
+            'comment' => $validated['comment'] ?? null,
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.dispositivos')->with('success', 'Dispositivo actualizado exitosamente');
+    }
+
+    public function destroy($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_peripherals')->where('id', $id)->update(['is_deleted' => 1]);
+
+        return redirect()->route('inventario.dispositivos')->with('success', 'Dispositivo eliminado exitosamente');
+    }
+}

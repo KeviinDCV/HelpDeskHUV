@@ -1,0 +1,178 @@
+import { GLPIHeader } from '@/components/glpi-header';
+import { GLPIFooter } from '@/components/glpi-footer';
+import { Head, router } from '@inertiajs/react';
+import { Button } from "@/components/ui/button";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Save } from 'lucide-react';
+import React, { useState } from 'react';
+
+interface Option {
+    id: number;
+    name: string;
+}
+
+interface CrearProgramaProps {
+    manufacturers: Option[];
+    categories: Option[];
+    entities: Option[];
+}
+
+export default function CrearPrograma({ manufacturers, categories, entities }: CrearProgramaProps) {
+    const [formData, setFormData] = useState({
+        name: '',
+        manufacturers_id: '',
+        softwarecategories_id: '',
+        entities_id: '',
+        comment: '',
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [processing, setProcessing] = useState(false);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        setErrors({});
+
+        router.post('/inventario/programas', formData, {
+            onSuccess: () => setProcessing(false),
+            onError: (errs) => {
+                setErrors(errs as Record<string, string>);
+                setProcessing(false);
+            },
+        });
+    };
+
+    return (
+        <>
+            <Head title="Crear Programa - HelpDesk HUV" />
+            <div className="min-h-screen flex flex-col bg-gray-50">
+                <GLPIHeader breadcrumb={
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Inicio</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-gray-600">Inventario</span>
+                        <span className="text-gray-400">/</span>
+                        <button 
+                            onClick={() => router.visit('/inventario/programas')}
+                            className="text-gray-600 hover:text-gray-900"
+                        >
+                            Programas
+                        </button>
+                        <span className="text-gray-400">/</span>
+                        <span className="font-medium text-gray-900">Crear</span>
+                    </div>
+                } />
+
+                <main className="flex-1 px-6 py-6">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b">
+                                <h1 className="text-xl font-semibold text-gray-900">Nuevo Programa</h1>
+                                <p className="text-sm text-gray-500 mt-1">Complete los campos para registrar un nuevo software en el inventario</p>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="p-4">
+                                {/* Información básica */}
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Información del Software</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-3">
+                                            <Label htmlFor="name" className="text-xs">Nombre del Programa *</Label>
+                                            <Input
+                                                id="name"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                placeholder="Ej: Microsoft Office 365"
+                                                required
+                                                className="mt-1 h-8 text-sm"
+                                            />
+                                            {errors.name && <p className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Editor</Label>
+                                            <Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {manufacturers.map((m) => (
+                                                        <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Categoría</Label>
+                                            <Select value={formData.softwarecategories_id} onValueChange={(v) => setFormData({ ...formData, softwarecategories_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {categories.map((c) => (
+                                                        <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Entidad</Label>
+                                            <Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {entities.map((e) => (
+                                                        <SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Comentarios */}
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notas</h3>
+                                    <Textarea
+                                        id="comment"
+                                        value={formData.comment}
+                                        onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                                        placeholder="Información adicional sobre el software..."
+                                        rows={2}
+                                        className="text-sm"
+                                    />
+                                </div>
+
+                                {/* Botones */}
+                                <div className="flex justify-end gap-3 pt-4 border-t">
+                                    <Button 
+                                        type="button" 
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => router.visit('/inventario/programas')}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button 
+                                        type="submit" 
+                                        size="sm"
+                                        disabled={processing}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                    >
+                                        <Save className="h-4 w-4 mr-1" />
+                                        {processing ? 'Guardando...' : 'Guardar'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </main>
+
+                <GLPIFooter />
+            </div>
+        </>
+    );
+}

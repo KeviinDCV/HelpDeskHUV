@@ -213,5 +213,133 @@ class PhoneController extends Controller
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
-}
 
+    public function create()
+    {
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_phonetypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_phonemodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/crear-telefono', [
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable|integer',
+            'manufacturers_id' => 'nullable|integer',
+            'phonetypes_id' => 'nullable|integer',
+            'phonemodels_id' => 'nullable|integer',
+            'locations_id' => 'nullable|integer',
+            'entities_id' => 'nullable|integer',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_phones')->insert([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?? null,
+            'otherserial' => $validated['otherserial'] ?? null,
+            'states_id' => $validated['states_id'] ?? 0,
+            'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
+            'phonetypes_id' => $validated['phonetypes_id'] ?? 0,
+            'phonemodels_id' => $validated['phonemodels_id'] ?? 0,
+            'locations_id' => $validated['locations_id'] ?? 0,
+            'entities_id' => $validated['entities_id'] ?? 0,
+            'comment' => $validated['comment'] ?? null,
+            'is_deleted' => 0,
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.telefonos')->with('success', 'Teléfono creado exitosamente');
+    }
+
+    public function edit($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $phone = DB::table('glpi_phones')->where('id', $id)->first();
+        if (!$phone) {
+            abort(404);
+        }
+
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_phonetypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_phonemodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/editar-telefono', [
+            'phone' => $phone,
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable|integer',
+            'manufacturers_id' => 'nullable|integer',
+            'phonetypes_id' => 'nullable|integer',
+            'phonemodels_id' => 'nullable|integer',
+            'locations_id' => 'nullable|integer',
+            'entities_id' => 'nullable|integer',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_phones')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?? null,
+            'otherserial' => $validated['otherserial'] ?? null,
+            'states_id' => $validated['states_id'] ?? 0,
+            'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
+            'phonetypes_id' => $validated['phonetypes_id'] ?? 0,
+            'phonemodels_id' => $validated['phonemodels_id'] ?? 0,
+            'locations_id' => $validated['locations_id'] ?? 0,
+            'entities_id' => $validated['entities_id'] ?? 0,
+            'comment' => $validated['comment'] ?? null,
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.telefonos')->with('success', 'Teléfono actualizado exitosamente');
+    }
+
+    public function destroy($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_phones')->where('id', $id)->update(['is_deleted' => 1]);
+
+        return redirect()->route('inventario.telefonos')->with('success', 'Teléfono eliminado exitosamente');
+    }
+}

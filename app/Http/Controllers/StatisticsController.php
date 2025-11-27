@@ -87,7 +87,7 @@ class StatisticsController extends Controller
             ];
         })->values()->toArray();
 
-        // Por técnico
+        // Por técnico (sin límite para poder expandir y exportar todos)
         $byTechnician = DB::table('glpi_tickets')
             ->leftJoin('glpi_tickets_users', function($join) {
                 $join->on('glpi_tickets.id', '=', 'glpi_tickets_users.tickets_id')
@@ -99,6 +99,7 @@ class StatisticsController extends Controller
             ->when($dateTo, fn($q) => $q->whereDate('glpi_tickets.date', '<=', $dateTo))
             ->when($status && $status !== 'all', fn($q) => $q->where('glpi_tickets.status', $status))
             ->when($priority && $priority !== 'all', fn($q) => $q->where('glpi_tickets.priority', $priority))
+            ->when($technicianId && $technicianId !== 'all', fn($q) => $q->where('glpi_tickets_users.users_id', $technicianId))
             ->when($categoryId && $categoryId !== 'all', fn($q) => $q->where('glpi_tickets.itilcategories_id', $categoryId))
             ->select(
                 DB::raw("COALESCE(CONCAT(glpi_users.firstname, ' ', glpi_users.realname), 'Sin asignar') as technician"),
@@ -108,7 +109,6 @@ class StatisticsController extends Controller
             )
             ->groupBy('glpi_users.id', 'glpi_users.firstname', 'glpi_users.realname')
             ->orderByDesc('total')
-            ->limit(10)
             ->get()
             ->toArray();
 

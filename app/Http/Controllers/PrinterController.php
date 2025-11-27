@@ -205,5 +205,155 @@ class PrinterController extends Controller
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
-}
 
+    public function create()
+    {
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_printertypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_printermodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/crear-impresora', [
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable',
+            'manufacturers_id' => 'nullable',
+            'printertypes_id' => 'nullable',
+            'printermodels_id' => 'nullable',
+            'locations_id' => 'nullable',
+            'entities_id' => 'nullable',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_printers')->insert([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?: '',
+            'otherserial' => $validated['otherserial'] ?: '',
+            'contact' => '',
+            'contact_num' => '',
+            'users_id_tech' => 0,
+            'groups_id_tech' => 0,
+            'states_id' => !empty($validated['states_id']) ? (int)$validated['states_id'] : 0,
+            'manufacturers_id' => !empty($validated['manufacturers_id']) ? (int)$validated['manufacturers_id'] : 0,
+            'printertypes_id' => !empty($validated['printertypes_id']) ? (int)$validated['printertypes_id'] : 0,
+            'printermodels_id' => !empty($validated['printermodels_id']) ? (int)$validated['printermodels_id'] : 0,
+            'locations_id' => !empty($validated['locations_id']) ? (int)$validated['locations_id'] : 0,
+            'entities_id' => !empty($validated['entities_id']) ? (int)$validated['entities_id'] : 0,
+            'comment' => $validated['comment'] ?: '',
+            'is_deleted' => 0,
+            'is_template' => 0,
+            'is_dynamic' => 0,
+            'is_recursive' => 0,
+            'is_global' => 0,
+            'users_id' => 0,
+            'groups_id' => 0,
+            'domains_id' => 0,
+            'networks_id' => 0,
+            'memory_size' => '',
+            'have_serial' => 0,
+            'have_parallel' => 0,
+            'have_usb' => 0,
+            'have_wifi' => 0,
+            'have_ethernet' => 0,
+            'template_name' => '',
+            'init_pages_counter' => 0,
+            'last_pages_counter' => 0,
+            'ticket_tco' => 0,
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.impresoras')->with('success', 'Impresora creada exitosamente');
+    }
+
+    public function edit($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $printer = DB::table('glpi_printers')->where('id', $id)->first();
+        if (!$printer) {
+            abort(404);
+        }
+
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_printertypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_printermodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/editar-impresora', [
+            'printer' => $printer,
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable|integer',
+            'manufacturers_id' => 'nullable|integer',
+            'printertypes_id' => 'nullable|integer',
+            'printermodels_id' => 'nullable|integer',
+            'locations_id' => 'nullable|integer',
+            'entities_id' => 'nullable|integer',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_printers')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?? null,
+            'otherserial' => $validated['otherserial'] ?? null,
+            'states_id' => $validated['states_id'] ?? 0,
+            'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
+            'printertypes_id' => $validated['printertypes_id'] ?? 0,
+            'printermodels_id' => $validated['printermodels_id'] ?? 0,
+            'locations_id' => $validated['locations_id'] ?? 0,
+            'entities_id' => $validated['entities_id'] ?? 0,
+            'comment' => $validated['comment'] ?? null,
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.impresoras')->with('success', 'Impresora actualizada exitosamente');
+    }
+
+    public function destroy($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_printers')->where('id', $id)->update(['is_deleted' => 1]);
+
+        return redirect()->route('inventario.impresoras')->with('success', 'Impresora eliminada exitosamente');
+    }
+}

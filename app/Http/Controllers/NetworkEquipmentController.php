@@ -250,5 +250,147 @@ class NetworkEquipmentController extends Controller
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
-}
 
+    public function create()
+    {
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_networkequipmenttypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_networkequipmentmodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/crear-dispositivo-red', [
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable',
+            'manufacturers_id' => 'nullable',
+            'networkequipmenttypes_id' => 'nullable',
+            'networkequipmentmodels_id' => 'nullable',
+            'locations_id' => 'nullable',
+            'entities_id' => 'nullable',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_networkequipments')->insert([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?: '',
+            'otherserial' => $validated['otherserial'] ?: '',
+            'ram' => '',
+            'contact' => '',
+            'contact_num' => '',
+            'users_id_tech' => 0,
+            'groups_id_tech' => 0,
+            'states_id' => !empty($validated['states_id']) ? (int)$validated['states_id'] : 0,
+            'manufacturers_id' => !empty($validated['manufacturers_id']) ? (int)$validated['manufacturers_id'] : 0,
+            'networkequipmenttypes_id' => !empty($validated['networkequipmenttypes_id']) ? (int)$validated['networkequipmenttypes_id'] : 0,
+            'networkequipmentmodels_id' => !empty($validated['networkequipmentmodels_id']) ? (int)$validated['networkequipmentmodels_id'] : 0,
+            'locations_id' => !empty($validated['locations_id']) ? (int)$validated['locations_id'] : 0,
+            'entities_id' => !empty($validated['entities_id']) ? (int)$validated['entities_id'] : 0,
+            'comment' => $validated['comment'] ?: '',
+            'is_deleted' => 0,
+            'is_template' => 0,
+            'is_dynamic' => 0,
+            'is_recursive' => 0,
+            'users_id' => 0,
+            'groups_id' => 0,
+            'domains_id' => 0,
+            'networks_id' => 0,
+            'template_name' => '',
+            'ticket_tco' => 0,
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.dispositivos-red')->with('success', 'Dispositivo de red creado exitosamente');
+    }
+
+    public function edit($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $networkequipment = DB::table('glpi_networkequipments')->where('id', $id)->first();
+        if (!$networkequipment) {
+            abort(404);
+        }
+
+        $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $types = DB::table('glpi_networkequipmenttypes')->select('id', 'name')->orderBy('name')->get();
+        $models = DB::table('glpi_networkequipmentmodels')->select('id', 'name')->orderBy('name')->get();
+        $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/editar-dispositivo-red', [
+            'networkequipment' => $networkequipment,
+            'states' => $states,
+            'manufacturers' => $manufacturers,
+            'types' => $types,
+            'models' => $models,
+            'locations' => $locations,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'serial' => 'nullable|string|max:255',
+            'otherserial' => 'nullable|string|max:255',
+            'states_id' => 'nullable|integer',
+            'manufacturers_id' => 'nullable|integer',
+            'networkequipmenttypes_id' => 'nullable|integer',
+            'networkequipmentmodels_id' => 'nullable|integer',
+            'locations_id' => 'nullable|integer',
+            'entities_id' => 'nullable|integer',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_networkequipments')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'serial' => $validated['serial'] ?? null,
+            'otherserial' => $validated['otherserial'] ?? null,
+            'states_id' => $validated['states_id'] ?? 0,
+            'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
+            'networkequipmenttypes_id' => $validated['networkequipmenttypes_id'] ?? 0,
+            'networkequipmentmodels_id' => $validated['networkequipmentmodels_id'] ?? 0,
+            'locations_id' => $validated['locations_id'] ?? 0,
+            'entities_id' => $validated['entities_id'] ?? 0,
+            'comment' => $validated['comment'] ?? null,
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.dispositivos-red')->with('success', 'Dispositivo de red actualizado exitosamente');
+    }
+
+    public function destroy($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_networkequipments')->where('id', $id)->update(['is_deleted' => 1]);
+
+        return redirect()->route('inventario.dispositivos-red')->with('success', 'Dispositivo de red eliminado exitosamente');
+    }
+}

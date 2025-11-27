@@ -84,7 +84,8 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   const user = auth?.user;
   
   const handleLogout = () => {
-    router.post('/logout')
+    // Usar ruta GET para evitar problemas de CSRF
+    window.location.href = '/salir';
   }
 
   return (

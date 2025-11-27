@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     Table,
     TableBody,
@@ -10,7 +10,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -89,7 +90,10 @@ interface MonitorsProps {
 }
 
 export default function Monitores({ monitors, states, manufacturers, types, locations, filters }: MonitorsProps) {
+    const { auth } = usePage().props as any;
+    const isAdmin = auth?.user?.role === 'Administrador';
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
+    const [deleteModal, setDeleteModal] = React.useState<{open: boolean, id: number | null, name: string}>({open: false, id: null, name: ''});
     const [showFilters, setShowFilters] = React.useState(false);
     
     // Estados de filtros
@@ -196,6 +200,17 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
             : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
     };
 
+    const handleDelete = (id: number, name: string) => {
+        setDeleteModal({open: true, id, name});
+    };
+
+    const confirmDelete = () => {
+        if (deleteModal.id) {
+            router.delete(`/inventario/monitores/${deleteModal.id}`);
+        }
+        setDeleteModal({open: false, id: null, name: ''});
+    };
+
     return (
         <>
             <Head title="HelpDesk HUV - Monitores" />
@@ -257,6 +272,14 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         onClick={handleExport}
                                     >
                                         Exportar
+                                    </Button>
+                                    <Button 
+                                        size="sm"
+                                        className="bg-green-600 hover:bg-green-700 text-white h-9"
+                                        onClick={() => router.visit('/inventario/monitores/crear')}
+                                    >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Crear
                                     </Button>
                                 </div>
                             </div>
@@ -492,6 +515,11 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                                 {getSortIcon('otherserial')}
                                             </div>
                                         </TableHead>
+                                        {isAdmin && (
+                                            <TableHead className="font-semibold text-gray-900 text-xs text-center">
+                                                Acciones
+                                            </TableHead>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -518,6 +546,18 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                                 }) : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs">{monitor.otherserial || '-'}</TableCell>
+                                            {isAdmin && (
+                                                <TableCell className="text-center">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/monitores/${monitor.id}/editar`)} title="Editar">
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(monitor.id, monitor.name || '')} title="Eliminar">
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -582,6 +622,22 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                 
                 <GLPIFooter />
             </div>
+
+            <Dialog open={deleteModal.open} onOpenChange={(open) => setDeleteModal({...deleteModal, open})}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+                            <DialogTitle>Eliminar Monitor</DialogTitle>
+                        </div>
+                        <DialogDescription className="pt-2">¿Está seguro de eliminar el monitor <span className="font-semibold text-gray-900">"{deleteModal.name}"</span>? Esta acción no se puede deshacer.</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setDeleteModal({open: false, id: null, name: ''})}>Cancelar</Button>
+                        <Button variant="destructive" onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Eliminar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

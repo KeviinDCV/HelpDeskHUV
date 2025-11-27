@@ -29,7 +29,9 @@ import {
     CheckCircle2, 
     AlertCircle,
     Calendar,
-    RefreshCw
+    RefreshCw,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -93,6 +95,9 @@ export default function Estadisticas({
     const [priorityFilter, setPriorityFilter] = useState(filters?.priority || 'all');
     const [technicianFilter, setTechnicianFilter] = useState(filters?.technician_id || 'all');
     const [categoryFilter, setCategoryFilter] = useState(filters?.category_id || 'all');
+    const [showAllTechnicians, setShowAllTechnicians] = useState(false);
+    
+    const displayedTechnicians = showAllTechnicians ? byTechnician : byTechnician.slice(0, 10);
 
     const applyFilters = () => {
         const params: Record<string, string> = {};
@@ -358,48 +363,86 @@ export default function Estadisticas({
                     </div>
 
                     {/* Tabla de Técnicos */}
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="px-5 py-4 border-b flex items-center gap-2">
                             <Users className="h-5 w-5 text-[#2c4370]" />
                             <h3 className="font-semibold text-gray-900">Rendimiento por Técnico</h3>
+                            <span className="text-xs text-gray-500">({byTechnician.length} técnicos)</span>
                             <Button variant="ghost" size="sm" className="ml-auto" onClick={() => exportToExcel('technicians')}>
-                                <Download className="h-4 w-4 mr-1" /> Exportar
+                                <Download className="h-4 w-4 mr-1" /> Exportar Todos
                             </Button>
                         </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-gray-50">
-                                    <TableHead className="font-semibold">Técnico</TableHead>
-                                    <TableHead className="font-semibold text-center">Total Asignados</TableHead>
-                                    <TableHead className="font-semibold text-center">Abiertos</TableHead>
-                                    <TableHead className="font-semibold text-center">Cerrados</TableHead>
-                                    <TableHead className="font-semibold text-center">% Resolución</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {byTechnician.map((tech) => (
-                                    <TableRow key={tech.technician}>
-                                        <TableCell className="font-medium">{tech.technician}</TableCell>
-                                        <TableCell className="text-center">{tech.total}</TableCell>
-                                        <TableCell className="text-center text-blue-600">{tech.abiertos}</TableCell>
-                                        <TableCell className="text-center text-green-600">{tech.cerrados}</TableCell>
-                                        <TableCell className="text-center">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                tech.total > 0 
-                                                    ? (tech.cerrados / tech.total) >= 0.7 
-                                                        ? 'bg-green-100 text-green-700' 
-                                                        : (tech.cerrados / tech.total) >= 0.4 
-                                                            ? 'bg-yellow-100 text-yellow-700'
-                                                            : 'bg-red-100 text-red-700'
-                                                    : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                                {tech.total > 0 ? ((tech.cerrados / tech.total) * 100).toFixed(1) : 0}%
-                                            </span>
-                                        </TableCell>
+                        <div 
+                            className="transition-all duration-500 ease-in-out"
+                            style={{ 
+                                maxHeight: showAllTechnicians ? `${byTechnician.length * 53 + 50}px` : '580px',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-gray-50">
+                                        <TableHead className="font-semibold">Técnico</TableHead>
+                                        <TableHead className="font-semibold text-center">Total Asignados</TableHead>
+                                        <TableHead className="font-semibold text-center">Abiertos</TableHead>
+                                        <TableHead className="font-semibold text-center">Cerrados</TableHead>
+                                        <TableHead className="font-semibold text-center">% Resolución</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {displayedTechnicians.map((tech, index) => (
+                                        <TableRow 
+                                            key={tech.technician} 
+                                            className="transition-opacity duration-300"
+                                            style={{ 
+                                                opacity: index >= 10 && !showAllTechnicians ? 0 : 1,
+                                                transitionDelay: `${(index - 10) * 30}ms`
+                                            }}
+                                        >
+                                            <TableCell className="font-medium">{tech.technician}</TableCell>
+                                            <TableCell className="text-center">{tech.total}</TableCell>
+                                            <TableCell className="text-center text-blue-600">{tech.abiertos}</TableCell>
+                                            <TableCell className="text-center text-green-600">{tech.cerrados}</TableCell>
+                                            <TableCell className="text-center">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    tech.total > 0 
+                                                        ? (tech.cerrados / tech.total) >= 0.7 
+                                                            ? 'bg-green-100 text-green-700' 
+                                                            : (tech.cerrados / tech.total) >= 0.4 
+                                                                ? 'bg-yellow-100 text-yellow-700'
+                                                                : 'bg-red-100 text-red-700'
+                                                        : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                    {tech.total > 0 ? ((tech.cerrados / tech.total) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        {byTechnician.length > 10 && (
+                            <div className="px-5 py-3 border-t bg-gray-50">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => setShowAllTechnicians(!showAllTechnicians)}
+                                    className="w-full text-[#2c4370] hover:text-[#3d5583] hover:bg-gray-100"
+                                >
+                                    {showAllTechnicians ? (
+                                        <>
+                                            <ChevronUp className="h-4 w-4 mr-2" />
+                                            Mostrar menos
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ChevronDown className="h-4 w-4 mr-2" />
+                                            Ver todos ({byTechnician.length - 10} más)
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Casos por Categoría */}

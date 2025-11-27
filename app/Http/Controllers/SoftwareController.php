@@ -172,5 +172,114 @@ class SoftwareController extends Controller
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
-}
 
+    public function create()
+    {
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $categories = DB::table('glpi_softwarecategories')->select('id', 'name')->orderBy('name')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/crear-programa', [
+            'manufacturers' => $manufacturers,
+            'categories' => $categories,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'manufacturers_id' => 'nullable',
+            'softwarecategories_id' => 'nullable',
+            'entities_id' => 'nullable',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_softwares')->insert([
+            'name' => $validated['name'],
+            'manufacturers_id' => !empty($validated['manufacturers_id']) ? (int)$validated['manufacturers_id'] : 0,
+            'softwarecategories_id' => !empty($validated['softwarecategories_id']) ? (int)$validated['softwarecategories_id'] : 0,
+            'entities_id' => !empty($validated['entities_id']) ? (int)$validated['entities_id'] : 0,
+            'comment' => $validated['comment'] ?: '',
+            'locations_id' => 0,
+            'users_id_tech' => 0,
+            'groups_id_tech' => 0,
+            'users_id' => 0,
+            'groups_id' => 0,
+            'is_deleted' => 0,
+            'is_template' => 0,
+            'is_update' => 0,
+            'is_recursive' => 0,
+            'is_helpdesk_visible' => 1,
+            'is_valid' => 1,
+            'softwares_id' => 0,
+            'template_name' => '',
+            'ticket_tco' => 0,
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.programas')->with('success', 'Programa creado exitosamente');
+    }
+
+    public function edit($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $software = DB::table('glpi_softwares')->where('id', $id)->first();
+        if (!$software) {
+            abort(404);
+        }
+
+        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        $categories = DB::table('glpi_softwarecategories')->select('id', 'name')->orderBy('name')->get();
+        $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('inventario/editar-programa', [
+            'software' => $software,
+            'manufacturers' => $manufacturers,
+            'categories' => $categories,
+            'entities' => $entities,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'manufacturers_id' => 'nullable|integer',
+            'softwarecategories_id' => 'nullable|integer',
+            'entities_id' => 'nullable|integer',
+            'comment' => 'nullable|string',
+        ]);
+
+        DB::table('glpi_softwares')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
+            'softwarecategories_id' => $validated['softwarecategories_id'] ?? 0,
+            'entities_id' => $validated['entities_id'] ?? 0,
+            'comment' => $validated['comment'] ?? null,
+            'date_mod' => now(),
+        ]);
+
+        return redirect()->route('inventario.programas')->with('success', 'Programa actualizado exitosamente');
+    }
+
+    public function destroy($id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_softwares')->where('id', $id)->update(['is_deleted' => 1]);
+
+        return redirect()->route('inventario.programas')->with('success', 'Programa eliminado exitosamente');
+    }
+}
