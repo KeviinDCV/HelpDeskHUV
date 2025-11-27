@@ -110,3 +110,50 @@
 * {
     border-color: rgba(0, 0, 0, 0.05) !important;
 }
+
+/* Driver.js Tour Styles - HelpDesk HUV */
+.driver-popover {
+    background: #fff !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+    max-width: 280px !important;
+}
+
+.driver-popover * {
+    text-shadow: none !important;
+    -webkit-text-stroke: 0 !important;
+    filter: none !important;
+}
+
+.driver-popover-title {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+}
+
+.driver-popover-description {
+    font-size: 13px !important;
+    color: #64748b !important;
+    line-height: 1.4 !important;
+}
+
+.driver-popover-prev-btn,
+.driver-popover-next-btn {
+    padding: 6px 14px !important;
+    border-radius: 5px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    border: none !important;
+    text-shadow: none !important;
+    -webkit-font-smoothing: antialiased !important;
+}
+
+.driver-popover-prev-btn {
+    background: #e2e8f0 !important;
+    color: #475569 !important;
+}
+
+.driver-popover-next-btn {
+    background: #2c4370 !important;
+    color: #fff !important;
+}

@@ -1,8 +1,10 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Send, Bot, User, Briefcase, MapPin, Phone, FileText, AlertTriangle, Monitor, Cpu } from 'lucide-react';
+import { CheckCircle, Send, Bot, User, Briefcase, MapPin, Phone, FileText, AlertTriangle, Monitor, Cpu, HelpCircle } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -57,6 +59,93 @@ export default function ReportarCaso() {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Tour para usuarios nuevos
+    const startTour = () => {
+        const driverObj = driver({
+            showProgress: false,
+            animate: true,
+            allowClose: true,
+            overlayColor: 'rgba(0, 0, 0, 0.7)',
+            stagePadding: 8,
+            nextBtnText: 'Siguiente',
+            prevBtnText: 'Anterior',
+            doneBtnText: 'Entendido',
+            steps: [
+                {
+                    element: '#chat-header',
+                    popover: {
+                        title: 'Bienvenido a Evarisbot',
+                        description: 'Soy tu asistente virtual para reportar problemas técnicos en el Hospital. Te guiaré paso a paso para crear tu reporte de manera fácil y rápida.',
+                        side: 'bottom',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#chat-messages',
+                    popover: {
+                        title: 'Área de Conversación',
+                        description: 'Aquí verás nuestra conversación. Te haré preguntas sobre tu problema y tú solo responde de forma natural, como si hablaras con un compañero.',
+                        side: 'right',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#chat-input',
+                    popover: {
+                        title: 'Escribe tu mensaje',
+                        description: 'Escribe aquí tus respuestas. Puedes contarme:\n• Tu nombre y cargo\n• Qué problema tienes\n• En qué equipo o sistema\n\nPresiona Enter o el botón azul para enviar.',
+                        side: 'top',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#summary-panel',
+                    popover: {
+                        title: 'Resumen en Tiempo Real',
+                        description: 'Mientras conversamos, iré completando este resumen automáticamente. Así podrás ver qué información ya tenemos y qué falta.',
+                        side: 'left',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#submit-button',
+                    popover: {
+                        title: 'Enviar tu Reporte',
+                        description: 'Cuando el formulario esté completo, este botón se activará. Haz clic para enviar tu reporte y recibirás un número de caso para dar seguimiento.',
+                        side: 'top',
+                        align: 'center'
+                    }
+                },
+                {
+                    element: '#help-button',
+                    popover: {
+                        title: '¿Necesitas ayuda?',
+                        description: 'Si en cualquier momento necesitas ver este tutorial de nuevo, solo haz clic en este botón. ¡Estoy aquí para ayudarte!',
+                        side: 'left',
+                        align: 'center'
+                    }
+                }
+            ],
+            onDestroyed: () => {
+                // Marcar que el usuario ya vio el tour
+                localStorage.setItem('helpdesk_tour_completed', 'true');
+            }
+        });
+        driverObj.drive();
+    };
+
+    // Verificar si es primera visita
+    useEffect(() => {
+        const tourCompleted = localStorage.getItem('helpdesk_tour_completed');
+        if (!tourCompleted) {
+            // Pequeño delay para que los elementos estén renderizados
+            const timer = setTimeout(() => {
+                startTour();
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, []);
 
     const handleChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -272,19 +361,29 @@ export default function ReportarCaso() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Chat Principal */}
                         <div className="lg:col-span-2 rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
-                            <div className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-8 py-6 flex-shrink-0">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
-                                        <Bot className="w-9 h-9 text-white" />
+                            <div id="chat-header" className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-8 py-6 flex-shrink-0">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
+                                            <Bot className="w-9 h-9 text-white" />
+                                        </div>
+                                        <div>
+                                            <h1 className="text-white font-bold text-2xl tracking-wide">Evarisbot</h1>
+                                            <p className="text-white/90 text-base font-medium">Asistente de Soporte - HUV</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h1 className="text-white font-bold text-2xl tracking-wide">Evarisbot</h1>
-                                        <p className="text-white/90 text-base font-medium">Asistente de Soporte - HUV</p>
-                                    </div>
+                                    <button
+                                        id="help-button"
+                                        onClick={startTour}
+                                        className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                                        title="Ver tutorial"
+                                    >
+                                        <HelpCircle className="w-5 h-5 text-white" />
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
+                            <div id="chat-messages" className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
                                 {messages.map((msg, index) => (
                                     <AnimatedMessage
                                         key={index}
@@ -306,7 +405,7 @@ export default function ReportarCaso() {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            <div className="p-6 bg-white border-t flex-shrink-0">
+                            <div id="chat-input" className="p-6 bg-white border-t flex-shrink-0">
                                 <div className="flex items-center gap-4">
                                     <input
                                         ref={inputRef}
@@ -331,7 +430,7 @@ export default function ReportarCaso() {
                         </div>
 
                         {/* Panel Resumen */}
-                        <div className="rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
+                        <div id="summary-panel" className="rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
                             <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-6 py-5">
                                 <h2 className="text-white font-semibold text-lg">📋 Resumen del Reporte</h2>
                             </div>
@@ -359,7 +458,7 @@ export default function ReportarCaso() {
                                 </div>
                             </div>
 
-                            <div className="p-6 border-t bg-gray-50">
+                            <div id="submit-button" className="p-6 border-t bg-gray-50">
                                 <Button
                                     onClick={handleSubmit}
                                     disabled={!isFormComplete() || processing}
