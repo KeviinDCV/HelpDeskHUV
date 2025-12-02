@@ -69,6 +69,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/impresoras/export', [App\Http\Controllers\PrinterController::class, 'export'])->name('inventario.impresoras.export');
     Route::get('/inventario/impresoras/crear', [App\Http\Controllers\PrinterController::class, 'create'])->name('inventario.impresoras.crear');
     Route::post('/inventario/impresoras', [App\Http\Controllers\PrinterController::class, 'store'])->name('inventario.impresoras.store');
+    Route::get('/inventario/impresoras/{id}', [App\Http\Controllers\PrinterController::class, 'show'])->name('inventario.impresoras.show');
     Route::get('/inventario/impresoras/{id}/editar', [App\Http\Controllers\PrinterController::class, 'edit'])->name('inventario.impresoras.edit');
     Route::put('/inventario/impresoras/{id}', [App\Http\Controllers\PrinterController::class, 'update'])->name('inventario.impresoras.update');
     Route::delete('/inventario/impresoras/{id}', [App\Http\Controllers\PrinterController::class, 'destroy'])->name('inventario.impresoras.destroy');

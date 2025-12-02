@@ -84,6 +84,31 @@ class PrinterController extends Controller
                 'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
             ]);
 
+        // Obtener IPs para cada impresora
+        $printerIds = $printers->pluck('id')->toArray();
+        $ipsByPrinter = [];
+        if (!empty($printerIds)) {
+            $ips = DB::table('glpi_ipaddresses')
+                ->where('mainitemtype', 'Printer')
+                ->whereIn('mainitems_id', $printerIds)
+                ->where('is_deleted', 0)
+                ->select('mainitems_id', 'name as ip_address')
+                ->get();
+            
+            foreach ($ips as $ip) {
+                if (!isset($ipsByPrinter[$ip->mainitems_id])) {
+                    $ipsByPrinter[$ip->mainitems_id] = [];
+                }
+                $ipsByPrinter[$ip->mainitems_id][] = $ip->ip_address;
+            }
+        }
+
+        // Agregar IPs a cada impresora
+        $printers->getCollection()->transform(function ($printer) use ($ipsByPrinter) {
+            $printer->ip_addresses = $ipsByPrinter[$printer->id] ?? [];
+            return $printer;
+        });
+
         $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
         $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
         $types = DB::table('glpi_printertypes')->select('id', 'name')->orderBy('name')->get();
@@ -206,6 +231,68 @@ class PrinterController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    public function show($id)
+    {
+        $printer = DB::table('glpi_printers as p')
+            ->select(
+                'p.*',
+                's.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                't.name as type_name',
+                'md.name as model_name',
+                'e.name as entity_name',
+                DB::raw("CONCAT(ut.firstname, ' ', ut.realname) as tech_name"),
+                'gt.name as tech_group_name',
+                'd.name as domain_name'
+            )
+            ->leftJoin('glpi_entities as e', 'p.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_states as s', 'p.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as mf', 'p.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'p.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_printertypes as t', 'p.printertypes_id', '=', 't.id')
+            ->leftJoin('glpi_printermodels as md', 'p.printermodels_id', '=', 'md.id')
+            ->leftJoin('glpi_users as ut', 'p.users_id_tech', '=', 'ut.id')
+            ->leftJoin('glpi_groups as gt', 'p.groups_id_tech', '=', 'gt.id')
+            ->leftJoin('glpi_domains as d', 'p.domains_id', '=', 'd.id')
+            ->where('p.id', $id)
+            ->first();
+
+        if (!$printer) {
+            abort(404);
+        }
+
+        // Obtener direcciones IP asociadas a esta impresora
+        $ipAddresses = DB::table('glpi_ipaddresses')
+            ->where('mainitemtype', 'Printer')
+            ->where('mainitems_id', $id)
+            ->where('is_deleted', 0)
+            ->select('name as ip_address')
+            ->get()
+            ->pluck('ip_address')
+            ->toArray();
+
+        // Obtener redes IP asociadas
+        $ipNetworks = [];
+        if (!empty($ipAddresses)) {
+            $ipNetworks = DB::table('glpi_ipaddresses as ip')
+                ->join('glpi_ipaddresses_ipnetworks as ipn', 'ip.id', '=', 'ipn.ipaddresses_id')
+                ->join('glpi_ipnetworks as net', 'ipn.ipnetworks_id', '=', 'net.id')
+                ->where('ip.mainitemtype', 'Printer')
+                ->where('ip.mainitems_id', $id)
+                ->select('net.completename as network_name')
+                ->distinct()
+                ->get()
+                ->pluck('network_name')
+                ->toArray();
+        }
+
+        $printer->ip_addresses = $ipAddresses;
+        $printer->ip_networks = $ipNetworks;
+
+        return response()->json($printer);
+    }
+
     public function create()
     {
         $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
@@ -214,6 +301,8 @@ class PrinterController extends Controller
         $models = DB::table('glpi_printermodels')->select('id', 'name')->orderBy('name')->get();
         $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
         $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+        $users = DB::table('glpi_users')->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))->whereRaw("firstname != '' OR realname != ''")->orderBy('realname')->get();
+        $groups = DB::table('glpi_groups')->select('id', 'name')->orderBy('name')->get();
 
         return Inertia::render('inventario/crear-impresora', [
             'states' => $states,
@@ -222,6 +311,8 @@ class PrinterController extends Controller
             'models' => $models,
             'locations' => $locations,
             'entities' => $entities,
+            'users' => $users,
+            'groups' => $groups,
         ]);
     }
 
@@ -231,12 +322,22 @@ class PrinterController extends Controller
             'name' => 'required|string|max:255',
             'serial' => 'nullable|string|max:255',
             'otherserial' => 'nullable|string|max:255',
+            'contact' => 'nullable|string|max:255',
+            'contact_num' => 'nullable|string|max:255',
+            'memory_size' => 'nullable|string|max:255',
             'states_id' => 'nullable',
             'manufacturers_id' => 'nullable',
             'printertypes_id' => 'nullable',
             'printermodels_id' => 'nullable',
             'locations_id' => 'nullable',
             'entities_id' => 'nullable',
+            'users_id_tech' => 'nullable',
+            'groups_id_tech' => 'nullable',
+            'have_serial' => 'nullable|boolean',
+            'have_parallel' => 'nullable|boolean',
+            'have_usb' => 'nullable|boolean',
+            'have_ethernet' => 'nullable|boolean',
+            'have_wifi' => 'nullable|boolean',
             'comment' => 'nullable|string',
         ]);
 
@@ -244,10 +345,10 @@ class PrinterController extends Controller
             'name' => $validated['name'],
             'serial' => $validated['serial'] ?: '',
             'otherserial' => $validated['otherserial'] ?: '',
-            'contact' => '',
-            'contact_num' => '',
-            'users_id_tech' => 0,
-            'groups_id_tech' => 0,
+            'contact' => $validated['contact'] ?: '',
+            'contact_num' => $validated['contact_num'] ?: '',
+            'users_id_tech' => !empty($validated['users_id_tech']) ? (int)$validated['users_id_tech'] : 0,
+            'groups_id_tech' => !empty($validated['groups_id_tech']) ? (int)$validated['groups_id_tech'] : 0,
             'states_id' => !empty($validated['states_id']) ? (int)$validated['states_id'] : 0,
             'manufacturers_id' => !empty($validated['manufacturers_id']) ? (int)$validated['manufacturers_id'] : 0,
             'printertypes_id' => !empty($validated['printertypes_id']) ? (int)$validated['printertypes_id'] : 0,
@@ -264,12 +365,12 @@ class PrinterController extends Controller
             'groups_id' => 0,
             'domains_id' => 0,
             'networks_id' => 0,
-            'memory_size' => '',
-            'have_serial' => 0,
-            'have_parallel' => 0,
-            'have_usb' => 0,
-            'have_wifi' => 0,
-            'have_ethernet' => 0,
+            'memory_size' => $validated['memory_size'] ?: '',
+            'have_serial' => !empty($validated['have_serial']) ? 1 : 0,
+            'have_parallel' => !empty($validated['have_parallel']) ? 1 : 0,
+            'have_usb' => !empty($validated['have_usb']) ? 1 : 0,
+            'have_wifi' => !empty($validated['have_wifi']) ? 1 : 0,
+            'have_ethernet' => !empty($validated['have_ethernet']) ? 1 : 0,
             'template_name' => '',
             'init_pages_counter' => 0,
             'last_pages_counter' => 0,
@@ -298,6 +399,8 @@ class PrinterController extends Controller
         $models = DB::table('glpi_printermodels')->select('id', 'name')->orderBy('name')->get();
         $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
         $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+        $users = DB::table('glpi_users')->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))->whereRaw("firstname != '' OR realname != ''")->orderBy('realname')->get();
+        $groups = DB::table('glpi_groups')->select('id', 'name')->orderBy('name')->get();
 
         return Inertia::render('inventario/editar-impresora', [
             'printer' => $printer,
@@ -307,6 +410,8 @@ class PrinterController extends Controller
             'models' => $models,
             'locations' => $locations,
             'entities' => $entities,
+            'users' => $users,
+            'groups' => $groups,
         ]);
     }
 
@@ -320,26 +425,46 @@ class PrinterController extends Controller
             'name' => 'required|string|max:255',
             'serial' => 'nullable|string|max:255',
             'otherserial' => 'nullable|string|max:255',
+            'contact' => 'nullable|string|max:255',
+            'contact_num' => 'nullable|string|max:255',
+            'memory_size' => 'nullable|string|max:255',
             'states_id' => 'nullable|integer',
             'manufacturers_id' => 'nullable|integer',
             'printertypes_id' => 'nullable|integer',
             'printermodels_id' => 'nullable|integer',
             'locations_id' => 'nullable|integer',
             'entities_id' => 'nullable|integer',
+            'users_id_tech' => 'nullable|integer',
+            'groups_id_tech' => 'nullable|integer',
+            'have_serial' => 'nullable|boolean',
+            'have_parallel' => 'nullable|boolean',
+            'have_usb' => 'nullable|boolean',
+            'have_ethernet' => 'nullable|boolean',
+            'have_wifi' => 'nullable|boolean',
             'comment' => 'nullable|string',
         ]);
 
         DB::table('glpi_printers')->where('id', $id)->update([
             'name' => $validated['name'],
-            'serial' => $validated['serial'] ?? null,
-            'otherserial' => $validated['otherserial'] ?? null,
+            'serial' => $validated['serial'] ?? '',
+            'otherserial' => $validated['otherserial'] ?? '',
+            'contact' => $validated['contact'] ?? '',
+            'contact_num' => $validated['contact_num'] ?? '',
+            'memory_size' => $validated['memory_size'] ?? '',
             'states_id' => $validated['states_id'] ?? 0,
             'manufacturers_id' => $validated['manufacturers_id'] ?? 0,
             'printertypes_id' => $validated['printertypes_id'] ?? 0,
             'printermodels_id' => $validated['printermodels_id'] ?? 0,
             'locations_id' => $validated['locations_id'] ?? 0,
             'entities_id' => $validated['entities_id'] ?? 0,
-            'comment' => $validated['comment'] ?? null,
+            'users_id_tech' => $validated['users_id_tech'] ?? 0,
+            'groups_id_tech' => $validated['groups_id_tech'] ?? 0,
+            'have_serial' => !empty($validated['have_serial']) ? 1 : 0,
+            'have_parallel' => !empty($validated['have_parallel']) ? 1 : 0,
+            'have_usb' => !empty($validated['have_usb']) ? 1 : 0,
+            'have_ethernet' => !empty($validated['have_ethernet']) ? 1 : 0,
+            'have_wifi' => !empty($validated['have_wifi']) ? 1 : 0,
+            'comment' => $validated['comment'] ?? '',
             'date_mod' => now(),
         ]);
 

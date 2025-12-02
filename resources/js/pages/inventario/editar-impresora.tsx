@@ -10,15 +10,38 @@ import { Save } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface Option { id: number; name: string; completename?: string; }
-interface Printer { id: number; name: string; serial: string | null; otherserial: string | null; states_id: number; manufacturers_id: number; printertypes_id: number; printermodels_id: number; locations_id: number; entities_id: number; comment: string | null; }
-interface Props { printer: Printer; states: Option[]; manufacturers: Option[]; types: Option[]; models: Option[]; locations: Option[]; entities: Option[]; }
+interface Printer { 
+    id: number; name: string; serial: string | null; otherserial: string | null; 
+    contact: string | null; contact_num: string | null; memory_size: string | null;
+    states_id: number; manufacturers_id: number; printertypes_id: number; printermodels_id: number; 
+    locations_id: number; entities_id: number; users_id_tech: number; groups_id_tech: number;
+    have_serial: number; have_parallel: number; have_usb: number; have_ethernet: number; have_wifi: number;
+    comment: string | null; 
+}
+interface Props { printer: Printer; states: Option[]; manufacturers: Option[]; types: Option[]; models: Option[]; locations: Option[]; entities: Option[]; users: Option[]; groups: Option[]; }
 
-export default function EditarImpresora({ printer, states, manufacturers, types, models, locations, entities }: Props) {
+export default function EditarImpresora({ printer, states, manufacturers, types, models, locations, entities, users, groups }: Props) {
     const [formData, setFormData] = useState({
-        name: printer.name || '', serial: printer.serial || '', otherserial: printer.otherserial || '',
-        states_id: printer.states_id ? printer.states_id.toString() : '', manufacturers_id: printer.manufacturers_id ? printer.manufacturers_id.toString() : '',
-        printertypes_id: printer.printertypes_id ? printer.printertypes_id.toString() : '', printermodels_id: printer.printermodels_id ? printer.printermodels_id.toString() : '',
-        locations_id: printer.locations_id ? printer.locations_id.toString() : '', entities_id: printer.entities_id ? printer.entities_id.toString() : '', comment: printer.comment || '',
+        name: printer.name || '', 
+        serial: printer.serial || '', 
+        otherserial: printer.otherserial || '',
+        contact: printer.contact || '',
+        contact_num: printer.contact_num || '',
+        memory_size: printer.memory_size || '',
+        states_id: printer.states_id ? printer.states_id.toString() : '', 
+        manufacturers_id: printer.manufacturers_id ? printer.manufacturers_id.toString() : '',
+        printertypes_id: printer.printertypes_id ? printer.printertypes_id.toString() : '', 
+        printermodels_id: printer.printermodels_id ? printer.printermodels_id.toString() : '',
+        locations_id: printer.locations_id ? printer.locations_id.toString() : '', 
+        entities_id: printer.entities_id ? printer.entities_id.toString() : '', 
+        users_id_tech: printer.users_id_tech ? printer.users_id_tech.toString() : '',
+        groups_id_tech: printer.groups_id_tech ? printer.groups_id_tech.toString() : '',
+        have_serial: printer.have_serial === 1,
+        have_parallel: printer.have_parallel === 1,
+        have_usb: printer.have_usb === 1,
+        have_ethernet: printer.have_ethernet === 1,
+        have_wifi: printer.have_wifi === 1,
+        comment: printer.comment || '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [processing, setProcessing] = useState(false);
@@ -56,10 +79,28 @@ export default function EditarImpresora({ printer, states, manufacturers, types,
                                         <div><Label className="text-xs">Modelo</Label><Select value={formData.printermodels_id} onValueChange={(v) => setFormData({ ...formData, printermodels_id: v })}><SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{models.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>))}</SelectContent></Select></div>
                                     </div>
                                 </div>
-                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación y Responsables</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div><Label className="text-xs">Ubicación</Label><Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}><SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>))}</SelectContent></Select></div>
                                         <div><Label className="text-xs">Entidad</Label><Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}><SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{entities.map((e) => (<SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>))}</SelectContent></Select></div>
+                                        <div><Label className="text-xs">Técnico a cargo</Label><Select value={formData.users_id_tech} onValueChange={(v) => setFormData({ ...formData, users_id_tech: v })}><SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{users?.map((u) => (<SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>))}</SelectContent></Select></div>
+                                        <div><Label className="text-xs">Grupo a cargo</Label><Select value={formData.groups_id_tech} onValueChange={(v) => setFormData({ ...formData, groups_id_tech: v })}><SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{groups?.map((g) => (<SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>))}</SelectContent></Select></div>
+                                    </div>
+                                </div>
+                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Conexiones</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                        <div className="flex items-center gap-2"><input type="checkbox" id="have_serial" checked={formData.have_serial} onChange={(e) => setFormData({ ...formData, have_serial: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_serial" className="text-xs cursor-pointer">Puerto Serial</Label></div>
+                                        <div className="flex items-center gap-2"><input type="checkbox" id="have_parallel" checked={formData.have_parallel} onChange={(e) => setFormData({ ...formData, have_parallel: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_parallel" className="text-xs cursor-pointer">Puerto Paralelo</Label></div>
+                                        <div className="flex items-center gap-2"><input type="checkbox" id="have_usb" checked={formData.have_usb} onChange={(e) => setFormData({ ...formData, have_usb: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_usb" className="text-xs cursor-pointer">Puerto USB</Label></div>
+                                        <div className="flex items-center gap-2"><input type="checkbox" id="have_ethernet" checked={formData.have_ethernet} onChange={(e) => setFormData({ ...formData, have_ethernet: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_ethernet" className="text-xs cursor-pointer">Ethernet</Label></div>
+                                        <div className="flex items-center gap-2"><input type="checkbox" id="have_wifi" checked={formData.have_wifi} onChange={(e) => setFormData({ ...formData, have_wifi: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_wifi" className="text-xs cursor-pointer">Wi-Fi</Label></div>
+                                    </div>
+                                </div>
+                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Información Adicional</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div><Label htmlFor="contact" className="text-xs">Contacto</Label><Input id="contact" value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="Nombre del contacto" className="mt-1 h-8 text-sm" /></div>
+                                        <div><Label htmlFor="contact_num" className="text-xs">Teléfono Contacto</Label><Input id="contact_num" value={formData.contact_num} onChange={(e) => setFormData({ ...formData, contact_num: e.target.value })} placeholder="Ej: 3001234567" className="mt-1 h-8 text-sm" /></div>
+                                        <div><Label htmlFor="memory_size" className="text-xs">Memoria</Label><Input id="memory_size" value={formData.memory_size} onChange={(e) => setFormData({ ...formData, memory_size: e.target.value })} placeholder="Ej: 256 MB" className="mt-1 h-8 text-sm" /></div>
                                     </div>
                                 </div>
                                 <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notas</h3><Textarea id="comment" value={formData.comment} onChange={(e) => setFormData({ ...formData, comment: e.target.value })} rows={2} className="text-sm" /></div>

@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle, Eye, Loader2, Check, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import React from 'react';
@@ -32,6 +32,38 @@ interface Printer {
     type_name: string | null;
     model_name: string | null;
     date_mod: string;
+    ip_addresses: string[];
+}
+
+interface PrinterDetail {
+    id: number;
+    name: string;
+    serial: string;
+    otherserial: string;
+    comment: string;
+    contact: string;
+    contact_num: string;
+    memory_size: string;
+    have_serial: number;
+    have_parallel: number;
+    have_usb: number;
+    have_wifi: number;
+    have_ethernet: number;
+    init_pages_counter: number;
+    last_pages_counter: number;
+    date_mod: string;
+    date_creation: string;
+    entity_name: string | null;
+    state_name: string | null;
+    manufacturer_name: string | null;
+    location_name: string | null;
+    type_name: string | null;
+    model_name: string | null;
+    tech_name: string | null;
+    tech_group_name: string | null;
+    domain_name: string | null;
+    ip_addresses: string[];
+    ip_networks: string[];
 }
 
 interface PaginationLinks {
@@ -94,6 +126,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteModal, setDeleteModal] = React.useState<{open: boolean, id: number | null, name: string}>({open: false, id: null, name: ''});
     const [showFilters, setShowFilters] = React.useState(false);
+    const [detailModal, setDetailModal] = React.useState<{open: boolean, loading: boolean, printer: PrinterDetail | null}>({open: false, loading: false, printer: null});
     
     const [stateFilter, setStateFilter] = React.useState(filters.state || 'all');
     const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
@@ -182,6 +215,17 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
             router.delete(`/inventario/impresoras/${deleteModal.id}`);
         }
         setDeleteModal({open: false, id: null, name: ''});
+    };
+
+    const handleShowDetail = async (id: number) => {
+        setDetailModal({open: true, loading: true, printer: null});
+        try {
+            const response = await fetch(`/inventario/impresoras/${id}`);
+            const data = await response.json();
+            setDetailModal({open: true, loading: false, printer: data});
+        } catch (error) {
+            setDetailModal({open: false, loading: false, printer: null});
+        }
     };
 
     return (
@@ -393,6 +437,11 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                                 {getSortIcon('model_name')}
                                             </div>
                                         </TableHead>
+                                        <TableHead className="font-semibold text-gray-900 text-xs">
+                                            <div className="flex items-center">
+                                                IP / Red
+                                            </div>
+                                        </TableHead>
                                         <TableHead 
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('date_mod')}
@@ -407,11 +456,9 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                 </TableHeader>
                                 <TableBody>
                                     {printers.data.map((printer) => (
-                                        <TableRow key={printer.id} className="hover:bg-gray-50">
-                                            <TableCell className="font-medium text-xs">
-                                                <a href={`/inventario/impresoras/${printer.id}`} className="text-[#2c4370] hover:underline">
-                                                    {printer.name || '-'}
-                                                </a>
+                                        <TableRow key={printer.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleShowDetail(printer.id)}>
+                                            <TableCell className="font-medium text-xs text-[#2c4370]">
+                                                {printer.name || '-'}
                                             </TableCell>
                                             <TableCell className="text-xs">{printer.entity_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{printer.state_name || '-'}</TableCell>
@@ -419,6 +466,24 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                             <TableCell className="text-xs">{printer.location_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{printer.type_name || '-'}</TableCell>
                                             <TableCell className="text-xs">{printer.model_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">
+                                                {printer.ip_addresses?.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {printer.ip_addresses.slice(0, 2).map((ip, idx) => (
+                                                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
+                                                                {ip}
+                                                            </span>
+                                                        ))}
+                                                        {printer.ip_addresses.length > 2 && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                                                                +{printer.ip_addresses.length - 2}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-xs">
                                                 {printer.date_mod ? new Date(printer.date_mod).toLocaleString('es-CO', {
                                                     year: 'numeric',
@@ -429,7 +494,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                                 }) : '-'}
                                             </TableCell>
                                             {isAdmin && (
-                                                <TableCell className="text-center">
+                                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex items-center justify-center gap-1">
                                                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/impresoras/${printer.id}/editar`)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                                                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(printer.id, printer.name || '')} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -513,6 +578,207 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="outline" onClick={() => setDeleteModal({open: false, id: null, name: ''})}>Cancelar</Button>
                         <Button variant="destructive" onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Eliminar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal de Detalles */}
+            <Dialog open={detailModal.open} onOpenChange={(open) => setDetailModal({...detailModal, open})}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Eye className="h-5 w-5 text-[#2c4370]" />
+                            Detalles de la Impresora
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    {detailModal.loading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-[#2c4370]" />
+                        </div>
+                    ) : detailModal.printer && (
+                        <div className="space-y-6">
+                            {/* Información Básica */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Información Básica</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Nombre</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Entidad</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.entity_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Número de Serie</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.serial || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Número de Inventario</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.otherserial || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Clasificación */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Clasificación</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Estado</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.state_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Tipo</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.type_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Fabricante</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.manufacturer_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Modelo</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.model_name || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Ubicación y Responsables */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Ubicación y Responsables</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Localización</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.location_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Técnico a cargo</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.tech_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Grupo a cargo</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.tech_group_name || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Contacto</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.contact || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Conexiones */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Conexiones</h3>
+                                <div className="grid grid-cols-5 gap-4">
+                                    <div className="flex items-center gap-2">
+                                        {detailModal.printer.have_serial ? <Check className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-gray-300" />}
+                                        <span className="text-sm">Serial</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {detailModal.printer.have_parallel ? <Check className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-gray-300" />}
+                                        <span className="text-sm">Paralelo</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {detailModal.printer.have_usb ? <Check className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-gray-300" />}
+                                        <span className="text-sm">USB</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {detailModal.printer.have_ethernet ? <Check className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-gray-300" />}
+                                        <span className="text-sm">Ethernet</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {detailModal.printer.have_wifi ? <Check className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-gray-300" />}
+                                        <span className="text-sm">Wi-Fi</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Información de Red */}
+                            {(detailModal.printer.ip_addresses?.length > 0 || detailModal.printer.domain_name) && (
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Información de Red</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {detailModal.printer.domain_name && (
+                                            <div>
+                                                <p className="text-xs text-gray-500">Dominio</p>
+                                                <p className="text-sm font-medium">{detailModal.printer.domain_name}</p>
+                                            </div>
+                                        )}
+                                        {detailModal.printer.ip_addresses?.length > 0 && (
+                                            <div className={detailModal.printer.domain_name ? '' : 'col-span-2'}>
+                                                <p className="text-xs text-gray-500">Direcciones IP</p>
+                                                <div className="flex flex-wrap gap-2 mt-1">
+                                                    {detailModal.printer.ip_addresses.map((ip, idx) => (
+                                                        <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                            {ip}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {detailModal.printer.ip_networks?.length > 0 && (
+                                            <div className="col-span-2">
+                                                <p className="text-xs text-gray-500">Redes IP</p>
+                                                <div className="flex flex-wrap gap-2 mt-1">
+                                                    {detailModal.printer.ip_networks.map((net, idx) => (
+                                                        <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                            {net}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Información Adicional */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Información Adicional</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Contador Inicial</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.init_pages_counter || 0}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Último Contador</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.last_pages_counter || 0}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Memoria</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.memory_size || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Fecha de Creación</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.date_creation ? new Date(detailModal.printer.date_creation).toLocaleString('es-CO') : '-'}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-xs text-gray-500">Última Actualización</p>
+                                        <p className="text-sm font-medium">{detailModal.printer.date_mod ? new Date(detailModal.printer.date_mod).toLocaleString('es-CO') : '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Comentarios */}
+                            {detailModal.printer.comment && (
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-2">Comentarios</h3>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{detailModal.printer.comment}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        {isAdmin && detailModal.printer && (
+                            <Button variant="outline" onClick={() => { setDetailModal({open: false, loading: false, printer: null}); router.visit(`/inventario/impresoras/${detailModal.printer?.id}/editar`); }}>
+                                <Pencil className="h-4 w-4 mr-1" /> Editar
+                            </Button>
+                        )}
+                        <Button onClick={() => setDetailModal({open: false, loading: false, printer: null})} className="bg-[#2c4370] hover:bg-[#3d5583]">
+                            Cerrar
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

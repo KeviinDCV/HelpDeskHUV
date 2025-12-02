@@ -28,19 +28,31 @@ interface Props {
     models: Option[];
     locations: Option[];
     entities: Option[];
+    users: Option[];
+    groups: Option[];
 }
 
-export default function CrearImpresora({ states, manufacturers, types, models, locations, entities }: Props) {
+export default function CrearImpresora({ states, manufacturers, types, models, locations, entities, users, groups }: Props) {
     const [formData, setFormData] = useState({
         name: '',
         serial: '',
         otherserial: '',
+        contact: '',
+        contact_num: '',
         states_id: '',
         manufacturers_id: '',
         printertypes_id: '',
         printermodels_id: '',
         locations_id: '',
         entities_id: '',
+        users_id_tech: '',
+        groups_id_tech: '',
+        memory_size: '',
+        have_serial: false,
+        have_parallel: false,
+        have_usb: false,
+        have_ethernet: false,
+        have_wifi: false,
         comment: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -139,21 +151,79 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
                                 </div>
 
                                 <div className="mb-4">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación y Responsables</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label className="text-xs">Ubicación</Label>
                                             <Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar ubicación..." /></SelectTrigger>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
                                             <Label className="text-xs">Entidad</Label>
                                             <Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar entidad..." /></SelectTrigger>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{entities.map((e) => (<SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>))}</SelectContent>
                                             </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Técnico a cargo</Label>
+                                            <Select value={formData.users_id_tech} onValueChange={(v) => setFormData({ ...formData, users_id_tech: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>{users?.map((u) => (<SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>))}</SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Grupo a cargo</Label>
+                                            <Select value={formData.groups_id_tech} onValueChange={(v) => setFormData({ ...formData, groups_id_tech: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>{groups?.map((g) => (<SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>))}</SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Conexiones</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <input type="checkbox" id="have_serial" checked={formData.have_serial} onChange={(e) => setFormData({ ...formData, have_serial: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                                            <Label htmlFor="have_serial" className="text-xs cursor-pointer">Puerto Serial</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input type="checkbox" id="have_parallel" checked={formData.have_parallel} onChange={(e) => setFormData({ ...formData, have_parallel: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                                            <Label htmlFor="have_parallel" className="text-xs cursor-pointer">Puerto Paralelo</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input type="checkbox" id="have_usb" checked={formData.have_usb} onChange={(e) => setFormData({ ...formData, have_usb: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                                            <Label htmlFor="have_usb" className="text-xs cursor-pointer">Puerto USB</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input type="checkbox" id="have_ethernet" checked={formData.have_ethernet} onChange={(e) => setFormData({ ...formData, have_ethernet: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                                            <Label htmlFor="have_ethernet" className="text-xs cursor-pointer">Ethernet</Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input type="checkbox" id="have_wifi" checked={formData.have_wifi} onChange={(e) => setFormData({ ...formData, have_wifi: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                                            <Label htmlFor="have_wifi" className="text-xs cursor-pointer">Wi-Fi</Label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Información Adicional</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <Label htmlFor="contact" className="text-xs">Contacto</Label>
+                                            <Input id="contact" value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="Nombre del contacto" className="mt-1 h-8 text-sm" />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="contact_num" className="text-xs">Teléfono Contacto</Label>
+                                            <Input id="contact_num" value={formData.contact_num} onChange={(e) => setFormData({ ...formData, contact_num: e.target.value })} placeholder="Ej: 3001234567" className="mt-1 h-8 text-sm" />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="memory_size" className="text-xs">Memoria</Label>
+                                            <Input id="memory_size" value={formData.memory_size} onChange={(e) => setFormData({ ...formData, memory_size: e.target.value })} placeholder="Ej: 256 MB" className="mt-1 h-8 text-sm" />
                                         </div>
                                     </div>
                                 </div>
