@@ -1,4 +1,4 @@
-import { Bell, LogOut, Search } from 'lucide-react'
+import { LogOut, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { router, usePage } from '@inertiajs/react'
@@ -16,6 +16,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
+import { NotificationsDropdown } from "@/components/notifications-dropdown"
 
 const inventarioItems = [
   { name: 'Computadores', href: '/inventario/computadores' },
@@ -239,10 +240,8 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
             />
           </div>
 
-          {/* Icons */}
-          <Button variant="ghost" size="icon" className="text-white hover:bg-[#3d5583]">
-            <Bell className="h-5 w-5" />
-          </Button>
+          {/* Notificaciones */}
+          <NotificationsDropdown />
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

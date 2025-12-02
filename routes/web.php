@@ -107,6 +107,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/administracion/usuarios/export', [App\Http\Controllers\UserController::class, 'export'])->name('administracion.usuarios.export');
     Route::post('/administracion/usuarios/{id}/toggle-active', [App\Http\Controllers\UserController::class, 'toggleActive'])->name('administracion.usuarios.toggle-active');
     Route::put('/administracion/usuarios/{id}', [App\Http\Controllers\UserController::class, 'update'])->name('administracion.usuarios.update');
+
+    // Notificaciones
+    Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/api/notifications/unread-count', [App\Http\Controllers\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+    Route::post('/api/notifications/{id}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/api/notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    Route::delete('/api/notifications/{id}', [App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
+    Route::post('/api/notifications/clear-read', [App\Http\Controllers\NotificationController::class, 'clearRead'])->name('notifications.clear-read');
 });
 
 require __DIR__.'/settings.php';

@@ -354,8 +354,15 @@ export default function ReportarCaso() {
             <Head title="Reportar Problema - HelpDesk HUV" />
             <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
                 <div className="w-full max-w-5xl">
-                    <div className="text-center mb-8">
-                        <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-md">Reporte Sistemas HUV</h1>
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 mx-auto mb-3 bg-white rounded-full p-2 shadow-lg">
+                            <img 
+                                src="/images/Logo.png" 
+                                alt="HelpDesk HUV" 
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                        <h1 className="text-3xl font-bold text-white tracking-tight">Reporte Sistemas HUV</h1>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

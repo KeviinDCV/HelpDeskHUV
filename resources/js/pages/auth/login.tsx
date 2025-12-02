@@ -1,11 +1,11 @@
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { store } from '@/routes/login';
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 interface LoginProps {
@@ -14,6 +14,7 @@ interface LoginProps {
 
 export default function Login({ status }: LoginProps) {
     const [showPassword, setShowPassword] = useState(false);
+    const { errors: pageErrors } = usePage().props as { errors: Record<string, string> };
 
     return (
         <>
@@ -23,14 +24,21 @@ export default function Login({ status }: LoginProps) {
                 {/* Logo */}
                 <div className="flex-1 flex items-center justify-center pt-20">
                     <div className="text-center">
-                        <div className="mb-16">
+                        <div className="mb-10">
+                            <div className="w-32 h-32 mx-auto bg-white rounded-full p-3 shadow-lg mb-4">
+                                <img 
+                                    src="/images/Logo.png" 
+                                    alt="HelpDesk HUV" 
+                                    className="w-full h-full object-contain"
+                                />
+                            </div>
                             <h1 className="text-white font-bold tracking-wide">
                                 <div className="flex flex-col items-center gap-1">
-                                    <div className="inline-flex items-center gap-1 text-5xl">
-                                        <span className="bg-white text-[#2c4875] px-3 py-1 rounded-lg">H</span>
+                                    <div className="inline-flex items-center gap-1 text-4xl">
+                                        <span className="bg-white text-[#2c4875] px-2 py-0.5 rounded-lg">H</span>
                                         <span>elpDesk</span>
                                     </div>
-                                    <div className="text-4xl">HUV</div>
+                                    <div className="text-3xl">HUV</div>
                                 </div>
                             </h1>
                         </div>
@@ -43,6 +51,14 @@ export default function Login({ status }: LoginProps) {
                         >
                             {({ processing, errors }) => (
                                 <>
+                                    {/* Error de autenticación */}
+                                    {(errors.email || pageErrors.email) && (
+                                        <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-400/50 rounded-lg text-white text-sm">
+                                            <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0" />
+                                            <span>{errors.email || pageErrors.email}</span>
+                                        </div>
+                                    )}
+
                                     {/* Usuario Field */}
                                     <div className="space-y-1.5">
                                         <div className="relative">
@@ -59,9 +75,6 @@ export default function Login({ status }: LoginProps) {
                                                 className="h-12 pl-11 pr-4 bg-[#2c4370]/30 text-white font-medium placeholder:text-gray-300 placeholder:font-normal border-2 border-white/30 focus-visible:ring-0 focus-visible:border-white/50 shadow-sm"
                                             />
                                         </div>
-                                        {errors.email && (
-                                            <InputError message={errors.email} className="text-red-200 text-xs font-medium bg-red-900/30 px-2 py-1 rounded" />
-                                        )}
                                     </div>
 
                                     {/* Contraseña Field */}

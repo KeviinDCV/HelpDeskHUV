@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Models\User;
+use App\Models\Notification;
 
 class TicketController extends Controller
 {
@@ -403,6 +404,10 @@ class TicketController extends Controller
 
             // Agregar asignados (type = 2)
             if (!empty($validated['assigned_ids'])) {
+                $creatorId = $validated['requester_id'];
+                $creatorUser = auth()->user();
+                $creatorName = $creatorUser ? $creatorUser->name : 'Sistema';
+                
                 foreach ($validated['assigned_ids'] as $assignedId) {
                     DB::table('glpi_tickets_users')->insert([
                         'tickets_id' => $ticketId,
@@ -410,6 +415,39 @@ class TicketController extends Controller
                         'type' => 2, // Assigned
                         'use_notification' => 1,
                     ]);
+                    
+                    // Notificar al usuario asignado (si es diferente del creador)
+                    if ($assignedId != $creatorId && $assignedId != auth()->id()) {
+                        // Buscar el user_id en nuestra tabla users que corresponda al glpi_users id
+                        $localUser = User::where('id', $assignedId)->first();
+                        if ($localUser) {
+                            Notification::createTicketAssigned(
+                                $localUser->id,
+                                $ticketId,
+                                $validated['name'],
+                                $creatorName
+                            );
+                        }
+                    }
+                }
+                
+                // Si es prioridad alta (4), muy alta (5) o urgente (6), notificar a todos los técnicos
+                if ($validated['priority'] >= 4) {
+                    $technicians = User::where('role', 'Técnico')
+                        ->orWhere('role', 'Administrador')
+                        ->where('id', '!=', auth()->id())
+                        ->get();
+                    
+                    foreach ($technicians as $tech) {
+                        // Evitar duplicar notificación si ya está asignado
+                        if (!in_array($tech->id, $validated['assigned_ids'])) {
+                            Notification::createTicketUrgent(
+                                $tech->id,
+                                $ticketId,
+                                $validated['name']
+                            );
+                        }
+                    }
                 }
             }
 
@@ -638,6 +676,10 @@ class TicketController extends Controller
             'itilcategories_id' => 'nullable|integer',
         ]);
 
+        // Obtener el estado anterior para comparar
+        $oldTicket = DB::table('glpi_tickets')->where('id', $id)->first();
+        $oldStatus = $oldTicket ? $oldTicket->status : null;
+
         DB::beginTransaction();
         try {
             DB::table('glpi_tickets')
@@ -654,6 +696,51 @@ class TicketController extends Controller
                     'locations_id' => $validated['locations_id'] ?? 0,
                     'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
                 ]);
+
+            // Notificar cambios de estado
+            if ($oldStatus && $oldStatus != $validated['status']) {
+                $statusNames = [
+                    1 => 'Nuevo',
+                    2 => 'En curso (asignado)',
+                    3 => 'En curso (planificado)',
+                    4 => 'En espera',
+                    5 => 'Resuelto',
+                    6 => 'Cerrado',
+                ];
+                $newStatusName = $statusNames[$validated['status']] ?? 'Desconocido';
+
+                // Notificar al creador del caso
+                $requester = DB::table('glpi_tickets_users as tu')
+                    ->where('tu.tickets_id', $id)
+                    ->where('tu.type', 1)
+                    ->first();
+
+                if ($requester && $requester->users_id != auth()->id()) {
+                    $localUser = User::where('id', $requester->users_id)->first();
+                    if ($localUser) {
+                        if ($validated['status'] == 5) {
+                            Notification::createTicketResolved($localUser->id, $id, $validated['name']);
+                        } elseif ($validated['status'] == 6) {
+                            Notification::createTicketClosed($localUser->id, $id, $validated['name']);
+                        } else {
+                            Notification::createTicketStatusChange($localUser->id, $id, $validated['name'], $newStatusName);
+                        }
+                    }
+                }
+
+                // Notificar al técnico asignado (si no es quien hace el cambio)
+                $assigned = DB::table('glpi_tickets_users as tu')
+                    ->where('tu.tickets_id', $id)
+                    ->where('tu.type', 2)
+                    ->first();
+
+                if ($assigned && $assigned->users_id != auth()->id() && $assigned->users_id != ($requester->users_id ?? 0)) {
+                    $localUser = User::where('id', $assigned->users_id)->first();
+                    if ($localUser) {
+                        Notification::createTicketStatusChange($localUser->id, $id, $validated['name'], $newStatusName);
+                    }
+                }
+            }
 
             DB::commit();
 
@@ -708,6 +795,24 @@ class TicketController extends Controller
                     'solvedate' => now(),
                     'closedate' => now(),
                 ]);
+
+            // Notificar al creador del caso que fue cerrado
+            $requester = DB::table('glpi_tickets_users as tu')
+                ->join('glpi_users as u', 'tu.users_id', '=', 'u.id')
+                ->where('tu.tickets_id', $id)
+                ->where('tu.type', 1) // Requester
+                ->first();
+            
+            if ($requester && $requester->users_id != auth()->id()) {
+                $localUser = User::where('id', $requester->users_id)->first();
+                if ($localUser) {
+                    Notification::createTicketClosed(
+                        $localUser->id,
+                        $id,
+                        $ticket->name
+                    );
+                }
+            }
 
             DB::commit();
 
