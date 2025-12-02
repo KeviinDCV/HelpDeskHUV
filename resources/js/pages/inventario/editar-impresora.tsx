@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save } from 'lucide-react';
+import { Save, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface Option { id: number; name: string; completename?: string; }
@@ -18,9 +18,9 @@ interface Printer {
     have_serial: number; have_parallel: number; have_usb: number; have_ethernet: number; have_wifi: number;
     comment: string | null; 
 }
-interface Props { printer: Printer; states: Option[]; manufacturers: Option[]; types: Option[]; models: Option[]; locations: Option[]; entities: Option[]; users: Option[]; groups: Option[]; }
+interface Props { printer: Printer; states: Option[]; manufacturers: Option[]; types: Option[]; models: Option[]; locations: Option[]; entities: Option[]; users: Option[]; groups: Option[]; existingIps: string[]; }
 
-export default function EditarImpresora({ printer, states, manufacturers, types, models, locations, entities, users, groups }: Props) {
+export default function EditarImpresora({ printer, states, manufacturers, types, models, locations, entities, users, groups, existingIps }: Props) {
     const [formData, setFormData] = useState({
         name: printer.name || '', 
         serial: printer.serial || '', 
@@ -42,9 +42,22 @@ export default function EditarImpresora({ printer, states, manufacturers, types,
         have_ethernet: printer.have_ethernet === 1,
         have_wifi: printer.have_wifi === 1,
         comment: printer.comment || '',
+        ip_addresses: existingIps || [],
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [processing, setProcessing] = useState(false);
+    const [newIp, setNewIp] = useState('');
+
+    const addIp = () => {
+        if (newIp.trim() && !formData.ip_addresses.includes(newIp.trim())) {
+            setFormData({ ...formData, ip_addresses: [...formData.ip_addresses, newIp.trim()] });
+            setNewIp('');
+        }
+    };
+
+    const removeIp = (ip: string) => {
+        setFormData({ ...formData, ip_addresses: formData.ip_addresses.filter(i => i !== ip) });
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault(); setProcessing(true); setErrors({});
@@ -95,6 +108,22 @@ export default function EditarImpresora({ printer, states, manufacturers, types,
                                         <div className="flex items-center gap-2"><input type="checkbox" id="have_ethernet" checked={formData.have_ethernet} onChange={(e) => setFormData({ ...formData, have_ethernet: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_ethernet" className="text-xs cursor-pointer">Ethernet</Label></div>
                                         <div className="flex items-center gap-2"><input type="checkbox" id="have_wifi" checked={formData.have_wifi} onChange={(e) => setFormData({ ...formData, have_wifi: e.target.checked })} className="h-4 w-4 rounded border-gray-300" /><Label htmlFor="have_wifi" className="text-xs cursor-pointer">Wi-Fi</Label></div>
                                     </div>
+                                </div>
+                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Direcciones IP</h3>
+                                    <div className="flex gap-2 mb-2">
+                                        <Input value={newIp} onChange={(e) => setNewIp(e.target.value)} placeholder="Ej: 192.168.1.100" className="h-8 text-sm flex-1" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addIp(); } }} />
+                                        <Button type="button" size="sm" onClick={addIp} className="h-8 bg-[#2c4370] hover:bg-[#3d5583]"><Plus className="h-4 w-4" /></Button>
+                                    </div>
+                                    {formData.ip_addresses.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {formData.ip_addresses.map((ip, idx) => (
+                                                <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {ip}
+                                                    <button type="button" onClick={() => removeIp(ip)} className="hover:text-blue-600"><X className="h-3 w-3" /></button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Información Adicional</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

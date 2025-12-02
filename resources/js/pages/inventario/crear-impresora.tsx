@@ -12,7 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Save } from 'lucide-react';
+import { Save, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface Option {
@@ -54,9 +54,22 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
         have_ethernet: false,
         have_wifi: false,
         comment: '',
+        ip_addresses: [] as string[],
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [processing, setProcessing] = useState(false);
+    const [newIp, setNewIp] = useState('');
+
+    const addIp = () => {
+        if (newIp.trim() && !formData.ip_addresses.includes(newIp.trim())) {
+            setFormData({ ...formData, ip_addresses: [...formData.ip_addresses, newIp.trim()] });
+            setNewIp('');
+        }
+    };
+
+    const removeIp = (ip: string) => {
+        setFormData({ ...formData, ip_addresses: formData.ip_addresses.filter(i => i !== ip) });
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -208,6 +221,34 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
                                             <Label htmlFor="have_wifi" className="text-xs cursor-pointer">Wi-Fi</Label>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Direcciones IP</h3>
+                                    <div className="flex gap-2 mb-2">
+                                        <Input 
+                                            value={newIp} 
+                                            onChange={(e) => setNewIp(e.target.value)} 
+                                            placeholder="Ej: 192.168.1.100" 
+                                            className="h-8 text-sm flex-1"
+                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addIp(); } }}
+                                        />
+                                        <Button type="button" size="sm" onClick={addIp} className="h-8 bg-[#2c4370] hover:bg-[#3d5583]">
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    {formData.ip_addresses.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {formData.ip_addresses.map((ip, idx) => (
+                                                <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {ip}
+                                                    <button type="button" onClick={() => removeIp(ip)} className="hover:text-blue-600">
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="mb-4">

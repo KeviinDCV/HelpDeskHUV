@@ -341,7 +341,7 @@ class PrinterController extends Controller
             'comment' => 'nullable|string',
         ]);
 
-        DB::table('glpi_printers')->insert([
+        $printerId = DB::table('glpi_printers')->insertGetId([
             'name' => $validated['name'],
             'serial' => $validated['serial'] ?: '',
             'otherserial' => $validated['otherserial'] ?: '',
@@ -379,6 +379,29 @@ class PrinterController extends Controller
             'date_mod' => now(),
         ]);
 
+        // Guardar direcciones IP si se proporcionaron
+        if ($request->has('ip_addresses') && is_array($request->ip_addresses)) {
+            foreach ($request->ip_addresses as $ip) {
+                if (!empty(trim($ip))) {
+                    DB::table('glpi_ipaddresses')->insert([
+                        'entities_id' => 0,
+                        'items_id' => 0,
+                        'itemtype' => 'NetworkName',
+                        'version' => 4,
+                        'name' => trim($ip),
+                        'binary_0' => 0,
+                        'binary_1' => 0,
+                        'binary_2' => 65535,
+                        'binary_3' => ip2long(trim($ip)) ?: 0,
+                        'is_deleted' => 0,
+                        'is_dynamic' => 0,
+                        'mainitems_id' => $printerId,
+                        'mainitemtype' => 'Printer',
+                    ]);
+                }
+            }
+        }
+
         return redirect()->route('inventario.impresoras')->with('success', 'Impresora creada exitosamente');
     }
 
@@ -402,6 +425,14 @@ class PrinterController extends Controller
         $users = DB::table('glpi_users')->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))->whereRaw("firstname != '' OR realname != ''")->orderBy('realname')->get();
         $groups = DB::table('glpi_groups')->select('id', 'name')->orderBy('name')->get();
 
+        // Obtener IPs existentes
+        $ipAddresses = DB::table('glpi_ipaddresses')
+            ->where('mainitemtype', 'Printer')
+            ->where('mainitems_id', $id)
+            ->where('is_deleted', 0)
+            ->pluck('name')
+            ->toArray();
+
         return Inertia::render('inventario/editar-impresora', [
             'printer' => $printer,
             'states' => $states,
@@ -412,6 +443,7 @@ class PrinterController extends Controller
             'entities' => $entities,
             'users' => $users,
             'groups' => $groups,
+            'existingIps' => $ipAddresses,
         ]);
     }
 
@@ -467,6 +499,36 @@ class PrinterController extends Controller
             'comment' => $validated['comment'] ?? '',
             'date_mod' => now(),
         ]);
+
+        // Actualizar direcciones IP
+        // Primero eliminar las existentes
+        DB::table('glpi_ipaddresses')
+            ->where('mainitemtype', 'Printer')
+            ->where('mainitems_id', $id)
+            ->delete();
+
+        // Agregar las nuevas
+        if ($request->has('ip_addresses') && is_array($request->ip_addresses)) {
+            foreach ($request->ip_addresses as $ip) {
+                if (!empty(trim($ip))) {
+                    DB::table('glpi_ipaddresses')->insert([
+                        'entities_id' => 0,
+                        'items_id' => 0,
+                        'itemtype' => 'NetworkName',
+                        'version' => 4,
+                        'name' => trim($ip),
+                        'binary_0' => 0,
+                        'binary_1' => 0,
+                        'binary_2' => 65535,
+                        'binary_3' => ip2long(trim($ip)) ?: 0,
+                        'is_deleted' => 0,
+                        'is_dynamic' => 0,
+                        'mainitems_id' => $id,
+                        'mainitemtype' => 'Printer',
+                    ]);
+                }
+            }
+        }
 
         return redirect()->route('inventario.impresoras')->with('success', 'Impresora actualizada exitosamente');
     }
