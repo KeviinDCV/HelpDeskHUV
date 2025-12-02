@@ -4,7 +4,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Phone, Camera } from 'lucide-react';
+import { User, Mail, Phone, Camera, Lock, Eye, EyeOff } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 
 interface AuthUser {
@@ -39,6 +39,19 @@ export default function Profile({ status, flash }: ProfileProps) {
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Estados para cambio de contraseña
+    const [passwordData, setPasswordData] = useState({
+        current_password: '',
+        password: '',
+        password_confirmation: '',
+    });
+    const [passwordProcessing, setPasswordProcessing] = useState(false);
+    const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [passwordSuccess, setPasswordSuccess] = useState(false);
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -75,6 +88,30 @@ export default function Profile({ status, flash }: ProfileProps) {
             onError: (errs) => {
                 setErrors(errs as Record<string, string>);
                 setProcessing(false);
+            },
+        });
+    };
+
+    const handlePasswordSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordProcessing(true);
+        setPasswordErrors({});
+        setPasswordSuccess(false);
+
+        router.put('/settings/profile/password', passwordData, {
+            onSuccess: () => {
+                setPasswordProcessing(false);
+                setPasswordData({
+                    current_password: '',
+                    password: '',
+                    password_confirmation: '',
+                });
+                setPasswordSuccess(true);
+                setTimeout(() => setPasswordSuccess(false), 5000);
+            },
+            onError: (errs) => {
+                setPasswordErrors(errs as Record<string, string>);
+                setPasswordProcessing(false);
             },
         });
     };
@@ -211,6 +248,111 @@ export default function Profile({ status, flash }: ProfileProps) {
                                         className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
                                     >
                                         {processing ? 'Guardando...' : 'Guardar Cambios'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Sección de cambio de contraseña */}
+                        <div className="bg-white rounded-lg shadow mt-6">
+                            <div className="px-6 py-4 border-b">
+                                <h2 className="text-xl font-semibold text-gray-900">Cambiar Contraseña</h2>
+                                <p className="text-sm text-gray-500 mt-1">Asegúrate de usar una contraseña segura</p>
+                            </div>
+
+                            {passwordSuccess && (
+                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <p className="text-sm text-green-700">Contraseña actualizada correctamente</p>
+                                </div>
+                            )}
+
+                            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
+                                {/* Contraseña actual */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="current_password" className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-gray-400" />
+                                        Contraseña Actual
+                                    </Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="current_password"
+                                            type={showCurrentPassword ? 'text' : 'password'}
+                                            value={passwordData.current_password}
+                                            onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                                            placeholder="Ingresa tu contraseña actual"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    {passwordErrors.current_password && <p className="text-sm text-red-600">{passwordErrors.current_password}</p>}
+                                </div>
+
+                                {/* Nueva contraseña */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="password" className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-gray-400" />
+                                        Nueva Contraseña
+                                    </Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="password"
+                                            type={showNewPassword ? 'text' : 'password'}
+                                            value={passwordData.password}
+                                            onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                                            placeholder="Mínimo 8 caracteres"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    {passwordErrors.password && <p className="text-sm text-red-600">{passwordErrors.password}</p>}
+                                </div>
+
+                                {/* Confirmar contraseña */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="password_confirmation" className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-gray-400" />
+                                        Confirmar Nueva Contraseña
+                                    </Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="password_confirmation"
+                                            type={showConfirmPassword ? 'text' : 'password'}
+                                            value={passwordData.password_confirmation}
+                                            onChange={(e) => setPasswordData({ ...passwordData, password_confirmation: e.target.value })}
+                                            placeholder="Repite la nueva contraseña"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    {passwordErrors.password_confirmation && <p className="text-sm text-red-600">{passwordErrors.password_confirmation}</p>}
+                                </div>
+
+                                {/* Botón guardar */}
+                                <div className="pt-4 flex justify-end">
+                                    <Button
+                                        type="submit"
+                                        disabled={passwordProcessing}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
+                                    >
+                                        {passwordProcessing ? 'Actualizando...' : 'Cambiar Contraseña'}
                                     </Button>
                                 </div>
                             </form>

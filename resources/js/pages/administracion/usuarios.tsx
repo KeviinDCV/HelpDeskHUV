@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -83,17 +83,23 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                             (statusFilter && statusFilter !== 'all') ||
                             dateFrom || dateTo;
     
-    const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+    const [isModalOpen, setIsModalOpen] = React.useState(false);
+    const [isCreateMode, setIsCreateMode] = React.useState(false);
     const [editingUser, setEditingUser] = React.useState<User | null>(null);
     const [formData, setFormData] = React.useState({
         username: '',
         name: '',
         email: '',
+        phone: '',
         role: 'Técnico',
         is_active: true,
         password: '',
         password_confirmation: ''
     });
+    const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showPasswordConfirm, setShowPasswordConfirm] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -159,49 +165,98 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
         });
     };
 
+    const handleOpenCreateModal = () => {
+        setIsCreateMode(true);
+        setEditingUser(null);
+        setFormData({
+            username: '',
+            name: '',
+            email: '',
+            phone: '',
+            role: 'Técnico',
+            is_active: true,
+            password: '',
+            password_confirmation: ''
+        });
+        setFormErrors({});
+        setShowPassword(false);
+        setShowPasswordConfirm(false);
+        setIsModalOpen(true);
+    };
+
     const handleRowDoubleClick = (user: User) => {
         // Solo administradores pueden editar
         if (auth.user.role !== 'Administrador') {
             return;
         }
 
+        setIsCreateMode(false);
         setEditingUser(user);
         setFormData({
             username: user.username,
             name: user.name,
             email: user.email,
+            phone: '',
             role: user.role,
             is_active: user.is_active,
             password: '',
             password_confirmation: ''
         });
-        setIsEditModalOpen(true);
+        setFormErrors({});
+        setShowPassword(false);
+        setShowPasswordConfirm(false);
+        setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
-        setIsEditModalOpen(false);
+        setIsModalOpen(false);
+        setIsCreateMode(false);
         setEditingUser(null);
         setFormData({
             username: '',
             name: '',
             email: '',
+            phone: '',
             role: 'Técnico',
             is_active: true,
             password: '',
             password_confirmation: ''
         });
+        setFormErrors({});
     };
 
-    const handleSubmitEdit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingUser) return;
+        setIsSubmitting(true);
+        setFormErrors({});
 
-        router.put(`/administracion/usuarios/${editingUser.id}`, formData, {
-            preserveScroll: true,
-            onSuccess: () => {
-                handleCloseModal();
-            },
-        });
+        if (isCreateMode) {
+            // Crear nuevo usuario
+            router.post('/administracion/usuarios', formData, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    handleCloseModal();
+                    setIsSubmitting(false);
+                },
+                onError: (errors) => {
+                    setFormErrors(errors as Record<string, string>);
+                    setIsSubmitting(false);
+                },
+            });
+        } else if (editingUser) {
+            // Editar usuario existente
+            router.put(`/administracion/usuarios/${editingUser.id}`, formData, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    handleCloseModal();
+                    setIsSubmitting(false);
+                },
+                onError: (errors) => {
+                    setFormErrors(errors as Record<string, string>);
+                    setIsSubmitting(false);
+                },
+            });
+        }
     };
 
     return (
@@ -238,6 +293,11 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         <Filter className="h-4 w-4 mr-1" /> Filtros
                                         {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
                                     </Button>
+                                    {auth.user.role === 'Administrador' && (
+                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9" onClick={handleOpenCreateModal}>
+                                            <Plus className="h-4 w-4 mr-1" /> Nuevo Usuario
+                                        </Button>
+                                    )}
                                     <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>Exportar</Button>
                                 </div>
                             </div>
@@ -504,26 +564,51 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                 <GLPIFooter />
             </div>
 
-            {/* Modal de Edición */}
-            <Dialog open={isEditModalOpen} onOpenChange={handleCloseModal}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <form onSubmit={handleSubmitEdit}>
+            {/* Modal de Creación/Edición */}
+            <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
+                <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+                    <form onSubmit={handleSubmit}>
                         <DialogHeader>
-                            <DialogTitle>Editar Usuario</DialogTitle>
+                            <DialogTitle>{isCreateMode ? 'Nuevo Usuario' : 'Editar Usuario'}</DialogTitle>
                             <DialogDescription>
-                                Modifica los datos del usuario. Los campos con * son obligatorios.
+                                {isCreateMode 
+                                    ? 'Completa la información para crear un nuevo usuario. Los campos con * son obligatorios.'
+                                    : 'Modifica los datos del usuario. Los campos con * son obligatorios.'
+                                }
                             </DialogDescription>
                         </DialogHeader>
                         
                         <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="username">Usuario *</Label>
-                                <Input
-                                    id="username"
-                                    value={formData.username}
-                                    onChange={(e) => setFormData({...formData, username: e.target.value})}
-                                    required
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="username">Usuario *</Label>
+                                    <Input
+                                        id="username"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData({...formData, username: e.target.value})}
+                                        placeholder="ej: jperez"
+                                        required
+                                    />
+                                    {formErrors.username && <p className="text-xs text-red-600">{formErrors.username}</p>}
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="role">Rol *</Label>
+                                    <Select 
+                                        value={formData.role} 
+                                        onValueChange={(value) => setFormData({...formData, role: value})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Administrador">Administrador</SelectItem>
+                                            <SelectItem value="Técnico">Técnico</SelectItem>
+                                            <SelectItem value="Usuario">Usuario</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {formErrors.role && <p className="text-xs text-red-600">{formErrors.role}</p>}
+                                </div>
                             </div>
 
                             <div className="grid gap-2">
@@ -532,36 +617,37 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                     id="name"
                                     value={formData.name}
                                     onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                    placeholder="ej: Juan Pérez García"
                                     required
                                 />
+                                {formErrors.name && <p className="text-xs text-red-600">{formErrors.name}</p>}
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email *</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                                    required
-                                />
-                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="email">Email *</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                        placeholder="ej: jperez@huv.gov.co"
+                                        required
+                                    />
+                                    {formErrors.email && <p className="text-xs text-red-600">{formErrors.email}</p>}
+                                </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="role">Rol *</Label>
-                                <Select 
-                                    value={formData.role} 
-                                    onValueChange={(value) => setFormData({...formData, role: value})}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Administrador">Administrador</SelectItem>
-                                        <SelectItem value="Técnico">Técnico</SelectItem>
-                                        <SelectItem value="Usuario">Usuario</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="phone">Teléfono</Label>
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                        placeholder="ej: 3001234567"
+                                    />
+                                    {formErrors.phone && <p className="text-xs text-red-600">{formErrors.phone}</p>}
+                                </div>
                             </div>
 
                             <div className="grid gap-2">
@@ -574,43 +660,71 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
                                         className="h-4 w-4 rounded border-gray-300"
                                     />
-                                    <span className="text-sm">{formData.is_active ? 'Activo' : 'Inactivo'}</span>
+                                    <span className={`text-sm font-medium ${formData.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formData.is_active ? 'Activo' : 'Inactivo'}
+                                    </span>
                                 </div>
                             </div>
 
                             <div className="border-t pt-4">
-                                <p className="text-sm text-gray-600 mb-3">Cambiar Contraseña (opcional)</p>
+                                <p className="text-sm text-gray-600 mb-3 font-medium">
+                                    {isCreateMode ? 'Contraseña *' : 'Cambiar Contraseña (opcional)'}
+                                </p>
                                 
-                                <div className="grid gap-2 mb-3">
-                                    <Label htmlFor="password">Nueva Contraseña</Label>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={formData.password}
-                                        onChange={(e) => setFormData({...formData, password: e.target.value})}
-                                        placeholder="Dejar en blanco para mantener la actual"
-                                    />
-                                </div>
+                                <div className="grid gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="password">{isCreateMode ? 'Contraseña' : 'Nueva Contraseña'}</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="password"
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                                placeholder={isCreateMode ? 'Mínimo 8 caracteres' : 'Dejar en blanco para mantener la actual'}
+                                                required={isCreateMode}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        {formErrors.password && <p className="text-xs text-red-600">{formErrors.password}</p>}
+                                    </div>
 
-                                <div className="grid gap-2">
-                                    <Label htmlFor="password_confirmation">Confirmar Contraseña</Label>
-                                    <Input
-                                        id="password_confirmation"
-                                        type="password"
-                                        value={formData.password_confirmation}
-                                        onChange={(e) => setFormData({...formData, password_confirmation: e.target.value})}
-                                        placeholder="Confirmar nueva contraseña"
-                                    />
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="password_confirmation">Confirmar Contraseña</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="password_confirmation"
+                                                type={showPasswordConfirm ? 'text' : 'password'}
+                                                value={formData.password_confirmation}
+                                                onChange={(e) => setFormData({...formData, password_confirmation: e.target.value})}
+                                                placeholder="Repite la contraseña"
+                                                required={isCreateMode}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showPasswordConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        {formErrors.password_confirmation && <p className="text-xs text-red-600">{formErrors.password_confirmation}</p>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={handleCloseModal}>
+                            <Button type="button" variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" className="bg-[#2c4370] hover:bg-[#3d5583] text-white">
-                                Guardar Cambios
+                            <Button type="submit" className="bg-[#2c4370] hover:bg-[#3d5583] text-white" disabled={isSubmitting}>
+                                {isSubmitting ? 'Guardando...' : (isCreateMode ? 'Crear Usuario' : 'Guardar Cambios')}
                             </Button>
                         </DialogFooter>
                     </form>

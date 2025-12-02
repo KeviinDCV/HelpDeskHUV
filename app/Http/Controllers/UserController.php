@@ -147,6 +147,47 @@ class UserController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    public function store(Request $request)
+    {
+        // Solo administradores pueden crear usuarios
+        if (auth()->user()->role !== 'Administrador') {
+            return redirect()->back()->with('error', 'No tienes permisos para realizar esta acción');
+        }
+
+        $request->validate([
+            'username' => 'required|string|max:255|unique:users,username',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'phone' => 'nullable|string|max:20',
+            'role' => 'required|in:Administrador,Técnico,Usuario',
+            'is_active' => 'required|boolean',
+            'password' => 'required|min:8|confirmed',
+        ], [
+            'username.required' => 'El nombre de usuario es requerido.',
+            'username.unique' => 'Este nombre de usuario ya está en uso.',
+            'name.required' => 'El nombre completo es requerido.',
+            'email.required' => 'El correo electrónico es requerido.',
+            'email.email' => 'El correo electrónico debe ser válido.',
+            'email.unique' => 'Este correo electrónico ya está registrado.',
+            'role.required' => 'El rol es requerido.',
+            'password.required' => 'La contraseña es requerida.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.confirmed' => 'Las contraseñas no coinciden.',
+        ]);
+
+        User::create([
+            'username' => $request->username,
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'role' => $request->role,
+            'is_active' => $request->is_active,
+            'password' => Hash::make($request->password),
+        ]);
+
+        return redirect()->back()->with('success', 'Usuario creado correctamente');
+    }
+
     public function toggleActive($id)
     {
         $user = User::findOrFail($id);
