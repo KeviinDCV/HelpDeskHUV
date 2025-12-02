@@ -295,7 +295,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                     </Button>
                                     {auth.user.role === 'Administrador' && (
                                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9" onClick={handleOpenCreateModal}>
-                                            <Plus className="h-4 w-4 mr-1" /> Nuevo Usuario
+                                            <Plus className="h-4 w-4 mr-1" />Crear
                                         </Button>
                                     )}
                                     <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>Exportar</Button>
@@ -454,10 +454,8 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                             onDoubleClick={() => handleRowDoubleClick(user)}
                                         >
                                             <TableCell className="text-xs font-medium">{user.id}</TableCell>
-                                            <TableCell className="font-medium text-xs">
-                                                <a href={`/administracion/usuarios/${user.id}`} className="text-[#2c4370] hover:underline">
-                                                    {user.username || '-'}
-                                                </a>
+                                            <TableCell className="font-medium text-xs text-[#2c4370]">
+                                                {user.username || '-'}
                                             </TableCell>
                                             <TableCell className="text-xs">{user.name || '-'}</TableCell>
                                             <TableCell className="text-xs">{user.email || '-'}</TableCell>
