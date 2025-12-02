@@ -28,14 +28,161 @@ class DashboardController extends Controller
             'resolvedToday' => $this->getResolvedTodayCount(),
         ];
 
+        // Obtener técnicos/admins para asignar (solo admins pueden asignar)
+        $technicians = [];
+        if ($user->role === 'Administrador') {
+            $technicians = DB::table('glpi_users')
+                ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))
+                ->whereRaw("firstname != '' OR realname != ''")
+                ->orderBy('realname')
+                ->get();
+        }
+
         return Inertia::render('dashboard', [
             'publicTickets' => $publicTickets,
             'myTickets' => $myTickets,
             'stats' => $stats,
+            'technicians' => $technicians,
             'auth' => [
                 'user' => $user
             ]
         ]);
+    }
+
+    /**
+     * Obtener tickets actualizados (para polling en tiempo real)
+     */
+    public function getTickets()
+    {
+        $user = auth()->user();
+        
+        $publicTickets = $this->getPublicUnassignedTickets();
+        $myTickets = $this->getMyTickets($user);
+
+        $stats = [
+            'publicUnassigned' => $publicTickets->count(),
+            'myTickets' => $myTickets->count(),
+            'resolvedToday' => $this->getResolvedTodayCount(),
+        ];
+
+        return response()->json([
+            'publicTickets' => $publicTickets,
+            'myTickets' => $myTickets,
+            'stats' => $stats,
+        ]);
+    }
+
+    /**
+     * Obtener detalles de un ticket
+     */
+    public function getTicketDetails($id)
+    {
+        $ticket = DB::table('glpi_tickets as t')
+            ->select(
+                't.*',
+                'cat.completename as category_name',
+                'loc.completename as location_name',
+                DB::raw("CASE 
+                    WHEN t.priority = 1 THEN 'Muy baja'
+                    WHEN t.priority = 2 THEN 'Baja'
+                    WHEN t.priority = 3 THEN 'Media'
+                    WHEN t.priority = 4 THEN 'Alta'
+                    WHEN t.priority = 5 THEN 'Muy alta'
+                    WHEN t.priority = 6 THEN 'Urgente'
+                    ELSE 'Media'
+                END as priority_name"),
+                DB::raw("CASE 
+                    WHEN t.status = 1 THEN 'Nuevo'
+                    WHEN t.status = 2 THEN 'En curso (asignado)'
+                    WHEN t.status = 3 THEN 'En curso (planificado)'
+                    WHEN t.status = 4 THEN 'En espera'
+                    WHEN t.status = 5 THEN 'Resuelto'
+                    WHEN t.status = 6 THEN 'Cerrado'
+                    ELSE 'Nuevo'
+                END as status_name")
+            )
+            ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
+            ->leftJoin('glpi_locations as loc', 't.locations_id', '=', 'loc.id')
+            ->where('t.id', $id)
+            ->first();
+
+        if (!$ticket) {
+            return response()->json(['error' => 'Ticket no encontrado'], 404);
+        }
+
+        // Obtener técnico asignado
+        $assignedTech = DB::table('glpi_tickets_users as tu')
+            ->join('glpi_users as u', 'tu.users_id', '=', 'u.id')
+            ->where('tu.tickets_id', $id)
+            ->where('tu.type', 2)
+            ->select(DB::raw("CONCAT(u.firstname, ' ', u.realname) as name"))
+            ->first();
+
+        $ticket->assigned_tech = $assignedTech ? $assignedTech->name : null;
+
+        return response()->json($ticket);
+    }
+
+    /**
+     * Asignar ticket a un técnico específico
+     */
+    public function assignTicket(Request $request, $id)
+    {
+        $user = auth()->user();
+        
+        if ($user->role !== 'Administrador') {
+            return redirect()->back()->with('error', 'Solo los administradores pueden asignar tickets.');
+        }
+
+        $technicianId = $request->input('technician_id');
+        
+        if (!$technicianId) {
+            return redirect()->back()->with('error', 'Debe seleccionar un técnico.');
+        }
+
+        $ticket = DB::table('glpi_tickets')
+            ->where('id', $id)
+            ->where('is_deleted', 0)
+            ->first();
+
+        if (!$ticket) {
+            return redirect()->back()->with('error', 'Ticket no encontrado.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Eliminar asignaciones anteriores de técnicos
+            DB::table('glpi_tickets_users')
+                ->where('tickets_id', $id)
+                ->where('type', 2)
+                ->delete();
+
+            // Asignar el nuevo técnico
+            DB::table('glpi_tickets_users')->insert([
+                'tickets_id' => $id,
+                'users_id' => $technicianId,
+                'type' => 2,
+                'use_notification' => 1,
+            ]);
+
+            // Cambiar estado a "En curso (asignado)"
+            DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->update([
+                    'status' => 2,
+                    'date_mod' => now(),
+                ]);
+
+            DB::commit();
+
+            $techName = DB::table('glpi_users')->where('id', $technicianId)->value(DB::raw("CONCAT(firstname, ' ', realname)"));
+
+            return redirect()->back()->with('success', "Ticket asignado exitosamente a {$techName}.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al asignar el ticket: ' . $e->getMessage());
+        }
     }
 
     /**

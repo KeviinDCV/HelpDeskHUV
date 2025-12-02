@@ -1,11 +1,12 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { DashboardCards } from '@/components/dashboard-cards';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router, usePage, Link } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ViewTabs } from '@/components/view-tabs';
-import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText } from 'lucide-react';
+import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, X, MapPin, Tag, User, Loader2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Ticket {
     id: number;
@@ -21,6 +22,16 @@ interface Ticket {
     category_name: string | null;
 }
 
+interface TicketDetail extends Ticket {
+    location_name: string | null;
+    assigned_tech: string | null;
+}
+
+interface Technician {
+    id: number;
+    name: string;
+}
+
 interface Stats {
     publicUnassigned: number;
     myTickets: number;
@@ -31,6 +42,7 @@ interface DashboardProps {
     publicTickets: Ticket[];
     myTickets: Ticket[];
     stats: Stats;
+    technicians: Technician[];
     auth: { user: { name: string; role: string } };
 }
 
@@ -52,10 +64,74 @@ const statusColors: Record<number, string> = {
     6: 'bg-gray-100 text-gray-600',
 };
 
-export default function Dashboard({ publicTickets, myTickets, stats }: DashboardProps) {
+export default function Dashboard({ publicTickets: initialPublicTickets, myTickets: initialMyTickets, stats: initialStats, technicians, auth }: DashboardProps) {
     const { props } = usePage<{ flash?: { success?: string; error?: string } }>();
     const [activeTab, setActiveTab] = useState('Reportes Públicos');
     const [taking, setTaking] = useState<number | null>(null);
+    
+    // Estados para datos actualizables
+    const [publicTickets, setPublicTickets] = useState(initialPublicTickets);
+    const [myTickets, setMyTickets] = useState(initialMyTickets);
+    const [stats, setStats] = useState(initialStats);
+    
+    // Modal de detalles
+    const [detailModal, setDetailModal] = useState<{ open: boolean; ticket: TicketDetail | null; loading: boolean }>({ open: false, ticket: null, loading: false });
+    
+    // Modal de asignación
+    const [assignModal, setAssignModal] = useState<{ open: boolean; ticketId: number | null; ticketName: string }>({ open: false, ticketId: null, ticketName: '' });
+    const [selectedTech, setSelectedTech] = useState('');
+    const [assigning, setAssigning] = useState(false);
+
+    const isAdmin = auth?.user?.role === 'Administrador';
+
+    // Polling cada 10 segundos para actualizar tickets
+    useEffect(() => {
+        const fetchTickets = async () => {
+            try {
+                const response = await fetch('/dashboard/tickets');
+                if (response.ok) {
+                    const data = await response.json();
+                    setPublicTickets(data.publicTickets);
+                    setMyTickets(data.myTickets);
+                    setStats(data.stats);
+                }
+            } catch (error) {
+                console.error('Error fetching tickets:', error);
+            }
+        };
+
+        const interval = setInterval(fetchTickets, 10000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const openDetailModal = async (ticketId: number) => {
+        setDetailModal({ open: true, ticket: null, loading: true });
+        try {
+            const response = await fetch(`/dashboard/ticket/${ticketId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setDetailModal({ open: true, ticket: data, loading: false });
+            }
+        } catch (error) {
+            setDetailModal({ open: false, ticket: null, loading: false });
+        }
+    };
+
+    const openAssignModal = (ticketId: number, ticketName: string) => {
+        setAssignModal({ open: true, ticketId, ticketName });
+        setSelectedTech('');
+    };
+
+    const assignTicket = () => {
+        if (!assignModal.ticketId || !selectedTech) return;
+        setAssigning(true);
+        router.post(`/dashboard/assign-ticket/${assignModal.ticketId}`, { technician_id: selectedTech }, {
+            onFinish: () => {
+                setAssigning(false);
+                setAssignModal({ open: false, ticketId: null, ticketName: '' });
+            },
+        });
+    };
 
     const takeTicket = (id: number) => {
         setTaking(id);
@@ -162,24 +238,34 @@ export default function Dashboard({ publicTickets, myTickets, stats }: Dashboard
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <Link href={`/soporte/casos/${ticket.id}`}>
-                                                            <Button
-                                                                variant="outline"
-                                                                className="text-sm px-3"
-                                                            >
-                                                                <Eye className="w-4 h-4 mr-1" />
-                                                                Ver
-                                                            </Button>
-                                                        </Link>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="text-sm px-3"
+                                                            onClick={() => openDetailModal(ticket.id)}
+                                                        >
+                                                            <Eye className="w-4 h-4 mr-1" />
+                                                            Ver
+                                                        </Button>
                                                         {isPublicView && (
-                                                            <Button
-                                                                onClick={() => takeTicket(ticket.id)}
-                                                                disabled={taking === ticket.id}
-                                                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-sm px-3"
-                                                            >
-                                                                <UserPlus className="w-4 h-4 mr-1" />
-                                                                {taking === ticket.id ? 'Tomando...' : 'Tomar'}
-                                                            </Button>
+                                                            <>
+                                                                <Button
+                                                                    onClick={() => takeTicket(ticket.id)}
+                                                                    disabled={taking === ticket.id}
+                                                                    className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-sm px-3"
+                                                                >
+                                                                    <UserPlus className="w-4 h-4 mr-1" />
+                                                                    {taking === ticket.id ? 'Tomando...' : 'Tomar'}
+                                                                </Button>
+                                                                {isAdmin && (
+                                                                    <Button
+                                                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-sm px-3"
+                                                                        onClick={() => openAssignModal(ticket.id, ticket.name)}
+                                                                    >
+                                                                        <Users className="w-4 h-4 mr-1" />
+                                                                        Asignar
+                                                                    </Button>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
@@ -196,6 +282,149 @@ export default function Dashboard({ publicTickets, myTickets, stats }: Dashboard
                 </main>
                 <GLPIFooter />
             </div>
+
+            {/* Modal de Detalles */}
+            {detailModal.open && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+                            <h2 className="text-lg font-semibold text-gray-900">Detalles del Caso</h2>
+                            <button onClick={() => setDetailModal({ open: false, ticket: null, loading: false })} className="p-1 hover:bg-gray-100 rounded">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        {detailModal.loading ? (
+                            <div className="p-12 flex items-center justify-center">
+                                <Loader2 className="w-8 h-8 animate-spin text-[#2c4370]" />
+                            </div>
+                        ) : detailModal.ticket && (
+                            <div className="p-4 space-y-4">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm text-gray-500">#{detailModal.ticket.id}</span>
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityColors[detailModal.ticket.priority]}`}>
+                                        {detailModal.ticket.priority_name}
+                                    </span>
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${statusColors[detailModal.ticket.status]}`}>
+                                        {detailModal.ticket.status_name}
+                                    </span>
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900">{detailModal.ticket.name}</h3>
+                                
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    {detailModal.ticket.category_name && (
+                                        <div className="flex items-center gap-2">
+                                            <Tag className="w-4 h-4 text-gray-400" />
+                                            <span className="text-gray-600">{detailModal.ticket.category_name}</span>
+                                        </div>
+                                    )}
+                                    {detailModal.ticket.location_name && (
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="w-4 h-4 text-gray-400" />
+                                            <span className="text-gray-600">{detailModal.ticket.location_name}</span>
+                                        </div>
+                                    )}
+                                    {detailModal.ticket.assigned_tech && (
+                                        <div className="flex items-center gap-2">
+                                            <User className="w-4 h-4 text-gray-400" />
+                                            <span className="text-gray-600">{detailModal.ticket.assigned_tech}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-gray-400" />
+                                        <span className="text-gray-600">
+                                            {new Date(detailModal.ticket.date_creation).toLocaleString('es-CO')}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="border-t pt-4">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Descripción</h4>
+                                    <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 p-4 rounded-lg" dangerouslySetInnerHTML={{ __html: detailModal.ticket.content }} />
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-4 border-t">
+                                    <Button variant="outline" onClick={() => setDetailModal({ open: false, ticket: null, loading: false })}>
+                                        Cerrar
+                                    </Button>
+                                    {detailModal.ticket.status === 1 && (
+                                        <>
+                                            <Button
+                                                onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); takeTicket(detailModal.ticket!.id); }}
+                                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                            >
+                                                <UserPlus className="w-4 h-4 mr-1" />
+                                                Tomar
+                                            </Button>
+                                            {isAdmin && (
+                                                <Button
+                                                    className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                                    onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); openAssignModal(detailModal.ticket!.id, detailModal.ticket!.name); }}
+                                                >
+                                                    <Users className="w-4 h-4 mr-1" />
+                                                    Asignar
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Asignación */}
+            {assignModal.open && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h2 className="text-lg font-semibold text-gray-900">Asignar Caso</h2>
+                            <button onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100 rounded">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <p className="text-sm text-gray-600">
+                                Asignar el caso <strong>"{assignModal.ticketName}"</strong> a:
+                            </p>
+                            <Select value={selectedTech} onValueChange={setSelectedTech}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Seleccionar técnico..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {technicians?.map((tech) => (
+                                        <SelectItem key={tech.id} value={tech.id.toString()}>
+                                            {tech.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex justify-end gap-2 p-4 border-t">
+                            <Button variant="outline" onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={assignTicket}
+                                disabled={!selectedTech || assigning}
+                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                            >
+                                {assigning ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                        Asignando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Users className="w-4 h-4 mr-1" />
+                                        Asignar
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

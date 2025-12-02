@@ -27,7 +27,10 @@ Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard/tickets', [App\Http\Controllers\DashboardController::class, 'getTickets'])->name('dashboard.tickets');
+    Route::get('dashboard/ticket/{id}', [App\Http\Controllers\DashboardController::class, 'getTicketDetails'])->name('dashboard.ticket-details');
     Route::post('dashboard/take-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'takeTicket'])->name('dashboard.take-ticket');
+    Route::post('dashboard/assign-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'assignTicket'])->name('dashboard.assign-ticket');
 
     // Rutas de Inventario
     Route::get('/inventario/computadores', [App\Http\Controllers\ComputerController::class, 'index'])->name('inventario.computadores');

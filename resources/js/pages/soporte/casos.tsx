@@ -94,6 +94,7 @@ interface TicketsProps {
         assigned: string;
         date_from: string;
         date_to: string;
+        filter: string;
     };
     auth: {
         user: User;
@@ -120,7 +121,24 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             (priorityFilter && priorityFilter !== 'all') || 
                             (categoryFilter && categoryFilter !== 'all') || 
                             (assignedFilter && assignedFilter !== 'all') ||
-                            dateFrom || dateTo;
+                            dateFrom || dateTo || filters.filter;
+
+    const getSpecialFilterLabel = () => {
+        switch (filters.filter) {
+            case 'unassigned': return 'Sin asignar';
+            case 'my_cases': return 'Mis casos';
+            case 'resolved_today': return 'Resueltos hoy';
+            default: return null;
+        }
+    };
+
+    const clearSpecialFilter = () => {
+        router.get('/soporte/casos', {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+        }, { preserveState: false });
+    };
 
     // Verificar si el usuario puede eliminar un ticket
     const canDelete = (ticket: Ticket) => {
@@ -293,11 +311,28 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 />
                 
                 <main className="flex-1 px-6 py-6">
+                    {/* Banner de filtro especial */}
+                    {filters.filter && (
+                        <div className="mb-4 bg-[#2c4370] text-white px-4 py-3 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Filter className="w-4 h-4" />
+                                <span className="font-medium">Mostrando: {getSpecialFilterLabel()}</span>
+                                <span className="text-white/70">({tickets.total} casos)</span>
+                            </div>
+                            <button onClick={clearSpecialFilter} className="flex items-center gap-1 hover:bg-white/20 px-2 py-1 rounded transition-colors">
+                                <X className="w-4 h-4" />
+                                <span className="text-sm">Quitar filtro</span>
+                            </button>
+                        </div>
+                    )}
+                    
                     <div className="bg-white rounded-lg shadow">
                         {/* Header */}
                         <div className="px-6 py-4 border-b">
                             <div className="flex items-center justify-between">
-                                <h1 className="text-xl font-semibold text-gray-900">Casos</h1>
+                                <h1 className="text-xl font-semibold text-gray-900">
+                                    {filters.filter ? getSpecialFilterLabel() : 'Casos'}
+                                </h1>
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
                                         <Input

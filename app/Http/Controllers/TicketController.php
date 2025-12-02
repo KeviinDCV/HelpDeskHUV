@@ -25,6 +25,7 @@ class TicketController extends Controller
         $assignedFilter = $request->input('assigned', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $specialFilter = $request->input('filter', ''); // unassigned, my_cases, resolved_today
 
         // Log para debug
         \Log::info('Ticket filters received', [
@@ -160,6 +161,37 @@ class TicketController extends Controller
         if ($dateTo) {
             $query->whereDate('t.date', '<=', $dateTo);
         }
+
+        // Filtros especiales del dashboard
+        if ($specialFilter === 'unassigned') {
+            // Tickets sin asignar (status = 1 y sin técnico)
+            $query->where('t.status', 1)
+                  ->whereNotExists(function ($q) {
+                      $q->select(DB::raw(1))
+                        ->from('glpi_tickets_users')
+                        ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                        ->where('glpi_tickets_users.type', 2);
+                  });
+        } elseif ($specialFilter === 'my_cases') {
+            // Mis casos (asignados a mí, no cerrados)
+            $user = auth()->user();
+            $glpiUser = DB::table('glpi_users')
+                ->where('name', $user->username ?? $user->name)
+                ->first();
+            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            
+            $query->whereExists(function ($q) use ($glpiUserId) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2)
+                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->where('t.status', '!=', 6);
+        } elseif ($specialFilter === 'resolved_today') {
+            // Resueltos hoy
+            $query->where('t.status', 5)
+                  ->whereDate('t.date_mod', today());
+        }
         
         $tickets = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -174,6 +206,7 @@ class TicketController extends Controller
                 'assigned' => $assignedFilter,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'filter' => $specialFilter,
             ]);
 
         // Log resultado de la consulta
@@ -220,6 +253,7 @@ class TicketController extends Controller
                 'assigned' => $assignedFilter,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'filter' => $specialFilter,
             ],
             'auth' => [
                 'user' => auth()->user()
