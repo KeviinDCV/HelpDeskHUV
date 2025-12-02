@@ -269,13 +269,17 @@ class TicketController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Obtener localizaciones de GLPI (sin duplicados, usando completename único)
+        // Obtener localizaciones de GLPI (sin duplicados, mostrando solo el último segmento)
         $locations = DB::table('glpi_locations')
-            ->select(DB::raw('MIN(id) as id'), 'completename', DB::raw('MIN(name) as name'))
+            ->select(
+                DB::raw('MIN(id) as id'), 
+                'completename',
+                DB::raw("SUBSTRING_INDEX(completename, ' > ', -1) as short_name")
+            )
             ->whereNotNull('completename')
             ->where('completename', '!=', '')
             ->groupBy('completename')
-            ->orderBy('completename')
+            ->orderBy(DB::raw("SUBSTRING_INDEX(completename, ' > ', -1)"))
             ->get();
 
         // Obtener categorías de GLPI (sin duplicados)
