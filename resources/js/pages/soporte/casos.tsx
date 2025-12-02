@@ -186,9 +186,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
     const handlePageChange = (url: string | null) => {
         if (url) {
-            router.get(url, filters, { 
-                preserveState: true,
-                preserveScroll: true 
+            router.visit(url, { 
+                preserveScroll: true
             });
         }
     };
@@ -218,11 +217,25 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const handlePerPageChange = (value: string) => {
-        router.get('/soporte/casos', { 
-            ...filters, 
+        // Solo enviar parámetros con valores
+        const params: Record<string, any> = {
             per_page: value,
+            sort: filters.sort,
+            direction: filters.direction,
             page: 1
-        }, { 
+        };
+        
+        // Agregar solo filtros con valores no vacíos
+        if (filters.search) params.search = filters.search;
+        if (filters.status) params.status = filters.status;
+        if (filters.priority) params.priority = filters.priority;
+        if (filters.category) params.category = filters.category;
+        if (filters.assigned) params.assigned = filters.assigned;
+        if (filters.date_from) params.date_from = filters.date_from;
+        if (filters.date_to) params.date_to = filters.date_to;
+        if (filters.filter) params.filter = filters.filter;
+        
+        router.get('/soporte/casos', params, { 
             preserveState: false,
             preserveScroll: true 
         });

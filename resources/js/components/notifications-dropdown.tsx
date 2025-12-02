@@ -49,10 +49,30 @@ export function NotificationsDropdown() {
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
 
+  // Obtener CSRF token del meta tag
+  const getCsrfToken = () => {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+  }
+
+  // Helper para fetch con CSRF token
+  const fetchWithCsrf = async (url: string, options: RequestInit = {}) => {
+    return fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+        ...options.headers,
+      },
+      credentials: 'same-origin',
+    })
+  }
+
   const fetchNotifications = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/notifications')
+      const response = await fetchWithCsrf('/api/notifications')
       if (response.ok) {
         const data = await response.json()
         setNotifications(data.notifications)
@@ -67,7 +87,7 @@ export function NotificationsDropdown() {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch('/api/notifications/unread-count')
+      const response = await fetchWithCsrf('/api/notifications/unread-count')
       if (response.ok) {
         const data = await response.json()
         setUnreadCount(data.count)
@@ -93,7 +113,7 @@ export function NotificationsDropdown() {
   const handleMarkAsRead = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
-      await fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+      await fetchWithCsrf(`/api/notifications/${id}/read`, { method: 'POST' })
       setNotifications(prev => 
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       )
@@ -105,7 +125,7 @@ export function NotificationsDropdown() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' })
+      await fetchWithCsrf('/api/notifications/read-all', { method: 'POST' })
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
       setUnreadCount(0)
     } catch (error) {
@@ -115,7 +135,7 @@ export function NotificationsDropdown() {
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) {
-      fetch(`/api/notifications/${notification.id}/read`, { method: 'POST' })
+      fetchWithCsrf(`/api/notifications/${notification.id}/read`, { method: 'POST' })
       setUnreadCount(prev => Math.max(0, prev - 1))
     }
     if (notification.action_url) {
@@ -127,7 +147,7 @@ export function NotificationsDropdown() {
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
-      await fetch(`/api/notifications/${id}`, { method: 'DELETE' })
+      await fetchWithCsrf(`/api/notifications/${id}`, { method: 'DELETE' })
       const notification = notifications.find(n => n.id === id)
       setNotifications(prev => prev.filter(n => n.id !== id))
       if (notification && !notification.read) {

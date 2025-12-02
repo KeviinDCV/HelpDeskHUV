@@ -23,13 +23,6 @@ interface User {
     email: string;
 }
 
-interface GLPIUser {
-    id: number;
-    name: string;
-    firstname: string;
-    realname: string;
-    fullname: string;
-}
 
 interface Location {
     id: number;
@@ -55,7 +48,6 @@ interface Category {
 
 interface CreateTicketProps {
     users: User[];
-    glpiUsers: GLPIUser[];
     locations: Location[];
     categories: Category[];
     itemTypes: ItemType[];
@@ -64,7 +56,7 @@ interface CreateTicketProps {
     };
 }
 
-export default function CrearCaso({ users, glpiUsers, locations, categories, itemTypes, auth }: CreateTicketProps) {
+export default function CrearCaso({ users, locations, categories, itemTypes, auth }: CreateTicketProps) {
     const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
     const [observerIds, setObserverIds] = React.useState<number[]>([]);
     const [assignedIds, setAssignedIds] = React.useState<number[]>([]);
@@ -73,10 +65,18 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
     const [selectedItems, setSelectedItems] = React.useState<{type: string, id: number, name: string}[]>([]);
     const [loadingItems, setLoadingItems] = React.useState(false);
 
+    // Función para obtener fecha/hora local en formato datetime-local
+    const getLocalDateTime = () => {
+        const now = new Date();
+        const offset = now.getTimezoneOffset();
+        const local = new Date(now.getTime() - offset * 60000);
+        return local.toISOString().slice(0, 16);
+    };
+
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         content: '',
-        date: new Date().toISOString().slice(0, 16),
+        date: getLocalDateTime(),
         time_to_resolve: '',
         internal_time_to_resolve: '',
         status: '1',
@@ -279,15 +279,15 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
 
                                     {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
                                     <div className="md:col-span-2">
-                                        <Label htmlFor="requester_id" className="text-xs">Solicitante *</Label>
+                                        <Label htmlFor="requester_id" className="text-xs">Solicitante</Label>
                                         <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)}>
                                             <SelectTrigger className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Buscar solicitante..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {glpiUsers.map(user => (
+                                                {users.map((user: User) => (
                                                     <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.fullname}
+                                                        {user.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -307,9 +307,9 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
                                                 <SelectValue placeholder="Agregar..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {glpiUsers.filter(u => !observerIds.includes(u.id)).map(user => (
+                                                {users.filter((u: User) => !observerIds.includes(u.id)).map((user: User) => (
                                                     <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.fullname}
+                                                        {user.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -317,10 +317,10 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
                                         {observerIds.length > 0 && (
                                             <div className="mt-1 flex flex-wrap gap-1">
                                                 {observerIds.map(id => {
-                                                    const user = glpiUsers.find(u => u.id === id);
+                                                    const user = users.find((u: User) => u.id === id);
                                                     return user ? (
                                                         <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100">
-                                                            {user.fullname}
+                                                            {user.name}
                                                             <button
                                                                 type="button"
                                                                 onClick={(e: React.MouseEvent) => {
@@ -341,7 +341,7 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="assigned" className="text-xs">Asignado a</Label>
+                                        <Label htmlFor="assigned" className="text-xs">Asignado a *</Label>
                                         <Select onValueChange={(value) => {
                                             const id = parseInt(value);
                                             if (!assignedIds.includes(id)) {
@@ -353,9 +353,9 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
                                                 <SelectValue placeholder="Asignar..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {glpiUsers.filter(u => !assignedIds.includes(u.id)).map(user => (
+                                                {users.filter((u: User) => !assignedIds.includes(u.id)).map((user: User) => (
                                                     <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.fullname}
+                                                        {user.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -363,10 +363,10 @@ export default function CrearCaso({ users, glpiUsers, locations, categories, ite
                                         {assignedIds.length > 0 && (
                                             <div className="mt-1 flex flex-wrap gap-1">
                                                 {assignedIds.map(id => {
-                                                    const user = glpiUsers.find(u => u.id === id);
+                                                    const user = users.find((u: User) => u.id === id);
                                                     return user ? (
                                                         <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100">
-                                                            {user.fullname}
+                                                            {user.name}
                                                             <button
                                                                 type="button"
                                                                 onClick={(e: React.MouseEvent) => {

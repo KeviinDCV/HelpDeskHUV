@@ -195,7 +195,7 @@ class TicketController extends Controller
         
         $tickets = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
-            ->appends([
+            ->appends(array_filter([
                 'per_page' => $perPage,
                 'sort' => $sortField,
                 'direction' => $sortDirection,
@@ -207,7 +207,7 @@ class TicketController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
-            ]);
+            ], fn($value) => $value !== '' && $value !== null));
 
         // Log resultado de la consulta
         \Log::info('Tickets query result', [
@@ -264,30 +264,28 @@ class TicketController extends Controller
     public function create()
     {
         // Obtener usuarios activos de Laravel (para solicitante, observador, asignado)
-        $users = User::where('is_active', true)
+        $users = User::where('is_active', 1)
             ->select('id', 'username', 'name', 'email')
             ->orderBy('name')
             ->get();
 
-        // Obtener localizaciones de GLPI
+        // Obtener localizaciones de GLPI (sin duplicados, usando completename único)
         $locations = DB::table('glpi_locations')
-            ->select('id', 'name', 'completename')
+            ->select(DB::raw('MIN(id) as id'), 'completename', DB::raw('MIN(name) as name'))
+            ->whereNotNull('completename')
+            ->where('completename', '!=', '')
+            ->groupBy('completename')
             ->orderBy('completename')
             ->get();
 
-        // Obtener categorías de GLPI
+        // Obtener categorías de GLPI (sin duplicados)
         $categories = DB::table('glpi_itilcategories')
-            ->select('id', 'name', 'completename')
+            ->select(DB::raw('MIN(id) as id'), DB::raw('MIN(name) as name'), 'completename')
             ->where('is_incident', 1)
+            ->whereNotNull('completename')
+            ->where('completename', '!=', '')
+            ->groupBy('completename')
             ->orderBy('completename')
-            ->get();
-
-        // Obtener usuarios de GLPI (por si necesitan seleccionar de la BD de GLPI)
-        $glpiUsers = DB::table('glpi_users')
-            ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
-            ->where('is_deleted', 0)
-            ->where('is_active', 1)
-            ->orderBy('firstname')
             ->get();
 
         // Tipos de elementos asociados disponibles
@@ -303,7 +301,6 @@ class TicketController extends Controller
 
         return Inertia::render('soporte/crear-caso', [
             'users' => $users,
-            'glpiUsers' => $glpiUsers,
             'locations' => $locations,
             'categories' => $categories,
             'itemTypes' => $itemTypes,
@@ -316,57 +313,28 @@ class TicketController extends Controller
     public function getItemsByType(Request $request, $type)
     {
         $items = [];
-        
-        switch ($type) {
-            case 'Computer':
-                $items = DB::table('glpi_computers')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
-            case 'Monitor':
-                $items = DB::table('glpi_monitors')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
-            case 'NetworkEquipment':
-                $items = DB::table('glpi_networkequipments')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
-            case 'Peripheral':
-                $items = DB::table('glpi_peripherals')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
-            case 'Printer':
-                $items = DB::table('glpi_printers')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
-            case 'Phone':
-                $items = DB::table('glpi_phones')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
-            case 'Enclosure':
-                $items = DB::table('glpi_enclosures')
-                    ->select('id', 'name')
-                    ->where('is_deleted', 0)
-                    ->orderBy('name')
-                    ->get();
-                break;
+        $tables = [
+            'Computer' => 'glpi_computers',
+            'Monitor' => 'glpi_monitors',
+            'NetworkEquipment' => 'glpi_networkequipments',
+            'Peripheral' => 'glpi_peripherals',
+            'Printer' => 'glpi_printers',
+            'Phone' => 'glpi_phones',
+            'Enclosure' => 'glpi_enclosures',
+        ];
+
+        if (isset($tables[$type])) {
+            $items = DB::table($tables[$type])
+                ->select('id', 'name')
+                ->where('is_deleted', 0)
+                ->where('is_template', 0)
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->distinct()
+                ->orderBy('name')
+                ->get()
+                ->unique('name')
+                ->values();
         }
 
         return response()->json($items);
@@ -384,10 +352,10 @@ class TicketController extends Controller
             'priority' => 'required|integer|between:1,6',
             'locations_id' => 'nullable|integer',
             'itilcategories_id' => 'nullable|integer',
-            'requester_id' => 'required|integer',
+            'requester_id' => 'nullable|integer',
             'observer_ids' => 'nullable|array',
             'observer_ids.*' => 'integer',
-            'assigned_ids' => 'nullable|array',
+            'assigned_ids' => 'required|array|min:1',
             'assigned_ids.*' => 'integer',
             'attachments' => 'nullable|array',
             'attachments.*' => 'file|max:102400', // 100MB
@@ -412,17 +380,19 @@ class TicketController extends Controller
                 'priority' => $validated['priority'],
                 'locations_id' => $validated['locations_id'] ?? 0,
                 'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
-                'users_id_recipient' => $validated['requester_id'],
+                'users_id_recipient' => $validated['requester_id'] ?? 0,
                 'is_deleted' => 0,
             ]);
 
-            // Agregar solicitante (type = 1)
-            DB::table('glpi_tickets_users')->insert([
-                'tickets_id' => $ticketId,
-                'users_id' => $validated['requester_id'],
-                'type' => 1, // Requester
-                'use_notification' => 1,
-            ]);
+            // Agregar solicitante (type = 1) si existe
+            if (!empty($validated['requester_id'])) {
+                DB::table('glpi_tickets_users')->insert([
+                    'tickets_id' => $ticketId,
+                    'users_id' => $validated['requester_id'],
+                    'type' => 1, // Requester
+                    'use_notification' => 1,
+                ]);
+            }
 
             // Agregar observadores (type = 3)
             if (!empty($validated['observer_ids'])) {
@@ -611,11 +581,53 @@ class TicketController extends Controller
                 ];
             });
 
+        // Obtener archivos adjuntos
+        $attachments = [];
+        
+        // 1. Buscar archivos en directorio local (creados por nuestra app)
+        $attachmentPath = storage_path('app/public/ticket-attachments/' . $id);
+        if (is_dir($attachmentPath)) {
+            $files = scandir($attachmentPath);
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    $attachments[] = [
+                        'name' => $file,
+                        'url' => asset('storage/ticket-attachments/' . $id . '/' . $file),
+                        'size' => filesize($attachmentPath . '/' . $file),
+                        'source' => 'local',
+                    ];
+                }
+            }
+        }
+        
+        // 2. Buscar documentos en GLPI (glpi_documents_items + glpi_documents)
+        $glpiDocuments = DB::table('glpi_documents_items as di')
+            ->select('d.id', 'd.name', 'd.filename', 'd.filepath', 'd.mime', 'd.filesize')
+            ->join('glpi_documents as d', 'di.documents_id', '=', 'd.id')
+            ->where('di.itemtype', 'Ticket')
+            ->where('di.items_id', $id)
+            ->where('d.is_deleted', 0)
+            ->get();
+        
+        foreach ($glpiDocuments as $doc) {
+            // GLPI guarda archivos en /var/lib/glpi/files/_documents/
+            // El filepath tiene formato como "PDF/abc123.pdf"
+            $attachments[] = [
+                'name' => $doc->name ?: $doc->filename,
+                'url' => '/glpi-files/' . $doc->filepath,
+                'size' => $doc->filesize ?? 0,
+                'mime' => $doc->mime,
+                'source' => 'glpi',
+                'glpi_id' => $doc->id,
+            ];
+        }
+
         return Inertia::render('soporte/ver-caso', [
             'ticket' => $ticket,
             'requester' => $requester,
             'technician' => $technician,
             'ticketItems' => $ticketItems,
+            'attachments' => $attachments,
             'auth' => [
                 'user' => auth()->user()
             ]
@@ -917,5 +929,56 @@ class TicketController extends Controller
             DB::rollBack();
             return redirect()->back()->with('error', 'Error al eliminar el caso: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Servir archivos de documentos de GLPI
+     */
+    public function serveGlpiFile($path)
+    {
+        // Rutas posibles donde GLPI guarda sus archivos
+        $possiblePaths = [
+            '/var/lib/glpi/files/_documents/' . $path,
+            '/var/www/glpi/files/_documents/' . $path,
+            '/opt/glpi/files/_documents/' . $path,
+            base_path('../glpi/files/_documents/' . $path),
+            env('GLPI_FILES_PATH', '/var/lib/glpi/files/_documents/') . $path,
+        ];
+
+        foreach ($possiblePaths as $filePath) {
+            if (file_exists($filePath)) {
+                $mimeType = mime_content_type($filePath);
+                $fileName = basename($path);
+                
+                return response()->file($filePath, [
+                    'Content-Type' => $mimeType,
+                    'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+                ]);
+            }
+        }
+
+        // Si no se encuentra, intentar buscar en la BD el documento por su filepath
+        $doc = DB::table('glpi_documents')
+            ->where('filepath', $path)
+            ->first();
+
+        if ($doc) {
+            // Intentar con el SHA1SUM que GLPI usa para nombrar archivos
+            foreach ($possiblePaths as $basePath) {
+                $dirPath = dirname($basePath);
+                if (is_dir($dirPath)) {
+                    // GLPI guarda archivos con nombres SHA1
+                    $sha1Path = $dirPath . '/' . $doc->sha1sum;
+                    if (file_exists($sha1Path)) {
+                        return response()->file($sha1Path, [
+                            'Content-Type' => $doc->mime ?? 'application/octet-stream',
+                            'Content-Disposition' => 'inline; filename="' . ($doc->filename ?? basename($path)) . '"',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        abort(404, 'Archivo no encontrado');
     }
 }

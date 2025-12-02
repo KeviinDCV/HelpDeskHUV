@@ -113,6 +113,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/administracion/usuarios/{id}/toggle-active', [App\Http\Controllers\UserController::class, 'toggleActive'])->name('administracion.usuarios.toggle-active');
     Route::put('/administracion/usuarios/{id}', [App\Http\Controllers\UserController::class, 'update'])->name('administracion.usuarios.update');
 
+    // Archivos de GLPI
+    Route::get('/glpi-files/{path}', [App\Http\Controllers\TicketController::class, 'serveGlpiFile'])->where('path', '.*')->name('glpi.file');
+
     // Notificaciones
     Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/api/notifications/unread-count', [App\Http\Controllers\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');

@@ -4,7 +4,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Wrench, Edit, Monitor } from 'lucide-react';
+import { Wrench, Edit, Monitor, Paperclip, Download, FileText, FileImage } from 'lucide-react';
 import { useState } from 'react';
 
 interface Ticket {
@@ -41,11 +41,21 @@ interface TicketItem {
     name: string;
 }
 
+interface Attachment {
+    name: string;
+    url: string;
+    size: number;
+    mime?: string;
+    source?: 'local' | 'glpi';
+    glpi_id?: number;
+}
+
 interface VerCasoProps {
     ticket: Ticket;
     requester: Person | null;
     technician: Person | null;
     ticketItems: TicketItem[];
+    attachments: Attachment[];
     auth: { user: { name: string; role: string } };
 }
 
@@ -77,7 +87,7 @@ const itemTypeLabels: Record<string, string> = {
     'Enclosure': 'Gabinete',
 };
 
-export default function VerCaso({ ticket, requester, technician, ticketItems }: VerCasoProps) {
+export default function VerCaso({ ticket, requester, technician, ticketItems, attachments }: VerCasoProps) {
     const [showSolution, setShowSolution] = useState(false);
     const [solution, setSolution] = useState('');
     const [processing, setProcessing] = useState(false);
@@ -296,6 +306,46 @@ export default function VerCaso({ ticket, requester, technician, ticketItems }: 
                                                         <span className="text-xs text-blue-600">({itemTypeLabels[item.itemtype] || item.itemtype})</span>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Archivos Adjuntos */}
+                                    {attachments && attachments.length > 0 && (
+                                        <div className="md:col-span-4">
+                                            <Label className="text-xs text-gray-500 flex items-center gap-1">
+                                                <Paperclip className="w-3 h-3" />
+                                                Archivos Adjuntos ({attachments.length})
+                                            </Label>
+                                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                {attachments.map((file, index) => {
+                                                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(file.name);
+                                                    const formatSize = (bytes: number) => {
+                                                        if (bytes < 1024) return bytes + ' B';
+                                                        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                                                        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                                                    };
+                                                    return (
+                                                        <a
+                                                            key={index}
+                                                            href={file.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-3 p-2 bg-gray-50 hover:bg-gray-100 border rounded transition-colors"
+                                                        >
+                                                            {isImage ? (
+                                                                <FileImage className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                            ) : (
+                                                                <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium truncate">{file.name}</p>
+                                                                <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
+                                                            </div>
+                                                            <Download className="w-4 h-4 text-gray-400" />
+                                                        </a>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
