@@ -68,7 +68,7 @@ export default function CrearDispositivoRed({ states, manufacturers, types, mode
                     <div className="flex items-center gap-2 text-sm">
                         <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
                         <span className="text-gray-400">/</span>
-                        <Link href="/inventario/dispositivos-red" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
+                        <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
                         <span className="text-gray-400">/</span>
                         <Link href="/inventario/dispositivos-red" className="text-gray-600 hover:text-[#2c4370] hover:underline">Dispositivos de Red</Link>
                         <span className="text-gray-400">/</span>

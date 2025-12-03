@@ -59,7 +59,7 @@ export default function CrearPrograma({ manufacturers, categories, entities }: C
                     <div className="flex items-center gap-2 text-sm">
                         <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
                         <span className="text-gray-400">/</span>
-                        <Link href="/inventario/programas" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
+                        <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
                         <span className="text-gray-400">/</span>
                         <Link href="/inventario/programas" className="text-gray-600 hover:text-[#2c4370] hover:underline">Programas</Link>
                         <span className="text-gray-400">/</span>

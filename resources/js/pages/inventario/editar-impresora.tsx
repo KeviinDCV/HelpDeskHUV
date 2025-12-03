@@ -71,7 +71,7 @@ export default function EditarImpresora({ printer, states, manufacturers, types,
         <>
             <Head title="Editar Impresora - HelpDesk HUV" />
             <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={<div className="flex items-center gap-2 text-sm"><Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link><span className="text-gray-400">/</span><Link href="/inventario/impresoras" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link><span className="text-gray-400">/</span><Link href="/inventario/impresoras" className="text-gray-600 hover:text-[#2c4370] hover:underline">Impresoras</Link><span className="text-gray-400">/</span><span className="font-medium text-gray-900">Editar</span></div>} />
+                <GLPIHeader breadcrumb={<div className="flex items-center gap-2 text-sm"><Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link><span className="text-gray-400">/</span><Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link><span className="text-gray-400">/</span><Link href="/inventario/impresoras" className="text-gray-600 hover:text-[#2c4370] hover:underline">Impresoras</Link><span className="text-gray-400">/</span><span className="font-medium text-gray-900">Editar</span></div>} />
                 <main className="flex-1 px-6 py-6">
                     <div className="max-w-5xl mx-auto">
                         <div className="bg-white rounded-lg shadow">

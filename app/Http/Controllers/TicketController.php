@@ -756,6 +756,22 @@ class TicketController extends Controller
             ['value' => 'Enclosure', 'label' => 'Gabinete'],
         ];
 
+        // Obtener archivos adjuntos existentes
+        $attachments = [];
+        $attachmentPath = storage_path('app/public/ticket-attachments/' . $id);
+        if (is_dir($attachmentPath)) {
+            $files = scandir($attachmentPath);
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    $attachments[] = [
+                        'name' => $file,
+                        'url' => asset('storage/ticket-attachments/' . $id . '/' . $file),
+                        'size' => filesize($attachmentPath . '/' . $file),
+                    ];
+                }
+            }
+        }
+
         return Inertia::render('soporte/editar-caso', [
             'ticket' => $ticket,
             'ticketUsers' => $ticketUsers,
@@ -765,6 +781,7 @@ class TicketController extends Controller
             'glpiUsers' => $glpiUsers,
             'users' => $laravelUsers,
             'itemTypes' => $itemTypes,
+            'attachments' => $attachments,
             'auth' => [
                 'user' => auth()->user()
             ]
@@ -791,6 +808,8 @@ class TicketController extends Controller
             'items' => 'nullable|array',
             'items.*.type' => 'string',
             'items.*.id' => 'integer',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|max:102400', // 100MB
         ]);
 
         // Obtener el estado anterior para comparar
@@ -875,6 +894,13 @@ class TicketController extends Controller
                         'itemtype' => $item['type'],
                         'items_id' => $item['id'],
                     ]);
+                }
+            }
+
+            // Manejar archivos adjuntos nuevos
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
+                    $file->store('ticket-attachments/' . $id, 'public');
                 }
             }
 

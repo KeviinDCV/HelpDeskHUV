@@ -83,7 +83,7 @@ export default function EditarComputador({ computer, states, manufacturers, type
                     <div className="flex items-center gap-2 text-sm">
                         <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
                         <span className="text-gray-400">/</span>
-                        <Link href="/inventario/computadores" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
+                        <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
                         <span className="text-gray-400">/</span>
                         <Link href="/inventario/computadores" className="text-gray-600 hover:text-[#2c4370] hover:underline">Computadores</Link>
                         <span className="text-gray-400">/</span>

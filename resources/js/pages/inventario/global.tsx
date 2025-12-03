@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, Link } from '@inertiajs/react';
 import {
     Table,
     TableBody,
@@ -124,9 +124,9 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                 <GLPIHeader 
                     breadcrumb={
                         <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600">Inicio</span>
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
                             <span className="text-gray-400">/</span>
-                            <span className="text-gray-600">Inventario</span>
+                            <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
                             <span className="text-gray-400">/</span>
                             <span className="font-medium text-gray-900">Global</span>
                         </div>

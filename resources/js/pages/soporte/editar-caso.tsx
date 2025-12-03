@@ -74,6 +74,12 @@ interface TicketItem {
     item_name?: string;
 }
 
+interface Attachment {
+    name: string;
+    url: string;
+    size: number;
+}
+
 interface EditTicketProps {
     ticket: Ticket;
     ticketUsers: TicketUser[];
@@ -82,17 +88,19 @@ interface EditTicketProps {
     locations: Location[];
     categories: Category[];
     itemTypes: ItemType[];
+    attachments: Attachment[];
     auth: {
         user: User;
     };
 }
 
-export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, locations, categories, itemTypes, auth }: EditTicketProps) {
+export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, locations, categories, itemTypes, attachments, auth }: EditTicketProps) {
     // Inicializar con datos existentes
     const currentRequesterId = ticketUsers.find(tu => tu.type === 1)?.users_id;
     const currentObserverIds = ticketUsers.filter(tu => tu.type === 3).map(tu => tu.users_id);
     const currentAssignedIds = ticketUsers.filter(tu => tu.type === 2).map(tu => tu.users_id);
     
+    const [existingAttachments, setExistingAttachments] = React.useState<Attachment[]>(attachments || []);
     const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
     const [observerIds, setObserverIds] = React.useState<number[]>(currentObserverIds);
     const [assignedIds, setAssignedIds] = React.useState<number[]>(currentAssignedIds);
@@ -179,14 +187,18 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Preparar datos para enviar (Inertia maneja automáticamente FormData cuando hay archivos)
         const submitData = {
             ...data,
             observer_ids: observerIds,
             assigned_ids: assignedIds,
             items: selectedItems.map(item => ({ type: item.type, id: item.id })),
+            attachments: selectedFiles,
+            _method: 'PUT', // Necesario para enviar PUT con archivos
         };
 
-        router.put(`/soporte/casos/${ticket.id}`, submitData, {
+        router.post(`/soporte/casos/${ticket.id}`, submitData, {
+            forceFormData: true,
             onSuccess: () => {
                 // Redirect handled by backend
             }
@@ -232,6 +244,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         <Label htmlFor="name" className="text-xs">Título *</Label>
                                         <Input
                                             id="name"
+                                            name="name"
+                                            autoComplete="off"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
                                             placeholder="Título del caso"
@@ -246,6 +260,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         <Label htmlFor="date" className="text-xs">Fecha Apertura *</Label>
                                         <Input
                                             id="date"
+                                            name="date"
+                                            autoComplete="off"
                                             type="datetime-local"
                                             value={data.date}
                                             onChange={(e) => setData('date', e.target.value)}
@@ -256,8 +272,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
 
                                     <div>
                                         <Label htmlFor="status" className="text-xs">Estado *</Label>
-                                        <Select value={data.status} onValueChange={(value) => setData('status', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={data.status} onValueChange={(value) => setData('status', value)} name="status">
+                                            <SelectTrigger id="status" className="mt-1 h-8 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -273,8 +289,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
 
                                     <div>
                                         <Label htmlFor="priority" className="text-xs">Prioridad *</Label>
-                                        <Select value={data.priority} onValueChange={(value) => setData('priority', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={data.priority} onValueChange={(value) => setData('priority', value)} name="priority">
+                                            <SelectTrigger id="priority" className="mt-1 h-8 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -316,8 +332,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                     {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
                                     <div className="md:col-span-2">
                                         <Label htmlFor="requester_id" className="text-xs">Solicitante</Label>
-                                        <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)} name="requester_id">
+                                            <SelectTrigger id="requester_id" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Buscar solicitante..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -338,8 +354,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                                 setObserverIds([...observerIds, id]);
                                                 setData('observer_ids', [...observerIds, id]);
                                             }
-                                        }}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        }} name="observer">
+                                            <SelectTrigger id="observer" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Agregar..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -384,8 +400,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                                 setAssignedIds([...assignedIds, id]);
                                                 setData('assigned_ids', [...assignedIds, id]);
                                             }
-                                        }}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        }} name="assigned">
+                                            <SelectTrigger id="assigned" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Asignar..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -425,8 +441,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                     {/* Fila 4: Elementos Asociados */}
                                     <div className="md:col-span-2">
                                         <Label htmlFor="item_type" className="text-xs">Elementos Asociados</Label>
-                                        <Select value={selectedItemType} onValueChange={handleItemTypeChange}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={selectedItemType} onValueChange={handleItemTypeChange} name="item_type">
+                                            <SelectTrigger id="item_type" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Tipo de elemento..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -478,6 +494,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         <Label htmlFor="time_to_resolve" className="text-xs text-gray-500">Tiempo Solución (Opcional)</Label>
                                         <Input
                                             id="time_to_resolve"
+                                            name="time_to_resolve"
+                                            autoComplete="off"
                                             type="datetime-local"
                                             value={data.time_to_resolve}
                                             onChange={(e) => setData('time_to_resolve', e.target.value)}
@@ -488,6 +506,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         <Label htmlFor="internal_time_to_resolve" className="text-xs text-gray-500">Tiempo Interno (Opcional)</Label>
                                         <Input
                                             id="internal_time_to_resolve"
+                                            name="internal_time_to_resolve"
+                                            autoComplete="off"
                                             type="datetime-local"
                                             value={data.internal_time_to_resolve}
                                             onChange={(e) => setData('internal_time_to_resolve', e.target.value)}
@@ -500,6 +520,8 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         <Label htmlFor="content" className="text-xs">Descripción *</Label>
                                         <Textarea
                                             id="content"
+                                            name="content"
+                                            autoComplete="off"
                                             value={data.content}
                                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('content', e.target.value)}
                                             placeholder="Detalle el caso..."
@@ -531,24 +553,50 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         </div>
                                     </div>
                                     
-                                    {/* Lista de archivos adjuntos (Full width) */}
-                                    {selectedFiles.length > 0 && (
-                                        <div className="md:col-span-4 flex flex-wrap gap-2">
-                                            {selectedFiles.map((file, index) => (
-                                                <div key={index} className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded border border-gray-200">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] font-medium text-gray-700 truncate max-w-[150px]">{file.name}</span>
-                                                        <span className="text-[9px] text-gray-500">{formatFileSize(file.size)}</span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeFile(index)}
-                                                        className="text-gray-400 hover:text-red-600"
+                                    {/* Archivos existentes */}
+                                    {existingAttachments.length > 0 && (
+                                        <div className="md:col-span-4">
+                                            <Label className="text-xs mb-1 block">Archivos existentes</Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {existingAttachments.map((attachment, index) => (
+                                                    <a 
+                                                        key={index} 
+                                                        href={attachment.url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors"
                                                     >
-                                                        <X className="h-3 w-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-medium text-blue-700 truncate max-w-[150px]">{attachment.name}</span>
+                                                            <span className="text-[9px] text-blue-500">{formatFileSize(attachment.size)}</span>
+                                                        </div>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Lista de archivos nuevos (Full width) */}
+                                    {selectedFiles.length > 0 && (
+                                        <div className="md:col-span-4">
+                                            <Label className="text-xs mb-1 block">Archivos nuevos</Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedFiles.map((file, index) => (
+                                                    <div key={index} className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-medium text-gray-700 truncate max-w-[150px]">{file.name}</span>
+                                                            <span className="text-[9px] text-gray-500">{formatFileSize(file.size)}</span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeFile(index)}
+                                                            className="text-gray-400 hover:text-red-600"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

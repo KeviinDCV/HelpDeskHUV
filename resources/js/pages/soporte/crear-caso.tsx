@@ -139,15 +139,17 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Preparar datos para enviar
+        // Preparar datos para enviar (Inertia maneja automáticamente FormData cuando hay archivos)
         const submitData = {
             ...data,
             observer_ids: observerIds,
             assigned_ids: assignedIds,
             items: selectedItems.map(item => ({ type: item.type, id: item.id })),
+            attachments: selectedFiles,
         };
 
         router.post('/soporte/casos', submitData, {
+            forceFormData: true,
             onSuccess: () => {
                 // Reset form
                 setSelectedFiles([]);
@@ -197,6 +199,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                         <Label htmlFor="name" className="text-xs">Título *</Label>
                                         <Input
                                             id="name"
+                                            name="name"
+                                            autoComplete="off"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
                                             placeholder="Título del caso"
@@ -211,6 +215,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                         <Label htmlFor="date" className="text-xs">Fecha Apertura *</Label>
                                         <Input
                                             id="date"
+                                            name="date"
+                                            autoComplete="off"
                                             type="datetime-local"
                                             value={data.date}
                                             onChange={(e) => setData('date', e.target.value)}
@@ -221,8 +227,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
 
                                     <div>
                                         <Label htmlFor="status" className="text-xs">Estado *</Label>
-                                        <Select value={data.status} onValueChange={(value) => setData('status', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={data.status} onValueChange={(value) => setData('status', value)} name="status">
+                                            <SelectTrigger id="status" className="mt-1 h-8 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -238,8 +244,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
 
                                     <div>
                                         <Label htmlFor="priority" className="text-xs">Prioridad *</Label>
-                                        <Select value={data.priority} onValueChange={(value) => setData('priority', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={data.priority} onValueChange={(value) => setData('priority', value)} name="priority">
+                                            <SelectTrigger id="priority" className="mt-1 h-8 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -281,8 +287,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
                                     <div className="md:col-span-2">
                                         <Label htmlFor="requester_id" className="text-xs">Solicitante</Label>
-                                        <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)} name="requester_id">
+                                            <SelectTrigger id="requester_id" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Buscar solicitante..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -303,8 +309,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                                 setObserverIds([...observerIds, id]);
                                                 setData('observer_ids', [...observerIds, id]);
                                             }
-                                        }}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        }} name="observer">
+                                            <SelectTrigger id="observer" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Agregar..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -349,8 +355,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                                 setAssignedIds([...assignedIds, id]);
                                                 setData('assigned_ids', [...assignedIds, id]);
                                             }
-                                        }}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        }} name="assigned">
+                                            <SelectTrigger id="assigned" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Asignar..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -390,8 +396,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {/* Fila 4: Elementos Asociados */}
                                     <div className="md:col-span-2">
                                         <Label htmlFor="item_type" className="text-xs">Elementos Asociados</Label>
-                                        <Select value={selectedItemType} onValueChange={handleItemTypeChange}>
-                                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                        <Select value={selectedItemType} onValueChange={handleItemTypeChange} name="item_type">
+                                            <SelectTrigger id="item_type" className="mt-1 h-8 text-xs">
                                                 <SelectValue placeholder="Tipo de elemento..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -443,6 +449,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                         <Label htmlFor="time_to_resolve" className="text-xs text-gray-500">Tiempo Solución (Opcional)</Label>
                                         <Input
                                             id="time_to_resolve"
+                                            name="time_to_resolve"
+                                            autoComplete="off"
                                             type="datetime-local"
                                             value={data.time_to_resolve}
                                             onChange={(e) => setData('time_to_resolve', e.target.value)}
@@ -453,6 +461,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                         <Label htmlFor="internal_time_to_resolve" className="text-xs text-gray-500">Tiempo Interno (Opcional)</Label>
                                         <Input
                                             id="internal_time_to_resolve"
+                                            name="internal_time_to_resolve"
+                                            autoComplete="off"
                                             type="datetime-local"
                                             value={data.internal_time_to_resolve}
                                             onChange={(e) => setData('internal_time_to_resolve', e.target.value)}
@@ -465,6 +475,8 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                         <Label htmlFor="content" className="text-xs">Descripción *</Label>
                                         <Textarea
                                             id="content"
+                                            name="content"
+                                            autoComplete="off"
                                             value={data.content}
                                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('content', e.target.value)}
                                             placeholder="Detalle el caso..."
