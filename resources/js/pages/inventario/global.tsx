@@ -133,27 +133,31 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                     }
                 />
 
-                <main className="flex-1 px-6 py-6">
+                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     <div className="bg-white rounded-lg shadow">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b">
-                            <div className="flex items-center justify-between">
-                                <h1 className="text-xl font-semibold text-gray-900">Inventario Global</h1>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <Input type="text" placeholder="Buscar..." className="w-64 pr-10 h-9" value={searchValue}
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Inventario Global</h1>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                                    <div className="relative flex-1 sm:flex-initial">
+                                        <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
                                         <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
-                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
-                                        <Filter className="h-4 w-4 mr-1" /> Filtros
-                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
-                                    </Button>
-                                    <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>Exportar</Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
+                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
+                                            <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                        </Button>
+                                        <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial" onClick={handleExport}>
+                                            <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -194,9 +198,9 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                         )}
 
                         {/* Stats */}
-                        <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-600">Mostrar</span>
+                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
                                 <Select 
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
@@ -208,7 +212,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                         }, { preserveState: false })
                                     }}
                                 >
-                                    <SelectTrigger className="w-20 h-8">
+                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -219,11 +223,11 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                         <SelectItem value="100">100</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span className="text-sm text-gray-600">elementos</span>
+                                <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
                             </div>
-                            <p className="text-sm text-gray-600">
-                                Mostrando <span className="font-medium">{items.data.length}</span> de{' '}
-                                <span className="font-medium">{items.total}</span> elementos
+                            <p className="text-xs sm:text-sm text-gray-600">
+                                <span className="font-medium">{items.data.length}</span> de{' '}
+                                <span className="font-medium">{items.total}</span>
                             </p>
                         </div>
 
@@ -286,52 +290,37 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                         </div>
 
                         {/* Pagination */}
-                        <div className="px-6 py-4 border-t flex items-center justify-between">
-                            <div className="text-sm text-gray-600">
-                                Página <span className="font-medium">{items.current_page}</span> de{' '}
-                                <span className="font-medium">{items.last_page}</span>
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+                                Página {items.current_page} de {items.last_page}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
                                 {items.links.map((link: PaginationLinks, index: number) => {
+                                    const isMobileVisible = index === 0 || index === items.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button
-                                                key={index}
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
-                                                onClick={() => link.url && router.visit(link.url)}
-                                            >
+                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
+                                                onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
                                         );
                                     }
                                     if (index === items.links.length - 1) {
                                         return (
-                                            <Button
-                                                key={index}
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
-                                                onClick={() => link.url && router.visit(link.url)}
-                                            >
+                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
+                                                onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
                                         );
                                     }
                                     return (
-                                        <Button
-                                            key={index}
-                                            variant={link.active ? "default" : "outline"}
-                                            size="sm"
-                                            disabled={!link.url}
-                                            className={link.active 
+                                        <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url}
+                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active 
                                                 ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" 
-                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}
-                                            onClick={() => link.url && router.visit(link.url)}
-                                        >
+                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
+                                            onClick={() => link.url && router.visit(link.url)}>
                                             {link.label}
                                         </Button>
                                     );

@@ -226,18 +226,18 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                     }
                 />
 
-                <main className="flex-1 px-6 py-6">
+                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     <div className="bg-white rounded-lg shadow">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b">
-                            <div className="flex items-center justify-between">
-                                <h1 className="text-xl font-semibold text-gray-900">Dispositivos de Red</h1>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Dispositivos de Red</h1>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                                    <div className="relative flex-1 sm:flex-initial">
                                         <Input
                                             type="text"
                                             placeholder="Buscar..."
-                                            className="w-64 pr-10 h-9"
+                                            className="w-full sm:w-64 pr-10 h-9"
                                             value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => {
@@ -255,31 +255,34 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button 
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowFilters(!showFilters)}
-                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
-                                    >
-                                        <Filter className="h-4 w-4 mr-1" />
-                                        Filtros
-                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
-                                    </Button>
-                                    <Button 
-                                        size="sm"
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9"
-                                        onClick={handleExport}
-                                    >
-                                        Exportar
-                                    </Button>
-                                    <Button 
-                                        size="sm"
-                                        className="bg-green-600 hover:bg-green-700 text-white h-9"
-                                        onClick={() => router.visit('/inventario/dispositivos-red/crear')}
-                                    >
-                                        <Plus className="h-4 w-4 mr-1" />
-                                        Crear
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowFilters(!showFilters)}
+                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
+                                        >
+                                            <Filter className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">Filtros</span>
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                        </Button>
+                                        <Button 
+                                            size="sm"
+                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
+                                            onClick={handleExport}
+                                        >
+                                            <span className="hidden sm:inline">Exportar</span>
+                                            <span className="sm:hidden">Excel</span>
+                                        </Button>
+                                        <Button 
+                                            size="sm"
+                                            className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
+                                            onClick={() => router.visit('/inventario/dispositivos-red/crear')}
+                                        >
+                                            <Plus className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">Crear</span>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -395,9 +398,9 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                         )}
 
                         {/* Stats */}
-                        <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-600">Mostrar</span>
+                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
                                 <Select 
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
@@ -409,7 +412,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                         }, { preserveState: false })
                                     }}
                                 >
-                                    <SelectTrigger className="w-20 h-8">
+                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -420,11 +423,11 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                         <SelectItem value="100">100</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span className="text-sm text-gray-600">elementos</span>
+                                <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
                             </div>
-                            <p className="text-sm text-gray-600">
-                                Mostrando <span className="font-medium">{networkequipments.data.length}</span> de{' '}
-                                <span className="font-medium">{networkequipments.total}</span> dispositivos de red
+                            <p className="text-xs sm:text-sm text-gray-600">
+                                <span className="font-medium">{networkequipments.data.length}</span> de{' '}
+                                <span className="font-medium">{networkequipments.total}</span>
                             </p>
                         </div>
 
@@ -546,13 +549,13 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                         </div>
 
                         {/* Pagination */}
-                        <div className="px-6 py-4 border-t flex items-center justify-between">
-                            <div className="text-sm text-gray-600">
-                                Página <span className="font-medium">{networkequipments.current_page}</span> de{' '}
-                                <span className="font-medium">{networkequipments.last_page}</span>
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+                                Página {networkequipments.current_page} de {networkequipments.last_page}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
                                 {networkequipments.links.map((link: PaginationLinks, index: number) => {
+                                    const isMobileVisible = index === 0 || index === networkequipments.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
                                             <Button
@@ -560,7 +563,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                                 variant="outline"
                                                 size="sm"
                                                 disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}
                                             >
                                                 <ChevronLeft className="h-4 w-4" />
@@ -574,7 +577,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                                 variant="outline"
                                                 size="sm"
                                                 disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}
                                             >
                                                 <ChevronRight className="h-4 w-4" />
@@ -587,9 +590,9 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                             variant={link.active ? "default" : "outline"}
                                             size="sm"
                                             disabled={!link.url}
-                                            className={link.active 
+                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active 
                                                 ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" 
-                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}
+                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
                                             onClick={() => link.url && router.visit(link.url)}
                                         >
                                             {link.label}

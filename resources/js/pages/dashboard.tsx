@@ -181,33 +181,34 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                     
                     {/* Flash Messages */}
                     {props.flash?.success && (
-                        <div className="mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                            <span className="text-green-700">{props.flash.success}</span>
+                        <div className="mx-3 sm:mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                            <span className="text-green-700 text-sm sm:text-base">{props.flash.success}</span>
                         </div>
                     )}
                     {props.flash?.error && (
-                        <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-red-600" />
-                            <span className="text-red-700">{props.flash.error}</span>
+                        <div className="mx-3 sm:mx-6 mt-4 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 flex items-center gap-3">
+                            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                            <span className="text-red-700 text-sm sm:text-base">{props.flash.error}</span>
                         </div>
                     )}
 
-                    <div className="flex gap-4 p-4">
+                    {/* Main Layout - Stack on mobile, side by side on desktop */}
+                    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4">
                         {/* Main Content */}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <div className="bg-white rounded-lg shadow-sm">
-                                <div className="px-6 py-4 border-b flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
+                                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                                         {isPublicView ? (
-                                            <TicketIcon className="w-5 h-5 text-[#2c4370]" />
+                                            <TicketIcon className="w-5 h-5 text-[#2c4370] shrink-0" />
                                         ) : (
-                                            <FileText className="w-5 h-5 text-[#2c4370]" />
+                                            <FileText className="w-5 h-5 text-[#2c4370] shrink-0" />
                                         )}
-                                        <h2 className="text-lg font-semibold text-gray-800">
-                                            {isPublicView ? 'Reportes Públicos Sin Asignar' : 'Mis Reportes Abiertos'}
+                                        <h2 className="text-base sm:text-lg font-semibold text-gray-800">
+                                            {isPublicView ? 'Reportes Públicos' : 'Mis Reportes'}
                                         </h2>
-                                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                                        <span className={`text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full ${
                                             isPublicView ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                                         }`}>
                                             {isPublicView ? `${stats.publicUnassigned} pendientes` : `${stats.myTickets} activos`}
@@ -216,38 +217,38 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                 </div>
                                 
                                 {currentTickets.length === 0 ? (
-                                    <div className="p-12 text-center">
-                                        <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                                        <p className="text-gray-500">
+                                    <div className="p-8 sm:p-12 text-center">
+                                        <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
+                                        <p className="text-gray-500 text-sm sm:text-base">
                                             {isPublicView 
-                                                ? 'No hay reportes públicos pendientes por asignar' 
-                                                : 'No tienes reportes abiertos asignados'}
+                                                ? 'No hay reportes públicos pendientes' 
+                                                : 'No tienes reportes abiertos'}
                                         </p>
                                     </div>
                                 ) : (
                                     <div className="divide-y">
                                         {currentTickets.map((ticket) => (
-                                            <div key={ticket.id} className="p-4 hover:bg-gray-50 transition-colors">
-                                                <div className="flex items-start justify-between gap-4">
+                                            <div key={ticket.id} className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
                                                             <span className="text-xs text-gray-400">#{ticket.id}</span>
-                                                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityColors[ticket.priority]}`}>
+                                                            <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded ${priorityColors[ticket.priority]}`}>
                                                                 {ticket.priority_name}
                                                             </span>
                                                             {!isPublicView && (
-                                                                <span className={`text-xs font-medium px-2 py-0.5 rounded ${statusColors[ticket.status]}`}>
+                                                                <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded ${statusColors[ticket.status]}`}>
                                                                     {ticket.status_name}
                                                                 </span>
                                                             )}
                                                             {ticket.category_name && (
-                                                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 sm:px-2 py-0.5 rounded hidden sm:inline">
                                                                     {ticket.category_name}
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <h3 className="font-medium text-gray-900 truncate">{ticket.name}</h3>
-                                                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                                                        <h3 className="font-medium text-gray-900 text-sm sm:text-base line-clamp-2 sm:truncate">{ticket.name}</h3>
+                                                        <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2 hidden sm:block">
                                                             {stripHtml(ticket.content).substring(0, 150)}...
                                                         </p>
                                                         <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
@@ -259,32 +260,36 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex gap-2">
+                                                    {/* Action Buttons - Responsive */}
+                                                    <div className="flex gap-1.5 sm:gap-2 shrink-0">
                                                         <Button
                                                             variant="outline"
-                                                            className="text-sm px-3"
+                                                            size="sm"
+                                                            className="text-xs sm:text-sm px-2 sm:px-3"
                                                             onClick={() => openDetailModal(ticket.id)}
                                                         >
-                                                            <Eye className="w-4 h-4 mr-1" />
-                                                            Ver
+                                                            <Eye className="w-4 h-4 sm:mr-1" />
+                                                            <span className="hidden sm:inline">Ver</span>
                                                         </Button>
                                                         {isPublicView ? (
                                                             <>
                                                                 <Button
                                                                     onClick={() => takeTicket(ticket.id)}
                                                                     disabled={taking === ticket.id}
-                                                                    className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-sm px-3"
+                                                                    size="sm"
+                                                                    className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-xs sm:text-sm px-2 sm:px-3"
                                                                 >
-                                                                    <UserPlus className="w-4 h-4 mr-1" />
-                                                                    {taking === ticket.id ? 'Tomando...' : 'Tomar'}
+                                                                    <UserPlus className="w-4 h-4 sm:mr-1" />
+                                                                    <span className="hidden sm:inline">{taking === ticket.id ? 'Tomando...' : 'Tomar'}</span>
                                                                 </Button>
                                                                 {isAdmin && (
                                                                     <Button
-                                                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-sm px-3"
+                                                                        size="sm"
+                                                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-xs sm:text-sm px-2 sm:px-3"
                                                                         onClick={() => openAssignModal(ticket.id, ticket.name)}
                                                                     >
-                                                                        <Users className="w-4 h-4 mr-1" />
-                                                                        Asignar
+                                                                        <Users className="w-4 h-4 sm:mr-1" />
+                                                                        <span className="hidden sm:inline">Asignar</span>
                                                                     </Button>
                                                                 )}
                                                             </>
@@ -292,10 +297,11 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                                             /* Mis Reportes - Botón Resolver */
                                                             <Button
                                                                 onClick={() => openSolveModal(ticket.id, ticket.name)}
-                                                                className="bg-green-600 hover:bg-green-700 text-white text-sm px-3"
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm px-2 sm:px-3"
                                                             >
-                                                                <CheckSquare className="w-4 h-4 mr-1" />
-                                                                Resolver
+                                                                <CheckSquare className="w-4 h-4 sm:mr-1" />
+                                                                <span className="hidden sm:inline">Resolver</span>
                                                             </Button>
                                                         )}
                                                     </div>

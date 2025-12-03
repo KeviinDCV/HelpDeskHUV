@@ -323,35 +323,35 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                     }
                 />
                 
-                <main className="flex-1 px-6 py-6">
+                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     {/* Banner de filtro especial */}
                     {filters.filter && (
-                        <div className="mb-4 bg-[#2c4370] text-white px-4 py-3 rounded-lg flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Filter className="w-4 h-4" />
-                                <span className="font-medium">Mostrando: {getSpecialFilterLabel()}</span>
-                                <span className="text-white/70">({tickets.total} casos)</span>
+                        <div className="mb-4 bg-[#2c4370] text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-sm sm:text-base">
+                                <Filter className="w-4 h-4 shrink-0" />
+                                <span className="font-medium">{getSpecialFilterLabel()}</span>
+                                <span className="text-white/70">({tickets.total})</span>
                             </div>
-                            <button onClick={clearSpecialFilter} className="flex items-center gap-1 hover:bg-white/20 px-2 py-1 rounded transition-colors">
+                            <button onClick={clearSpecialFilter} className="flex items-center gap-1 hover:bg-white/20 px-2 py-1 rounded transition-colors text-sm">
                                 <X className="w-4 h-4" />
-                                <span className="text-sm">Quitar filtro</span>
+                                <span>Quitar</span>
                             </button>
                         </div>
                     )}
                     
                     <div className="bg-white rounded-lg shadow">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b">
-                            <div className="flex items-center justify-between">
-                                <h1 className="text-xl font-semibold text-gray-900">
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
                                     {filters.filter ? getSpecialFilterLabel() : 'Casos'}
                                 </h1>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                                    <div className="relative flex-1 sm:flex-initial">
                                         <Input
                                             type="text"
                                             placeholder="Buscar..."
-                                            className="w-64 pr-10 h-9"
+                                            className="w-full sm:w-64 pr-10 h-9"
                                             value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => {
@@ -369,22 +369,25 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button 
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowFilters(!showFilters)}
-                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
-                                    >
-                                        <Filter className="h-4 w-4 mr-1" />
-                                        Filtros
-                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
-                                    </Button>
-                                    <Button 
-                                        size="sm"
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9"
-                                    >
-                                        Exportar
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowFilters(!showFilters)}
+                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
+                                        >
+                                            <Filter className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">Filtros</span>
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                        </Button>
+                                        <Button 
+                                            size="sm"
+                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
+                                        >
+                                            <span className="hidden sm:inline">Exportar</span>
+                                            <span className="sm:hidden">Excel</span>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

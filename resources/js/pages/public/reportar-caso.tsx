@@ -359,45 +359,47 @@ export default function ReportarCaso() {
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
-            <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-2 sm:p-4">
                 <div className="w-full max-w-5xl">
-                    <div className="text-center mb-6">
-                        <div className="w-16 h-16 mx-auto mb-3 bg-white rounded-full p-2 shadow-lg">
+                    {/* Header - Más compacto en móvil */}
+                    <div className="text-center mb-3 sm:mb-6">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 bg-white rounded-full p-1.5 sm:p-2 shadow-lg">
                             <img 
                                 src="/images/Logo.png" 
                                 alt="HelpDesk HUV" 
                                 className="w-full h-full object-contain"
                             />
                         </div>
-                        <h1 className="text-3xl font-bold text-white tracking-tight">Reporte Sistemas HUV</h1>
+                        <h1 className="text-xl sm:text-3xl font-bold text-white tracking-tight">Reporte Sistemas HUV</h1>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Layout: Stack en móvil, grid en desktop */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
                         {/* Chat Principal */}
-                        <div className="lg:col-span-2 rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
-                            <div id="chat-header" className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-8 py-6 flex-shrink-0">
+                        <div className="lg:col-span-2 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu h-[calc(100vh-140px)] sm:h-[700px]">
+                            <div id="chat-header" className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-4 sm:px-8 py-3 sm:py-6 flex-shrink-0">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
-                                            <Bot className="w-9 h-9 text-white" />
+                                    <div className="flex items-center gap-3 sm:gap-6">
+                                        <div className="w-10 h-10 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
+                                            <Bot className="w-6 h-6 sm:w-9 sm:h-9 text-white" />
                                         </div>
                                         <div>
-                                            <h1 className="text-white font-bold text-2xl tracking-wide">Evarisbot</h1>
-                                            <p className="text-white/90 text-base font-medium">Asistente de Soporte - HUV</p>
+                                            <h1 className="text-white font-bold text-lg sm:text-2xl tracking-wide">Evarisbot</h1>
+                                            <p className="text-white/90 text-xs sm:text-base font-medium">Asistente de Soporte</p>
                                         </div>
                                     </div>
                                     <button
                                         id="help-button"
                                         onClick={startTour}
-                                        className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                                        className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
                                         title="Ver tutorial"
                                     >
-                                        <HelpCircle className="w-5 h-5 text-white" />
+                                        <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                                     </button>
                                 </div>
                             </div>
 
-                            <div id="chat-messages" className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
+                            <div id="chat-messages" className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50">
                                 {messages.map((msg, index) => (
                                     <AnimatedMessage
                                         key={index}
@@ -419,34 +421,34 @@ export default function ReportarCaso() {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            <div id="chat-input" className="p-6 bg-white border-t flex-shrink-0">
-                                <div className="flex items-center gap-4">
+                            <div id="chat-input" className="p-3 sm:p-6 bg-white border-t flex-shrink-0">
+                                <div className="flex items-center gap-2 sm:gap-4">
                                     <input
                                         ref={inputRef}
                                         type="text"
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         onKeyPress={handleKeyPress}
-                                        placeholder="Escribe tu mensaje aquí..."
-                                        className="flex-1 px-6 py-4 text-lg border-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#2c4370]/50 focus:border-[#2c4370]"
+                                        placeholder="Escribe tu mensaje..."
+                                        className="flex-1 px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-lg border-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#2c4370]/50 focus:border-[#2c4370]"
                                         autoFocus
                                     />
                                     <button
                                         ref={sendButtonRef}
                                         onClick={() => { sendMessage(); inputRef.current?.focus(); }}
                                         disabled={!input.trim() || isLoading}
-                                        className="w-16 h-16 bg-[#2c4370] text-white rounded-full flex items-center justify-center hover:bg-[#3d5583] disabled:opacity-50 transition-all shadow-lg"
+                                        className="w-12 h-12 sm:w-16 sm:h-16 bg-[#2c4370] text-white rounded-full flex items-center justify-center hover:bg-[#3d5583] disabled:opacity-50 transition-all shadow-lg shrink-0"
                                     >
-                                        <Send className="w-7 h-7" />
+                                        <Send className="w-5 h-5 sm:w-7 sm:h-7" />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Panel Resumen */}
-                        <div id="summary-panel" className="rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu" style={{ height: '700px' }}>
-                            <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-6 py-5">
-                                <h2 className="text-white font-semibold text-lg">📋 Resumen del Reporte</h2>
+                        {/* Panel Resumen - Oculto en móvil hasta que haya datos */}
+                        <div id="summary-panel" className="hidden lg:flex rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex-col transform-gpu h-auto lg:h-[700px]">
+                            <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-4 sm:px-6 py-3 sm:py-5">
+                                <h2 className="text-white font-semibold text-base sm:text-lg">📋 Resumen del Reporte</h2>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-white">
