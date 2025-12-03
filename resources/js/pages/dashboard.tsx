@@ -3,7 +3,7 @@ import { DashboardCards } from '@/components/dashboard-cards';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ViewTabs } from '@/components/view-tabs';
-import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, X, MapPin, Tag, User, Loader2, Users } from 'lucide-react';
+import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, X, MapPin, Tag, User, Loader2, Users, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -82,6 +82,11 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const [selectedTech, setSelectedTech] = useState('');
     const [assigning, setAssigning] = useState(false);
 
+    // Modal de solución
+    const [solveModal, setSolveModal] = useState<{ open: boolean; ticketId: number | null; ticketName: string }>({ open: false, ticketId: null, ticketName: '' });
+    const [solution, setSolution] = useState('');
+    const [solving, setSolving] = useState(false);
+
     const isAdmin = auth?.user?.role === 'Administrador';
 
     // Polling cada 10 segundos para actualizar tickets
@@ -129,6 +134,23 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             onFinish: () => {
                 setAssigning(false);
                 setAssignModal({ open: false, ticketId: null, ticketName: '' });
+            },
+        });
+    };
+
+    const openSolveModal = (ticketId: number, ticketName: string) => {
+        setSolveModal({ open: true, ticketId, ticketName });
+        setSolution('');
+    };
+
+    const solveTicket = () => {
+        if (!solveModal.ticketId || !solution.trim()) return;
+        setSolving(true);
+        router.post(`/dashboard/solve-ticket/${solveModal.ticketId}`, { solution: solution.trim() }, {
+            onFinish: () => {
+                setSolving(false);
+                setSolveModal({ open: false, ticketId: null, ticketName: '' });
+                setSolution('');
             },
         });
     };
@@ -246,7 +268,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                                             <Eye className="w-4 h-4 mr-1" />
                                                             Ver
                                                         </Button>
-                                                        {isPublicView && (
+                                                        {isPublicView ? (
                                                             <>
                                                                 <Button
                                                                     onClick={() => takeTicket(ticket.id)}
@@ -266,6 +288,15 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                                                     </Button>
                                                                 )}
                                                             </>
+                                                        ) : (
+                                                            /* Mis Reportes - Botón Resolver */
+                                                            <Button
+                                                                onClick={() => openSolveModal(ticket.id, ticket.name)}
+                                                                className="bg-green-600 hover:bg-green-700 text-white text-sm px-3"
+                                                            >
+                                                                <CheckSquare className="w-4 h-4 mr-1" />
+                                                                Resolver
+                                                            </Button>
                                                         )}
                                                     </div>
                                                 </div>
@@ -418,6 +449,59 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                     <>
                                         <Users className="w-4 h-4 mr-1" />
                                         Asignar
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Solución */}
+            {solveModal.open && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h2 className="text-lg font-semibold text-gray-900">Resolver Caso</h2>
+                            <button onClick={() => setSolveModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100 rounded">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <p className="text-sm text-gray-600">
+                                Resolver el caso <strong>"{solveModal.ticketName}"</strong>
+                            </p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Descripción de la solución <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    value={solution}
+                                    onChange={(e) => setSolution(e.target.value)}
+                                    placeholder="Describe cómo se resolvió el problema..."
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px]"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 p-4 border-t">
+                            <Button variant="outline" onClick={() => setSolveModal({ open: false, ticketId: null, ticketName: '' })}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={solveTicket}
+                                disabled={!solution.trim() || solving}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                                {solving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                        Resolviendo...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckSquare className="w-4 h-4 mr-1" />
+                                        Resolver
                                     </>
                                 )}
                             </Button>

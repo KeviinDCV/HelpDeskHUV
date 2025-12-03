@@ -29,12 +29,14 @@ class DashboardController extends Controller
         ];
 
         // Obtener técnicos/admins para asignar (solo admins pueden asignar)
+        // Filtrar solo usuarios activos de la tabla users de Laravel (donde se marca Activo/Inactivo)
         $technicians = [];
         if ($user->role === 'Administrador') {
-            $technicians = DB::table('glpi_users')
-                ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))
-                ->whereRaw("firstname != '' OR realname != ''")
-                ->orderBy('realname')
+            // Usar la tabla users de Laravel que es donde está el estado real de activo/inactivo
+            $technicians = \App\Models\User::select('id', 'name')
+                ->where('is_active', 1)
+                ->whereIn('role', ['Técnico', 'Administrador'])
+                ->orderBy('name')
                 ->get();
         }
 
@@ -354,6 +356,79 @@ class DashboardController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Error al tomar el ticket: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Resolver un ticket (marcar como solucionado)
+     */
+    public function solveTicket(Request $request, $id)
+    {
+        $user = auth()->user();
+        $solution = $request->input('solution');
+        
+        if (!$solution || trim($solution) === '') {
+            return redirect()->back()->with('error', 'Debe ingresar una descripción de la solución.');
+        }
+
+        $ticket = DB::table('glpi_tickets')
+            ->where('id', $id)
+            ->where('is_deleted', 0)
+            ->first();
+
+        if (!$ticket) {
+            return redirect()->back()->with('error', 'Ticket no encontrado.');
+        }
+
+        // Verificar que el usuario esté asignado al ticket
+        $glpiUser = DB::table('glpi_users')
+            ->where('name', $user->username)
+            ->first();
+        
+        $glpiUserId = $glpiUser ? $glpiUser->id : $user->id;
+
+        $isAssigned = DB::table('glpi_tickets_users')
+            ->where('tickets_id', $id)
+            ->where('users_id', $glpiUserId)
+            ->where('type', 2)
+            ->exists();
+
+        if (!$isAssigned && $user->role !== 'Administrador') {
+            return redirect()->back()->with('error', 'No tienes permiso para resolver este ticket.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Agregar seguimiento con la solución
+            DB::table('glpi_itilfollowups')->insert([
+                'itemtype' => 'Ticket',
+                'items_id' => $id,
+                'date' => now(),
+                'date_mod' => now(),
+                'date_creation' => now(),
+                'users_id' => $glpiUserId,
+                'content' => '<p><strong>✅ SOLUCIÓN:</strong></p><p>' . nl2br(htmlspecialchars($solution)) . '</p>',
+                'is_private' => 0,
+                'requesttypes_id' => 1,
+                'timeline_position' => 1,
+            ]);
+
+            // Cambiar estado a "Resuelto" (status = 5)
+            DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->update([
+                    'status' => 5,
+                    'date_mod' => now(),
+                    'solvedate' => now(),
+                ]);
+
+            DB::commit();
+
+            return redirect()->back()->with('success', '¡Ticket resuelto exitosamente!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al resolver el ticket: ' . $e->getMessage());
         }
     }
 

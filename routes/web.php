@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard/ticket/{id}', [App\Http\Controllers\DashboardController::class, 'getTicketDetails'])->name('dashboard.ticket-details');
     Route::post('dashboard/take-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'takeTicket'])->name('dashboard.take-ticket');
     Route::post('dashboard/assign-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'assignTicket'])->name('dashboard.assign-ticket');
+    Route::post('dashboard/solve-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'solveTicket'])->name('dashboard.solve-ticket');
 
     // Rutas de Inventario
     Route::get('/inventario/computadores', [App\Http\Controllers\ComputerController::class, 'index'])->name('inventario.computadores');
