@@ -78,6 +78,7 @@ interface AuthUser {
   username: string;
   email: string;
   role: string;
+  avatar: string | null;
 }
 
 export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
@@ -245,8 +246,19 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-white hover:bg-[#3d5583] text-sm">
-                {user?.name ? (user.name.length > 25 ? user.name.substring(0, 25) + '...' : user.name) : 'Usuario'}
+              <Button variant="ghost" className="text-white hover:bg-[#3d5583] text-sm flex items-center gap-2">
+                {user?.avatar ? (
+                  <img 
+                    src={`/storage/${user.avatar}`} 
+                    alt={user.name} 
+                    className="w-7 h-7 rounded-full object-cover border border-white/30"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-medium">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                {user?.name ? (user.name.length > 20 ? user.name.substring(0, 20) + '...' : user.name) : 'Usuario'}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>

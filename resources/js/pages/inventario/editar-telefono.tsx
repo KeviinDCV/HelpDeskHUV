@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +35,7 @@ export default function EditarTelefono({ phone, states, manufacturers, types, mo
         <>
             <Head title="Editar Teléfono - HelpDesk HUV" />
             <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={<div className="flex items-center gap-2 text-sm"><span className="text-gray-600">Inicio</span><span className="text-gray-400">/</span><span className="text-gray-600">Inventario</span><span className="text-gray-400">/</span><button onClick={() => router.visit('/inventario/telefonos')} className="text-gray-600 hover:text-gray-900">Teléfonos</button><span className="text-gray-400">/</span><span className="font-medium text-gray-900">Editar</span></div>} />
+                <GLPIHeader breadcrumb={<div className="flex items-center gap-2 text-sm"><Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link><span className="text-gray-400">/</span><Link href="/inventario/telefonos" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link><span className="text-gray-400">/</span><Link href="/inventario/telefonos" className="text-gray-600 hover:text-[#2c4370] hover:underline">Teléfonos</Link><span className="text-gray-400">/</span><span className="font-medium text-gray-900">Editar</span></div>} />
                 <main className="flex-1 px-6 py-6">
                     <div className="max-w-5xl mx-auto">
                         <div className="bg-white rounded-lg shadow">

@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,11 +61,11 @@ export default function CrearConsumible({ types, manufacturers, entities, locati
             <div className="min-h-screen flex flex-col bg-gray-50">
                 <GLPIHeader breadcrumb={
                     <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-600">Inicio</span>
+                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
                         <span className="text-gray-400">/</span>
-                        <span className="text-gray-600">Inventario</span>
+                        <Link href="/inventario/consumibles" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
                         <span className="text-gray-400">/</span>
-                        <button onClick={() => router.visit('/inventario/consumibles')} className="text-gray-600 hover:text-gray-900">Consumibles</button>
+                        <Link href="/inventario/consumibles" className="text-gray-600 hover:text-[#2c4370] hover:underline">Consumibles</Link>
                         <span className="text-gray-400">/</span>
                         <span className="font-medium text-gray-900">Crear</span>
                     </div>

@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     Table,
     TableBody,
@@ -38,6 +38,7 @@ interface User {
     role: string;
     is_active: boolean;
     created_at: string;
+    avatar: string | null;
 }
 
 interface PaginationLinks {
@@ -265,7 +266,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
             <div className="min-h-screen flex flex-col bg-gray-50">
                 <GLPIHeader breadcrumb={
                     <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-600">Inicio</span>
+                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
                         <span className="text-gray-400">/</span>
                         <span className="text-gray-600">Administración</span>
                         <span className="text-gray-400">/</span>
@@ -457,7 +458,22 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                             <TableCell className="font-medium text-xs text-[#2c4370]">
                                                 {user.username || '-'}
                                             </TableCell>
-                                            <TableCell className="text-xs">{user.name || '-'}</TableCell>
+                                            <TableCell className="text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    {user.avatar ? (
+                                                        <img 
+                                                            src={`/storage/${user.avatar}`} 
+                                                            alt={user.name} 
+                                                            className="w-6 h-6 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-600">
+                                                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                                        </div>
+                                                    )}
+                                                    {user.name || '-'}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="text-xs">{user.email || '-'}</TableCell>
                                             <TableCell className="text-xs">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${

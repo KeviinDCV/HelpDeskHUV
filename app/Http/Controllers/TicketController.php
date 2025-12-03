@@ -63,14 +63,22 @@ class TicketController extends Controller
                 't.itilcategories_id',
                 'e.name as entity_name',
                 'cat.completename as category_name',
-                DB::raw("(SELECT CONCAT(u.firstname, ' ', u.realname) 
+                DB::raw("(SELECT COALESCE(
+                            NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
+                            lu.name
+                         )
                          FROM glpi_tickets_users tu 
-                         LEFT JOIN glpi_users u ON tu.users_id = u.id 
+                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id 
+                         LEFT JOIN users lu ON tu.users_id = lu.id
                          WHERE tu.tickets_id = t.id AND tu.type = 1 
                          LIMIT 1) as requester_name"),
-                DB::raw("(SELECT CONCAT(u.firstname, ' ', u.realname) 
+                DB::raw("(SELECT COALESCE(
+                            NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
+                            lu.name
+                         )
                          FROM glpi_tickets_users tu 
-                         LEFT JOIN glpi_users u ON tu.users_id = u.id 
+                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id 
+                         LEFT JOIN users lu ON tu.users_id = lu.id
                          WHERE tu.tickets_id = t.id AND tu.type = 2 
                          LIMIT 1) as assigned_name"),
                 DB::raw("CASE 
@@ -224,9 +232,9 @@ class TicketController extends Controller
             ->orderBy('completename')
             ->get();
         
-        // Obtener técnicos (usuarios asignados a tickets) para el filtro
-        $technicians = DB::table('glpi_users')
-            ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
+        // Obtener técnicos (usuarios asignados a tickets) para el filtro - de ambas tablas
+        $glpiTechnicians = DB::table('glpi_users')
+            ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
             ->where('is_deleted', 0)
             ->where('is_active', 1)
             ->whereExists(function ($q) {
@@ -235,8 +243,23 @@ class TicketController extends Controller
                   ->whereColumn('glpi_tickets_users.users_id', 'glpi_users.id')
                   ->where('glpi_tickets_users.type', 2);
             })
-            ->orderBy('firstname')
             ->get();
+        
+        $laravelTechnicians = User::select('id', 'name as fullname')
+            ->where('is_active', 1)
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.users_id', 'users.id')
+                  ->where('glpi_tickets_users.type', 2);
+            })
+            ->get();
+        
+        // Combinar y eliminar duplicados por ID
+        $technicians = $glpiTechnicians->merge($laravelTechnicians)
+            ->unique('id')
+            ->sortBy('fullname')
+            ->values();
 
         return Inertia::render('soporte/casos', [
             'tickets' => $tickets,
@@ -544,18 +567,30 @@ class TicketController extends Controller
             return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
         }
 
-        // Obtener solicitante
+        // Obtener solicitante (buscar en glpi_users y si no, en users de Laravel)
         $requester = DB::table('glpi_tickets_users as tu')
-            ->select('u.id', 'u.firstname', 'u.realname', DB::raw("CONCAT(u.firstname, ' ', u.realname) as fullname"))
-            ->join('glpi_users as u', 'tu.users_id', '=', 'u.id')
+            ->select(
+                'tu.users_id as id',
+                'gu.firstname',
+                'gu.realname',
+                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as fullname")
+            )
+            ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
+            ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.id')
             ->where('tu.tickets_id', $id)
             ->where('tu.type', 1)
             ->first();
 
-        // Obtener técnico asignado
+        // Obtener técnico asignado (buscar en glpi_users y si no, en users de Laravel)
         $technician = DB::table('glpi_tickets_users as tu')
-            ->select('u.id', 'u.firstname', 'u.realname', DB::raw("CONCAT(u.firstname, ' ', u.realname) as fullname"))
-            ->join('glpi_users as u', 'tu.users_id', '=', 'u.id')
+            ->select(
+                'tu.users_id as id',
+                'gu.firstname',
+                'gu.realname',
+                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as fullname")
+            )
+            ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
+            ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.id')
             ->where('tu.tickets_id', $id)
             ->where('tu.type', 2)
             ->first();
@@ -661,15 +696,32 @@ class TicketController extends Controller
             ->where('tickets_id', $id)
             ->get();
 
-        // Obtener elementos asociados
+        // Obtener elementos asociados con sus nombres
         $ticketItems = DB::table('glpi_items_tickets')
             ->where('tickets_id', $id)
-            ->get();
+            ->get()
+            ->map(function($item) {
+                $itemName = null;
+                $tableName = 'glpi_' . strtolower($item->itemtype) . 's';
+                try {
+                    $itemData = DB::table($tableName)->where('id', $item->items_id)->first();
+                    $itemName = $itemData->name ?? null;
+                } catch (\Exception $e) {}
+                $item->item_name = $itemName;
+                return $item;
+            });
 
-        // Obtener localizaciones
+        // Obtener localizaciones (con short_name como en crear)
         $locations = DB::table('glpi_locations')
-            ->select('id', 'name', 'completename')
-            ->orderBy('completename')
+            ->select(
+                DB::raw('MIN(id) as id'), 
+                'completename',
+                DB::raw("SUBSTRING_INDEX(completename, ' > ', -1) as short_name")
+            )
+            ->whereNotNull('completename')
+            ->where('completename', '!=', '')
+            ->groupBy('completename')
+            ->orderBy(DB::raw("SUBSTRING_INDEX(completename, ' > ', -1)"))
             ->get();
 
         // Obtener categorías de GLPI
@@ -685,6 +737,12 @@ class TicketController extends Controller
             ->where('is_deleted', 0)
             ->where('is_active', 1)
             ->orderBy('firstname')
+            ->get();
+        
+        // Obtener usuarios de Laravel para asignar
+        $laravelUsers = User::where('is_active', 1)
+            ->select('id', 'username', 'name', 'email')
+            ->orderBy('name')
             ->get();
 
         // Tipos de elementos
@@ -705,6 +763,7 @@ class TicketController extends Controller
             'locations' => $locations,
             'categories' => $categories,
             'glpiUsers' => $glpiUsers,
+            'users' => $laravelUsers,
             'itemTypes' => $itemTypes,
             'auth' => [
                 'user' => auth()->user()
@@ -724,6 +783,14 @@ class TicketController extends Controller
             'priority' => 'required|integer|between:1,6',
             'locations_id' => 'nullable|integer',
             'itilcategories_id' => 'nullable|integer',
+            'requester_id' => 'nullable|integer',
+            'observer_ids' => 'nullable|array',
+            'observer_ids.*' => 'integer',
+            'assigned_ids' => 'nullable|array',
+            'assigned_ids.*' => 'integer',
+            'items' => 'nullable|array',
+            'items.*.type' => 'string',
+            'items.*.id' => 'integer',
         ]);
 
         // Obtener el estado anterior para comparar
@@ -746,6 +813,70 @@ class TicketController extends Controller
                     'locations_id' => $validated['locations_id'] ?? 0,
                     'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
                 ]);
+
+            // Actualizar solicitante si se proporcionó
+            if (!empty($validated['requester_id'])) {
+                DB::table('glpi_tickets_users')
+                    ->where('tickets_id', $id)
+                    ->where('type', 1)
+                    ->delete();
+                
+                DB::table('glpi_tickets_users')->insert([
+                    'tickets_id' => $id,
+                    'users_id' => $validated['requester_id'],
+                    'type' => 1, // Requester
+                    'use_notification' => 1,
+                ]);
+            }
+
+            // Actualizar observadores si se proporcionaron
+            if (isset($validated['observer_ids'])) {
+                DB::table('glpi_tickets_users')
+                    ->where('tickets_id', $id)
+                    ->where('type', 3)
+                    ->delete();
+                
+                foreach ($validated['observer_ids'] as $observerId) {
+                    DB::table('glpi_tickets_users')->insert([
+                        'tickets_id' => $id,
+                        'users_id' => $observerId,
+                        'type' => 3, // Observer
+                        'use_notification' => 1,
+                    ]);
+                }
+            }
+
+            // Actualizar asignados si se proporcionaron
+            if (isset($validated['assigned_ids'])) {
+                DB::table('glpi_tickets_users')
+                    ->where('tickets_id', $id)
+                    ->where('type', 2)
+                    ->delete();
+                
+                foreach ($validated['assigned_ids'] as $assignedId) {
+                    DB::table('glpi_tickets_users')->insert([
+                        'tickets_id' => $id,
+                        'users_id' => $assignedId,
+                        'type' => 2, // Assigned
+                        'use_notification' => 1,
+                    ]);
+                }
+            }
+
+            // Actualizar elementos asociados si se proporcionaron
+            if (isset($validated['items'])) {
+                DB::table('glpi_items_tickets')
+                    ->where('tickets_id', $id)
+                    ->delete();
+                
+                foreach ($validated['items'] as $item) {
+                    DB::table('glpi_items_tickets')->insert([
+                        'tickets_id' => $id,
+                        'itemtype' => $item['type'],
+                        'items_id' => $item['id'],
+                    ]);
+                }
+            }
 
             // Notificar cambios de estado
             if ($oldStatus && $oldStatus != $validated['status']) {
