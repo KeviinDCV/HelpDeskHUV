@@ -29,35 +29,36 @@ class SoftwareController extends Controller
 
         $orderByField = $sortableFields[$sortField] ?? 's.name';
         
+        // Query optimizada usando subconsultas en lugar de JOINs pesados
         $query = DB::table('glpi_softwares as s')
             ->select(
                 's.id',
                 's.name',
                 'm.name as manufacturer_name',
                 'e.name as entity_name',
-                DB::raw('COUNT(DISTINCT sv.id) as num_versions'),
-                DB::raw('COUNT(DISTINCT csv.id) as num_installations'),
-                DB::raw('COALESCE(SUM(sl.number), 0) as num_licenses')
+                DB::raw('(SELECT COUNT(*) FROM glpi_softwareversions WHERE softwares_id = s.id) as num_versions'),
+                DB::raw('(SELECT COUNT(*) FROM glpi_softwareversions sv 
+                          INNER JOIN glpi_computers_softwareversions csv ON sv.id = csv.softwareversions_id 
+                          WHERE sv.softwares_id = s.id) as num_installations'),
+                DB::raw('(SELECT COALESCE(SUM(number), 0) FROM glpi_softwarelicenses WHERE softwares_id = s.id) as num_licenses')
             )
             ->leftJoin('glpi_entities as e', 's.entities_id', '=', 'e.id')
             ->leftJoin('glpi_manufacturers as m', 's.manufacturers_id', '=', 'm.id')
-            ->leftJoin('glpi_softwareversions as sv', 's.id', '=', 'sv.softwares_id')
-            ->leftJoin('glpi_computers_softwareversions as csv', 'sv.id', '=', 'csv.softwareversions_id')
-            ->leftJoin('glpi_softwarelicenses as sl', 's.id', '=', 'sl.softwares_id')
             ->where('s.is_deleted', 0);
 
-        // Aplicar filtro de fabricante antes del groupBy
+        // Aplicar filtro de fabricante
         if ($manufacturerFilter && $manufacturerFilter !== 'all') {
             $query->where('s.manufacturers_id', $manufacturerFilter);
         }
 
-        $query->groupBy('s.id', 's.name', 'm.name', 'e.name');
-
-        // Aplicar búsqueda si existe
+        // Aplicar búsqueda si existe (usando WHERE en lugar de HAVING)
         if ($search) {
-            $query->having(DB::raw('LOWER(s.name)'), 'LIKE', "%".strtolower($search)."%")
-                  ->orHaving(DB::raw('LOWER(e.name)'), 'LIKE', "%".strtolower($search)."%")
-                  ->orHaving(DB::raw('LOWER(m.name)'), 'LIKE', "%".strtolower($search)."%");
+            $searchLower = strtolower($search);
+            $query->where(function($q) use ($searchLower) {
+                $q->whereRaw('LOWER(s.name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(e.name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$searchLower}%"]);
+            });
         }
         
         $softwares = $query->orderBy($orderByField, $sortDirection)
@@ -70,8 +71,10 @@ class SoftwareController extends Controller
                 'manufacturer' => $manufacturerFilter
             ]);
 
-        // Obtener datos para filtros
-        $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        // Obtener datos para filtros (con cache)
+        $manufacturers = cache()->remember('software_manufacturers', 300, function() {
+            return DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+        });
 
         return Inertia::render('inventario/programas', [
             'softwares' => $softwares,

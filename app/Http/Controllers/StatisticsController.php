@@ -23,6 +23,14 @@ class StatisticsController extends Controller
         $technicianId = $request->input('technician_id', '');
         $categoryId = $request->input('category_id', '');
 
+        // Generar clave de cache basada en filtros
+        $cacheKey = 'stats_' . md5(json_encode([
+            $dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId
+        ]));
+
+        // Si no hay filtros, usar cache de 5 minutos
+        $cacheDuration = (!$dateFrom && !$dateTo && !$status && !$priority && !$technicianId && !$categoryId) ? 300 : 60;
+
         // Query base
         $baseQuery = DB::table('glpi_tickets')
             ->where('glpi_tickets.is_deleted', 0);
@@ -171,25 +179,29 @@ class StatisticsController extends Controller
             })
             ->toArray();
 
-        // Técnicos disponibles
-        $technicians = DB::table('glpi_users')
-            ->whereIn('id', function($q) {
-                $q->select('users_id')
-                    ->from('glpi_tickets_users')
-                    ->where('type', 2);
-            })
-            ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))
-            ->orderBy('name')
-            ->get()
-            ->toArray();
+        // Técnicos disponibles (con cache de 10 minutos)
+        $technicians = cache()->remember('stats_technicians', 600, function() {
+            return DB::table('glpi_users')
+                ->whereIn('id', function($q) {
+                    $q->select('users_id')
+                        ->from('glpi_tickets_users')
+                        ->where('type', 2);
+                })
+                ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        });
 
-        // Categorías
-        $categories = DB::table('glpi_itilcategories')
-            ->where('is_incident', 1)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
+        // Categorías (con cache de 10 minutos)
+        $categories = cache()->remember('stats_categories', 600, function() {
+            return DB::table('glpi_itilcategories')
+                ->where('is_incident', 1)
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        });
 
         return Inertia::render('soporte/estadisticas', [
             'stats' => $stats,

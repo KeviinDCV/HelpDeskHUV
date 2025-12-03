@@ -233,6 +233,11 @@ export default function ReportarCaso() {
                         fieldsToProcess.reporter_extension = '';
                     }
 
+                    // Si device_type es 'software', convertir a 'computer' (software corre en PC)
+                    if (fieldsToProcess.device_type === 'software') {
+                        fieldsToProcess.device_type = 'computer';
+                    }
+
                     // Construir el nuevo formData directamente
                     const newFormData = { ...formData };
 
@@ -260,8 +265,10 @@ export default function ReportarCaso() {
                         newFormData.name &&
                         newFormData.content;
 
-                    const isHardware = ['computer', 'printer', 'monitor', 'phone'].includes(newFormData.device_type || '');
-                    const needsEcom = isHardware && !newFormData.equipment_ecom;
+                    // computer, monitor, software y network requieren ECOM
+                    // Solo printer y phone NO requieren ECOM
+                    const needsEcomDevice = ['computer', 'monitor', 'software', 'network'].includes(newFormData.device_type || '');
+                    const needsEcom = needsEcomDevice && !newFormData.equipment_ecom;
                     const formIsComplete = basicFieldsComplete && !needsEcom;
 
                     if (formIsComplete) {
