@@ -155,14 +155,14 @@ export default function Estadisticas({
                     </div>
                 } />
 
-                <main className="flex-1 px-6 py-6 space-y-6">
+                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
                     {/* Filtros */}
-                    <div className="bg-white rounded-lg shadow p-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Filter className="h-5 w-5 text-[#2c4370]" />
-                            <h2 className="font-semibold text-gray-900">Filtros</h2>
+                    <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                            <Filter className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
+                            <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Filtros</h2>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
                             <div>
                                 <label className="text-xs text-gray-600 mb-1 block">Desde</label>
                                 <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9" />
@@ -224,118 +224,112 @@ export default function Estadisticas({
                                 </Select>
                             </div>
                         </div>
-                        <div className="flex justify-between items-center mt-4">
-                            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-600">
-                                <RefreshCw className="h-4 w-4 mr-1" /> Limpiar
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mt-3 sm:mt-4">
+                            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-600 text-xs sm:text-sm">
+                                <RefreshCw className="h-3.5 sm:h-4 w-3.5 sm:w-4 mr-1" /> Limpiar
                             </Button>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => exportToExcel('general')}>
-                                    <Download className="h-4 w-4 mr-1" /> Exportar General
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                                <Button variant="outline" size="sm" onClick={() => exportToExcel('general')} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+                                    <Download className="h-3.5 sm:h-4 w-3.5 sm:w-4 sm:mr-1" /><span className="hidden sm:inline">Exportar</span> General
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => exportToExcel('detailed')}>
-                                    <Download className="h-4 w-4 mr-1" /> Exportar Detallado
+                                <Button variant="outline" size="sm" onClick={() => exportToExcel('detailed')} className="flex-1 sm:flex-initial text-xs sm:text-sm">
+                                    <Download className="h-3.5 sm:h-4 w-3.5 sm:w-4 sm:mr-1" /><span className="hidden sm:inline">Exportar</span> Detallado
                                 </Button>
-                                <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white">
-                                    Aplicar Filtros
+                                <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white flex-1 sm:flex-initial text-xs sm:text-sm">
+                                    Aplicar
                                 </Button>
                             </div>
                         </div>
                     </div>
 
                     {/* Cards de resumen */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        <div className="bg-white rounded-lg shadow p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-500">Total Casos</p>
-                                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                                    <p className="text-xs sm:text-sm text-gray-500">Total</p>
+                                    <p className="text-xl sm:text-3xl font-bold text-gray-900">{stats.total}</p>
                                 </div>
-                                <BarChart3 className="h-10 w-10 text-[#2c4370] opacity-50" />
+                                <BarChart3 className="h-6 sm:h-10 w-6 sm:w-10 text-[#2c4370] opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4">
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-500">Abiertos</p>
-                                    <p className="text-3xl font-bold text-blue-600">{stats.abiertos}</p>
+                                    <p className="text-xs sm:text-sm text-gray-500">Abiertos</p>
+                                    <p className="text-xl sm:text-3xl font-bold text-blue-600">{stats.abiertos}</p>
                                 </div>
-                                <AlertCircle className="h-10 w-10 text-blue-500 opacity-50" />
+                                <AlertCircle className="h-6 sm:h-10 w-6 sm:w-10 text-blue-500 opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4">
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-500">En Proceso</p>
-                                    <p className="text-3xl font-bold text-yellow-600">{stats.en_proceso}</p>
+                                    <p className="text-xs sm:text-sm text-gray-500">En Proceso</p>
+                                    <p className="text-xl sm:text-3xl font-bold text-yellow-600">{stats.en_proceso}</p>
                                 </div>
-                                <Clock className="h-10 w-10 text-yellow-500 opacity-50" />
+                                <Clock className="h-6 sm:h-10 w-6 sm:w-10 text-yellow-500 opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4">
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-500">Pendientes</p>
-                                    <p className="text-3xl font-bold text-orange-600">{stats.pendientes}</p>
+                                    <p className="text-xs sm:text-sm text-gray-500">Pendientes</p>
+                                    <p className="text-xl sm:text-3xl font-bold text-orange-600">{stats.pendientes}</p>
                                 </div>
-                                <Calendar className="h-10 w-10 text-orange-500 opacity-50" />
+                                <Calendar className="h-6 sm:h-10 w-6 sm:w-10 text-orange-500 opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4">
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-4 col-span-2 sm:col-span-1">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-500">Cerrados</p>
-                                    <p className="text-3xl font-bold text-green-600">{stats.cerrados}</p>
+                                    <p className="text-xs sm:text-sm text-gray-500">Cerrados</p>
+                                    <p className="text-xl sm:text-3xl font-bold text-green-600">{stats.cerrados}</p>
                                 </div>
-                                <CheckCircle2 className="h-10 w-10 text-green-500 opacity-50" />
+                                <CheckCircle2 className="h-6 sm:h-10 w-6 sm:w-10 text-green-500 opacity-50" />
                             </div>
                         </div>
                     </div>
 
                     {/* Gráficos principales */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         {/* Por Estado */}
-                        <div className="bg-white rounded-lg shadow p-5">
-                            <div className="flex items-center gap-2 mb-4">
-                                <PieChart className="h-5 w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900">Casos por Estado</h3>
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-5">
+                            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                                <PieChart className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
+                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Casos por Estado</h3>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-2 sm:space-y-3">
                                 {byStatus.map((item) => (
-                                    <div key={item.status} className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${statusColors[item.status] || 'bg-gray-400'}`}></div>
-                                        <span className="text-sm flex-1">{item.status}</span>
-                                        <div className="w-32 bg-gray-200 rounded-full h-2">
-                                            <div 
-                                                className={`h-2 rounded-full ${statusColors[item.status] || 'bg-gray-400'}`}
-                                                style={{ width: `${item.percentage}%` }}
-                                            ></div>
+                                    <div key={item.status} className="flex items-center gap-2 sm:gap-3">
+                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full shrink-0 ${statusColors[item.status] || 'bg-gray-400'}`}></div>
+                                        <span className="text-xs sm:text-sm flex-1 truncate">{item.status}</span>
+                                        <div className="w-16 sm:w-32 bg-gray-200 rounded-full h-1.5 sm:h-2 hidden sm:block">
+                                            <div className={`h-full rounded-full ${statusColors[item.status] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
                                         </div>
-                                        <span className="text-sm font-medium w-12 text-right">{item.count}</span>
-                                        <span className="text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
+                                        <span className="text-xs sm:text-sm font-medium w-8 sm:w-12 text-right">{item.count}</span>
+                                        <span className="text-[10px] sm:text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         {/* Por Prioridad */}
-                        <div className="bg-white rounded-lg shadow p-5">
-                            <div className="flex items-center gap-2 mb-4">
-                                <TrendingUp className="h-5 w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900">Casos por Prioridad</h3>
+                        <div className="bg-white rounded-lg shadow p-3 sm:p-5">
+                            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                                <TrendingUp className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
+                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Casos por Prioridad</h3>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-2 sm:space-y-3">
                                 {byPriority.map((item) => (
-                                    <div key={item.priority} className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${priorityColors[item.priority] || 'bg-gray-400'}`}></div>
-                                        <span className="text-sm flex-1">{item.priority}</span>
-                                        <div className="w-32 bg-gray-200 rounded-full h-2">
-                                            <div 
-                                                className={`h-2 rounded-full ${priorityColors[item.priority] || 'bg-gray-400'}`}
-                                                style={{ width: `${item.percentage}%` }}
-                                            ></div>
+                                    <div key={item.priority} className="flex items-center gap-2 sm:gap-3">
+                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full shrink-0 ${priorityColors[item.priority] || 'bg-gray-400'}`}></div>
+                                        <span className="text-xs sm:text-sm flex-1 truncate">{item.priority}</span>
+                                        <div className="w-16 sm:w-32 bg-gray-200 rounded-full h-1.5 sm:h-2 hidden sm:block">
+                                            <div className={`h-full rounded-full ${priorityColors[item.priority] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
                                         </div>
-                                        <span className="text-sm font-medium w-12 text-right">{item.count}</span>
-                                        <span className="text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
+                                        <span className="text-xs sm:text-sm font-medium w-8 sm:w-12 text-right">{item.count}</span>
+                                        <span className="text-[10px] sm:text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
                                     </div>
                                 ))}
                             </div>
@@ -343,20 +337,20 @@ export default function Estadisticas({
                     </div>
 
                     {/* Gráfico de tendencia por mes */}
-                    <div className="bg-white rounded-lg shadow p-5">
-                        <div className="flex items-center gap-2 mb-4">
-                            <BarChart3 className="h-5 w-5 text-[#2c4370]" />
-                            <h3 className="font-semibold text-gray-900">Tendencia Mensual</h3>
+                    <div className="bg-white rounded-lg shadow p-3 sm:p-5">
+                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                            <BarChart3 className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
+                            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Tendencia Mensual</h3>
                         </div>
-                        <div className="flex items-end gap-2 h-48">
+                        <div className="flex items-end gap-1 sm:gap-2 h-32 sm:h-48 overflow-x-auto">
                             {byMonth.map((item) => (
-                                <div key={item.month} className="flex-1 flex flex-col items-center">
-                                    <span className="text-xs font-medium text-gray-600 mb-1">{item.count}</span>
+                                <div key={item.month} className="flex-1 min-w-[24px] sm:min-w-[32px] flex flex-col items-center">
+                                    <span className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">{item.count}</span>
                                     <div 
                                         className="w-full bg-[#2c4370] rounded-t-sm transition-all hover:bg-[#3d5583]"
-                                        style={{ height: `${(item.count / maxByMonth) * 150}px`, minHeight: '4px' }}
+                                        style={{ height: `${(item.count / maxByMonth) * 100}px`, minHeight: '4px' }}
                                     ></div>
-                                    <span className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left">{item.month}</span>
+                                    <span className="text-[8px] sm:text-xs text-gray-500 mt-1 sm:mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">{item.month}</span>
                                 </div>
                             ))}
                         </div>
@@ -364,12 +358,14 @@ export default function Estadisticas({
 
                     {/* Tabla de Técnicos */}
                     <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <div className="px-5 py-4 border-b flex items-center gap-2">
-                            <Users className="h-5 w-5 text-[#2c4370]" />
-                            <h3 className="font-semibold text-gray-900">Rendimiento por Técnico</h3>
-                            <span className="text-xs text-gray-500">({byTechnician.length} técnicos)</span>
-                            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => exportToExcel('technicians')}>
-                                <Download className="h-4 w-4 mr-1" /> Exportar Todos
+                        <div className="px-3 sm:px-5 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="flex items-center gap-2">
+                                <Users className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
+                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Rendimiento por Técnico</h3>
+                                <span className="text-[10px] sm:text-xs text-gray-500">({byTechnician.length})</span>
+                            </div>
+                            <Button variant="ghost" size="sm" className="sm:ml-auto text-xs" onClick={() => exportToExcel('technicians')}>
+                                <Download className="h-3.5 sm:h-4 w-3.5 sm:w-4 mr-1" /> Exportar
                             </Button>
                         </div>
                         <div 

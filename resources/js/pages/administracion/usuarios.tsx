@@ -274,39 +274,43 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                     </div>
                 } />
 
-                <main className="flex-1 px-6 py-6">
+                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     <div className="bg-white rounded-lg shadow">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b">
-                            <div className="flex items-center justify-between">
-                                <h1 className="text-xl font-semibold text-gray-900">Usuarios</h1>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <Input type="text" placeholder="Buscar..." className="w-64 pr-10 h-9" value={searchValue}
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Usuarios</h1>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                                    <div className="relative flex-1 sm:flex-initial">
+                                        <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
                                         <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
-                                        className={`h-9 ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
-                                        <Filter className="h-4 w-4 mr-1" /> Filtros
-                                        {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
-                                    </Button>
-                                    {auth.user.role === 'Administrador' && (
-                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9" onClick={handleOpenCreateModal}>
-                                            <Plus className="h-4 w-4 mr-1" />Crear
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
+                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
+                                            <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
-                                    )}
-                                    <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>Exportar</Button>
+                                        {auth.user.role === 'Administrador' && (
+                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial" onClick={handleOpenCreateModal}>
+                                                <Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Crear</span>
+                                            </Button>
+                                        )}
+                                        <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial" onClick={handleExport}>
+                                            <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         {showFilters && (
-                            <div className="px-6 py-4 bg-gray-50 border-b">
-                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                            <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                                     <div>
                                         <label className="text-xs text-gray-600 mb-1 block">Rol</label>
                                         <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -339,21 +343,21 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs" />
                                     </div>
                                 </div>
-                                <div className="flex justify-end gap-2 mt-3">
+                                <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
                                     {hasActiveFilters && (
                                         <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-gray-600">
-                                            <X className="h-3 w-3 mr-1" /> Limpiar filtros
+                                            <X className="h-3 w-3 mr-1" /> Limpiar
                                         </Button>
                                     )}
-                                    <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs">Aplicar filtros</Button>
+                                    <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs">Aplicar</Button>
                                 </div>
                             </div>
                         )}
 
                         {/* Stats */}
-                        <div className="px-6 py-3 bg-gray-50 border-b flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-600">Mostrar</span>
+                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
                                 <Select 
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
@@ -365,7 +369,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         }, { preserveState: false })
                                     }}
                                 >
-                                    <SelectTrigger className="w-20 h-8">
+                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -376,11 +380,11 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         <SelectItem value="100">100</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span className="text-sm text-gray-600">elementos</span>
+                                <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
                             </div>
-                            <p className="text-sm text-gray-600">
-                                Mostrando <span className="font-medium">{users.data.length}</span> de{' '}
-                                <span className="font-medium">{users.total}</span> usuarios
+                            <p className="text-xs sm:text-sm text-gray-600">
+                                <span className="font-medium">{users.data.length}</span> de{' '}
+                                <span className="font-medium">{users.total}</span>
                             </p>
                         </div>
 
@@ -518,54 +522,37 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                             </Table>
                         </div>
 
-                        <div className="px-6 py-4 border-t flex items-center justify-between">
-                            <div className="text-sm text-gray-600">
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
                                 Página {users.current_page} de {users.last_page}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
                                 {users.links.map((link, index) => {
-                                    // Primer botón = Previous
+                                    const isMobileVisible = index === 0 || index === users.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button
-                                                key={index}
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
-                                                onClick={() => link.url && router.visit(link.url)}
-                                            >
+                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
+                                                onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
                                         );
                                     }
-                                    // Último botón = Next
                                     if (index === users.links.length - 1) {
                                         return (
-                                            <Button
-                                                key={index}
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50"
-                                                onClick={() => link.url && router.visit(link.url)}
-                                            >
+                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
+                                                onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
                                         );
                                     }
-                                    // Botones de números
                                     return (
-                                        <Button
-                                            key={index}
-                                            variant={link.active ? "default" : "outline"}
-                                            size="sm"
-                                            disabled={!link.url}
-                                            className={link.active 
+                                        <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url}
+                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active 
                                                 ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" 
-                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}
-                                            onClick={() => link.url && router.visit(link.url)}
-                                        >
+                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
+                                            onClick={() => link.url && router.visit(link.url)}>
                                             {link.label}
                                         </Button>
                                     );

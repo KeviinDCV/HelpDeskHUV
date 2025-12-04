@@ -190,8 +190,9 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
         // Preparar datos para enviar (Inertia maneja automáticamente FormData cuando hay archivos)
         const submitData = {
             ...data,
-            observer_ids: observerIds,
-            assigned_ids: assignedIds,
+            requester_id: data.requester_id || null,
+            observer_ids: observerIds.length > 0 ? observerIds : [],
+            assigned_ids: assignedIds.length > 0 ? assignedIds : [],
             items: selectedItems.map(item => ({ type: item.type, id: item.id })),
             attachments: selectedFiles,
             _method: 'PUT', // Necesario para enviar PUT con archivos

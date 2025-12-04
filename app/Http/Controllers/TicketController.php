@@ -27,17 +27,6 @@ class TicketController extends Controller
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', ''); // unassigned, my_cases, resolved_today
 
-        // Log para debug
-        \Log::info('Ticket filters received', [
-            'status' => $statusFilter,
-            'priority' => $priorityFilter,
-            'category' => $categoryFilter,
-            'assigned' => $assignedFilter,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-            'search' => $search,
-        ]);
-
         // Mapeo de campos para ordenamiento
         $sortableFields = [
             'id' => 't.id',
@@ -98,7 +87,30 @@ class TicketController extends Controller
                     WHEN t.priority = 5 THEN 'Muy alta'
                     WHEN t.priority = 6 THEN 'Urgente'
                     ELSE 'Media'
-                END as priority_name")
+                END as priority_name"),
+                DB::raw("(SELECT CONCAT(
+                            CASE it.itemtype
+                                WHEN 'Computer' THEN 'PC: '
+                                WHEN 'Printer' THEN 'Imp: '
+                                WHEN 'Phone' THEN 'Tel: '
+                                WHEN 'Monitor' THEN 'Mon: '
+                                WHEN 'NetworkEquipment' THEN 'Red: '
+                                WHEN 'Peripheral' THEN 'Per: '
+                                ELSE ''
+                            END,
+                            CASE it.itemtype
+                                WHEN 'Computer' THEN (SELECT name FROM glpi_computers WHERE id = it.items_id)
+                                WHEN 'Printer' THEN (SELECT name FROM glpi_printers WHERE id = it.items_id)
+                                WHEN 'Phone' THEN (SELECT name FROM glpi_phones WHERE id = it.items_id)
+                                WHEN 'Monitor' THEN (SELECT name FROM glpi_monitors WHERE id = it.items_id)
+                                WHEN 'NetworkEquipment' THEN (SELECT name FROM glpi_networkequipments WHERE id = it.items_id)
+                                WHEN 'Peripheral' THEN (SELECT name FROM glpi_peripherals WHERE id = it.items_id)
+                                ELSE it.itemtype
+                            END
+                        )
+                        FROM glpi_items_tickets it 
+                        WHERE it.tickets_id = t.id 
+                        LIMIT 1) as item_name")
             )
             ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
             ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
@@ -127,47 +139,21 @@ class TicketController extends Controller
         }
         
         if ($assignedFilter !== '') {
-            // Log para debug
-            \Log::info('Filtering by assigned', ['assigned_id' => $assignedFilter]);
-
-            // Verificar si existe algún técnico con ese ID
-            $technicianExists = DB::table('glpi_users')
-                ->where('id', $assignedFilter)
-                ->where('is_deleted', 0)
-                ->where('is_active', 1)
-                ->exists();
-
-            \Log::info('Technician exists check', [
-                'technician_id' => $assignedFilter,
-                'exists' => $technicianExists
-            ]);
-
-            // Verificar cuántos tickets tiene asignados este técnico
-            $assignedCount = DB::table('glpi_tickets_users')
-                ->where('users_id', $assignedFilter)
-                ->where('type', 2)
-                ->count();
-
-            \Log::info('Assigned tickets count', [
-                'technician_id' => $assignedFilter,
-                'count' => $assignedCount
-            ]);
-
             $query->whereExists(function ($q) use ($assignedFilter) {
                 $q->select(DB::raw(1))
                   ->from('glpi_tickets_users')
                   ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2) // type 2 = assigned
+                  ->where('glpi_tickets_users.type', 2)
                   ->where('glpi_tickets_users.users_id', $assignedFilter);
             });
         }
         
-        if ($dateFrom) {
-            $query->whereDate('t.date', '>=', $dateFrom);
+        if ($dateFrom && $dateFrom !== '') {
+            $query->where('t.date', '>=', $dateFrom . ' 00:00:00');
         }
         
-        if ($dateTo) {
-            $query->whereDate('t.date', '<=', $dateTo);
+        if ($dateTo && $dateTo !== '') {
+            $query->where('t.date', '<=', $dateTo . ' 23:59:59');
         }
 
         // Filtros especiales del dashboard
@@ -216,14 +202,6 @@ class TicketController extends Controller
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
             ], fn($value) => $value !== '' && $value !== null));
-
-        // Log resultado de la consulta
-        \Log::info('Tickets query result', [
-            'total' => $tickets->total(),
-            'per_page' => $tickets->perPage(),
-            'current_page' => $tickets->currentPage(),
-            'count' => $tickets->count()
-        ]);
         
         // Obtener categorías para el filtro
         $categories = DB::table('glpi_itilcategories')
@@ -232,34 +210,17 @@ class TicketController extends Controller
             ->orderBy('completename')
             ->get();
         
-        // Obtener técnicos (usuarios asignados a tickets) para el filtro - de ambas tablas
-        $glpiTechnicians = DB::table('glpi_users')
-            ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
-            ->where('is_deleted', 0)
-            ->where('is_active', 1)
-            ->whereExists(function ($q) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.users_id', 'glpi_users.id')
-                  ->where('glpi_tickets_users.type', 2);
-            })
-            ->get();
-        
-        $laravelTechnicians = User::select('id', 'name as fullname')
-            ->where('is_active', 1)
-            ->whereExists(function ($q) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.users_id', 'users.id')
-                  ->where('glpi_tickets_users.type', 2);
-            })
-            ->get();
-        
-        // Combinar y eliminar duplicados por ID
-        $technicians = $glpiTechnicians->merge($laravelTechnicians)
-            ->unique('id')
-            ->sortBy('fullname')
-            ->values();
+        // Obtener técnicos de la tabla users de Laravel (Técnicos y Administradores activos)
+        // que tengan glpi_user_id configurado
+        $technicians = User::where('is_active', 1)
+            ->whereIn('role', ['Técnico', 'Administrador'])
+            ->whereNotNull('glpi_user_id')
+            ->orderBy('name')
+            ->get()
+            ->map(fn($user) => (object)[
+                'id' => $user->glpi_user_id, // Usar el ID de GLPI para el filtro
+                'fullname' => $user->name
+            ]);
 
         return Inertia::render('soporte/casos', [
             'tickets' => $tickets,
@@ -286,11 +247,20 @@ class TicketController extends Controller
 
     public function create()
     {
-        // Obtener usuarios activos de Laravel (para solicitante, observador, asignado)
+        // Obtener usuarios activos de Laravel con su glpi_user_id
+        // El ID que se usa en selectores es glpi_user_id para compatibilidad con GLPI
         $users = User::where('is_active', 1)
-            ->select('id', 'username', 'name', 'email')
+            ->whereNotNull('glpi_user_id')
+            ->select('id', 'glpi_user_id', 'username', 'name', 'email')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(fn($user) => [
+                'id' => $user->glpi_user_id, // Usar glpi_user_id como ID para GLPI
+                'laravel_id' => $user->id,
+                'username' => $user->username,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
 
         // Obtener localizaciones de GLPI (sin duplicados, mostrando solo el último segmento)
         $locations = DB::table('glpi_locations')
@@ -731,19 +701,20 @@ class TicketController extends Controller
             ->orderBy('completename')
             ->get();
 
-        // Obtener usuarios de GLPI
-        $glpiUsers = DB::table('glpi_users')
-            ->select('id', 'name', 'firstname', 'realname', DB::raw("CONCAT(firstname, ' ', realname) as fullname"))
-            ->where('is_deleted', 0)
-            ->where('is_active', 1)
-            ->orderBy('firstname')
-            ->get();
-        
-        // Obtener usuarios de Laravel para asignar
-        $laravelUsers = User::where('is_active', 1)
-            ->select('id', 'username', 'name', 'email')
+        // Obtener usuarios de Laravel con glpi_user_id para asignar
+        // El ID usado es glpi_user_id para compatibilidad con GLPI
+        $users = User::where('is_active', 1)
+            ->whereNotNull('glpi_user_id')
+            ->select('id', 'glpi_user_id', 'username', 'name', 'email')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(fn($user) => [
+                'id' => $user->glpi_user_id, // Usar glpi_user_id como ID para GLPI
+                'laravel_id' => $user->id,
+                'username' => $user->username,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
 
         // Tipos de elementos
         $itemTypes = [
@@ -778,8 +749,7 @@ class TicketController extends Controller
             'ticketItems' => $ticketItems,
             'locations' => $locations,
             'categories' => $categories,
-            'glpiUsers' => $glpiUsers,
-            'users' => $laravelUsers,
+            'users' => $users,
             'itemTypes' => $itemTypes,
             'attachments' => $attachments,
             'auth' => [
@@ -833,13 +803,13 @@ class TicketController extends Controller
                     'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
                 ]);
 
-            // Actualizar solicitante si se proporcionó
+            // Actualizar solicitante - siempre actualizar
+            DB::table('glpi_tickets_users')
+                ->where('tickets_id', $id)
+                ->where('type', 1)
+                ->delete();
+            
             if (!empty($validated['requester_id'])) {
-                DB::table('glpi_tickets_users')
-                    ->where('tickets_id', $id)
-                    ->where('type', 1)
-                    ->delete();
-                
                 DB::table('glpi_tickets_users')->insert([
                     'tickets_id' => $id,
                     'users_id' => $validated['requester_id'],
@@ -848,13 +818,13 @@ class TicketController extends Controller
                 ]);
             }
 
-            // Actualizar observadores si se proporcionaron
-            if (isset($validated['observer_ids'])) {
-                DB::table('glpi_tickets_users')
-                    ->where('tickets_id', $id)
-                    ->where('type', 3)
-                    ->delete();
-                
+            // Actualizar observadores - siempre actualizar
+            DB::table('glpi_tickets_users')
+                ->where('tickets_id', $id)
+                ->where('type', 3)
+                ->delete();
+            
+            if (!empty($validated['observer_ids'])) {
                 foreach ($validated['observer_ids'] as $observerId) {
                     DB::table('glpi_tickets_users')->insert([
                         'tickets_id' => $id,
@@ -865,13 +835,15 @@ class TicketController extends Controller
                 }
             }
 
-            // Actualizar asignados si se proporcionaron
-            if (isset($validated['assigned_ids'])) {
-                DB::table('glpi_tickets_users')
-                    ->where('tickets_id', $id)
-                    ->where('type', 2)
-                    ->delete();
-                
+            // Actualizar asignados - siempre actualizar si el campo viene en la petición
+            // Primero eliminar los asignados existentes
+            DB::table('glpi_tickets_users')
+                ->where('tickets_id', $id)
+                ->where('type', 2)
+                ->delete();
+            
+            // Luego agregar los nuevos asignados si hay
+            if (!empty($validated['assigned_ids'])) {
                 foreach ($validated['assigned_ids'] as $assignedId) {
                     DB::table('glpi_tickets_users')->insert([
                         'tickets_id' => $id,
@@ -882,12 +854,12 @@ class TicketController extends Controller
                 }
             }
 
-            // Actualizar elementos asociados si se proporcionaron
-            if (isset($validated['items'])) {
-                DB::table('glpi_items_tickets')
-                    ->where('tickets_id', $id)
-                    ->delete();
-                
+            // Actualizar elementos asociados - siempre actualizar
+            DB::table('glpi_items_tickets')
+                ->where('tickets_id', $id)
+                ->delete();
+            
+            if (!empty($validated['items'])) {
                 foreach ($validated['items'] as $item) {
                     DB::table('glpi_items_tickets')->insert([
                         'tickets_id' => $id,

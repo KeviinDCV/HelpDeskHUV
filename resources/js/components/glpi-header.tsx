@@ -113,7 +113,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   return (
     <header className="bg-[#2c4370] text-white sticky top-0 z-50">
       {/* Top Navigation Bar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-[#3d5583]">
+      <div className={`flex items-center justify-between px-3 sm:px-4 py-2 ${mobileMenuOpen ? 'lg:border-b lg:border-[#3d5583]' : 'border-b border-[#3d5583]'}`}>
         <div className="flex items-center gap-2 sm:gap-6">
           {/* Mobile Menu Button */}
           <button
@@ -316,15 +316,15 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div 
-          className="lg:hidden fixed inset-0 top-[57px] bg-black/50 z-40"
+          className="lg:hidden fixed inset-0 top-14 bg-black/50 z-40"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Mobile Menu Panel */}
-      <div className={`lg:hidden fixed top-[57px] left-0 h-[calc(100vh-57px)] w-72 bg-[#2c4370] z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`lg:hidden fixed top-14 left-0 bottom-0 w-72 bg-[#2c4370] z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {/* Mobile Search */}
-        <div className="p-3 border-b border-[#3d5583]">
+        <div className="p-3 border-b border-[#3d5583] shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
             <Input
@@ -335,8 +335,8 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           </div>
         </div>
 
-        {/* Mobile Navigation Sections */}
-        <nav className="py-2">
+        {/* Mobile Navigation Sections - Scrollable */}
+        <nav className="py-2 flex-1 overflow-y-auto">
           {mobileMenuSections.map((section) => (
             <div key={section.title} className="border-b border-[#3d5583]/50 last:border-b-0">
               <button
@@ -363,29 +363,29 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           ))}
         </nav>
 
-        {/* Mobile User Info - Dentro del scroll */}
-        <div className="px-4 py-4 border-t border-[#3d5583] bg-[#1e3255]">
-          <div className="flex items-center gap-3 mb-3">
+        {/* Mobile User Info - Compacto y siempre visible */}
+        <div className="px-3 py-3 border-t border-[#3d5583] bg-[#1e3255] shrink-0">
+          <div className="flex items-center gap-2">
             {user?.avatar ? (
-              <img src={`/storage/${user.avatar}`} alt={user.name} className="w-10 h-10 rounded-full object-cover" />
+              <img src={`/storage/${user.avatar}`} alt={user.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-medium text-white">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-medium text-white shrink-0">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
             )}
-            <div>
-              <p className="font-medium text-white">{user?.name || 'Usuario'}</p>
-              <p className="text-xs text-white/60">{user?.role || 'Usuario'}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-white text-sm truncate">{user?.name || 'Usuario'}</p>
             </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="shrink-0 border-white/30 text-white hover:bg-white/10 h-8 text-xs"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-3.5 w-3.5 mr-1" />
+              Salir
+            </Button>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full border-white/30 text-white hover:bg-white/10"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Cerrar sesión
-          </Button>
         </div>
       </div>
 
