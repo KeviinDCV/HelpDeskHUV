@@ -11,12 +11,13 @@ import {
     Phone,
     Network,
     HardDrive,
-    X,
     Command,
     Loader2,
     ArrowRight
 } from 'lucide-react'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogTitle, DialogPortal, DialogOverlay } from '@/components/ui/dialog'
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { cn } from "@/lib/utils"
 import { Input } from '@/components/ui/input'
 
 interface SearchResult {
@@ -126,9 +127,13 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-                {/* Hidden title for accessibility */}
-                <DialogTitle className="sr-only">Búsqueda global</DialogTitle>
+            <DialogPortal>
+                <DialogOverlay />
+                <DialogPrimitive.Content
+                    className="bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 sm:max-w-2xl p-0 gap-0 overflow-hidden"
+                >
+                    {/* Hidden title for accessibility */}
+                    <DialogTitle className="sr-only">Búsqueda global</DialogTitle>
                 
                 {/* Search Input */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b">
@@ -243,7 +248,8 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                         <span>para abrir</span>
                     </div>
                 </div>
-            </DialogContent>
+                </DialogPrimitive.Content>
+            </DialogPortal>
         </Dialog>
     )
 }

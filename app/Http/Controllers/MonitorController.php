@@ -333,6 +333,63 @@ class MonitorController extends Controller
         return redirect()->route('inventario.monitores')->with('success', 'Monitor creado exitosamente');
     }
 
+    public function show($id)
+    {
+        $monitor = DB::table('glpi_monitors as m')
+            ->select(
+                'm.*',
+                's.name as state_name',
+                'mf.name as manufacturer_name',
+                'l.completename as location_name',
+                'e.name as entity_name',
+                't.name as type_name',
+                'md.name as model_name'
+            )
+            ->leftJoin('glpi_entities as e', 'm.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_monitortypes as t', 'm.monitortypes_id', '=', 't.id')
+            ->leftJoin('glpi_monitormodels as md', 'm.monitormodels_id', '=', 'md.id')
+            ->leftJoin('glpi_states as s', 'm.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as mf', 'm.manufacturers_id', '=', 'mf.id')
+            ->leftJoin('glpi_locations as l', 'm.locations_id', '=', 'l.id')
+            ->where('m.id', $id)
+            ->where('m.is_deleted', 0)
+            ->first();
+
+        if (!$monitor) {
+            abort(404);
+        }
+
+        // Obtener computador conectado
+        $computer = DB::table('glpi_computers_items as ci')
+            ->join('glpi_computers as c', function($join) {
+                $join->on('ci.computers_id', '=', 'c.id');
+            })
+            ->select('c.id', 'c.name', 'c.serial')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
+            ->addSelect('l.completename as location_name')
+            ->where('ci.items_id', $id)
+            ->where('ci.itemtype', 'Monitor')
+            ->where('c.is_deleted', 0)
+            ->first();
+
+        // Obtener tickets relacionados
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)
+            ->where('it.itemtype', 'Monitor')
+            ->where('t.is_deleted', 0)
+            ->orderBy('t.date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('inventario/ver-monitor', [
+            'monitor' => $monitor,
+            'computer' => $computer,
+            'tickets' => $tickets,
+        ]);
+    }
+
     public function edit($id)
     {
         if (auth()->user()->role !== 'Administrador') {

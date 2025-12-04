@@ -217,15 +217,8 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
         setDeleteModal({open: false, id: null, name: ''});
     };
 
-    const handleShowDetail = async (id: number) => {
-        setDetailModal({open: true, loading: true, printer: null});
-        try {
-            const response = await fetch(`/inventario/impresoras/${id}`);
-            const data = await response.json();
-            setDetailModal({open: true, loading: false, printer: data});
-        } catch (error) {
-            setDetailModal({open: false, loading: false, printer: null});
-        }
+    const handleShowDetail = (id: number) => {
+        router.visit(`/inventario/impresoras/${id}`);
     };
 
     return (

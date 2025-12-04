@@ -175,11 +175,25 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        router.get('/soporte/casos', { 
-            ...filters, 
-            sort: field, 
-            direction: newDirection
-        }, { 
+        
+        // Construir parámetros solo con valores no vacíos
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: field,
+            direction: newDirection,
+        };
+        
+        // Solo agregar filtros que tengan valor
+        if (filters.search) params.search = filters.search;
+        if (filters.status) params.status = filters.status;
+        if (filters.priority) params.priority = filters.priority;
+        if (filters.category) params.category = filters.category;
+        if (filters.assigned) params.assigned = filters.assigned;
+        if (filters.date_from) params.date_from = filters.date_from;
+        if (filters.date_to) params.date_to = filters.date_to;
+        if (filters.filter) params.filter = filters.filter;
+        
+        router.get('/soporte/casos', params, { 
             preserveState: false,
             preserveScroll: true 
         });

@@ -233,6 +233,46 @@ class ConsumableItemController extends Controller
         return redirect()->route('inventario.consumibles')->with('success', 'Consumible creado exitosamente');
     }
 
+    public function show($id)
+    {
+        $consumable = DB::table('glpi_consumableitems as c')
+            ->select(
+                'c.*',
+                't.name as type_name',
+                'm.name as manufacturer_name',
+                'l.completename as location_name',
+                'e.name as entity_name'
+            )
+            ->leftJoin('glpi_consumableitemtypes as t', 'c.consumableitemtypes_id', '=', 't.id')
+            ->leftJoin('glpi_manufacturers as m', 'c.manufacturers_id', '=', 'm.id')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->where('c.id', $id)
+            ->where('c.is_deleted', 0)
+            ->first();
+
+        if (!$consumable) {
+            abort(404);
+        }
+
+        // Obtener stock disponible
+        $stockTotal = DB::table('glpi_consumables')
+            ->where('consumableitems_id', $id)
+            ->count();
+        
+        $stockUsado = DB::table('glpi_consumables')
+            ->where('consumableitems_id', $id)
+            ->whereNotNull('date_out')
+            ->count();
+
+        return Inertia::render('inventario/ver-consumible', [
+            'consumable' => $consumable,
+            'stockTotal' => $stockTotal,
+            'stockDisponible' => $stockTotal - $stockUsado,
+            'stockUsado' => $stockUsado,
+        ]);
+    }
+
     public function edit($id)
     {
         if (auth()->user()->role !== 'Administrador') {

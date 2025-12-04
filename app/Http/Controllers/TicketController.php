@@ -36,9 +36,18 @@ class TicketController extends Controller
             'date_mod' => 't.date_mod',
             'status' => 't.status',
             'priority' => 't.priority',
+            'category_name' => 'cat.completename',
+            'requester_name' => 't.id', // Se ordena por ID ya que requester es subconsulta
+            'assigned_name' => 't.id',  // Se ordena por ID ya que assigned es subconsulta
+            'item_name' => 't.id',      // Se ordena por ID ya que item es subconsulta
         ];
 
-        $orderByField = $sortableFields[$sortField] ?? 't.id';
+        // Validar que sortField sea válido, si no usar 'id'
+        if (!array_key_exists($sortField, $sortableFields)) {
+            $sortField = 'id';
+        }
+        
+        $orderByField = $sortableFields[$sortField];
         
         $query = DB::table('glpi_tickets as t')
             ->select(

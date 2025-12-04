@@ -318,6 +318,49 @@ class NetworkEquipmentController extends Controller
         return redirect()->route('inventario.dispositivos-red')->with('success', 'Dispositivo de red creado exitosamente');
     }
 
+    public function show($id)
+    {
+        $networkequipment = DB::table('glpi_networkequipments as n')
+            ->select(
+                'n.*',
+                's.name as state_name',
+                'm.name as manufacturer_name',
+                'l.completename as location_name',
+                'e.name as entity_name',
+                't.name as type_name',
+                'md.name as model_name'
+            )
+            ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_networkequipmenttypes as t', 'n.networkequipmenttypes_id', '=', 't.id')
+            ->leftJoin('glpi_networkequipmentmodels as md', 'n.networkequipmentmodels_id', '=', 'md.id')
+            ->leftJoin('glpi_states as s', 'n.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as m', 'n.manufacturers_id', '=', 'm.id')
+            ->leftJoin('glpi_locations as l', 'n.locations_id', '=', 'l.id')
+            ->where('n.id', $id)
+            ->where('n.is_deleted', 0)
+            ->first();
+
+        if (!$networkequipment) {
+            abort(404);
+        }
+
+        // Obtener tickets relacionados
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)
+            ->where('it.itemtype', 'NetworkEquipment')
+            ->where('t.is_deleted', 0)
+            ->orderBy('t.date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('inventario/ver-dispositivo-red', [
+            'networkequipment' => $networkequipment,
+            'tickets' => $tickets,
+        ]);
+    }
+
     public function edit($id)
     {
         if (auth()->user()->role !== 'Administrador') {

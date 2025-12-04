@@ -42,6 +42,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/computadores/crear', [App\Http\Controllers\ComputerController::class, 'create'])->name('inventario.computadores.crear');
     Route::post('/inventario/computadores', [App\Http\Controllers\ComputerController::class, 'store'])->name('inventario.computadores.store');
     Route::get('/inventario/computadores/{id}/editar', [App\Http\Controllers\ComputerController::class, 'edit'])->name('inventario.computadores.edit');
+    Route::get('/inventario/computadores/{id}', [App\Http\Controllers\ComputerController::class, 'show'])->name('inventario.computadores.show');
     Route::put('/inventario/computadores/{id}', [App\Http\Controllers\ComputerController::class, 'update'])->name('inventario.computadores.update');
     Route::delete('/inventario/computadores/{id}', [App\Http\Controllers\ComputerController::class, 'destroy'])->name('inventario.computadores.destroy');
     Route::get('/inventario/monitores', [App\Http\Controllers\MonitorController::class, 'index'])->name('inventario.monitores');
@@ -49,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/monitores/crear', [App\Http\Controllers\MonitorController::class, 'create'])->name('inventario.monitores.crear');
     Route::post('/inventario/monitores', [App\Http\Controllers\MonitorController::class, 'store'])->name('inventario.monitores.store');
     Route::get('/inventario/monitores/{id}/editar', [App\Http\Controllers\MonitorController::class, 'edit'])->name('inventario.monitores.edit');
+    Route::get('/inventario/monitores/{id}', [App\Http\Controllers\MonitorController::class, 'show'])->name('inventario.monitores.show');
     Route::put('/inventario/monitores/{id}', [App\Http\Controllers\MonitorController::class, 'update'])->name('inventario.monitores.update');
     Route::delete('/inventario/monitores/{id}', [App\Http\Controllers\MonitorController::class, 'destroy'])->name('inventario.monitores.destroy');
     Route::get('/inventario/programas', [App\Http\Controllers\SoftwareController::class, 'index'])->name('inventario.programas');
@@ -56,6 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/programas/crear', [App\Http\Controllers\SoftwareController::class, 'create'])->name('inventario.programas.crear');
     Route::post('/inventario/programas', [App\Http\Controllers\SoftwareController::class, 'store'])->name('inventario.programas.store');
     Route::get('/inventario/programas/{id}/editar', [App\Http\Controllers\SoftwareController::class, 'edit'])->name('inventario.programas.edit');
+    Route::get('/inventario/programas/{id}', [App\Http\Controllers\SoftwareController::class, 'show'])->name('inventario.programas.show');
     Route::put('/inventario/programas/{id}', [App\Http\Controllers\SoftwareController::class, 'update'])->name('inventario.programas.update');
     Route::delete('/inventario/programas/{id}', [App\Http\Controllers\SoftwareController::class, 'destroy'])->name('inventario.programas.destroy');
     Route::get('/inventario/dispositivos-red', [App\Http\Controllers\NetworkEquipmentController::class, 'index'])->name('inventario.dispositivos-red');
@@ -63,6 +66,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/dispositivos-red/crear', [App\Http\Controllers\NetworkEquipmentController::class, 'create'])->name('inventario.dispositivos-red.crear');
     Route::post('/inventario/dispositivos-red', [App\Http\Controllers\NetworkEquipmentController::class, 'store'])->name('inventario.dispositivos-red.store');
     Route::get('/inventario/dispositivos-red/{id}/editar', [App\Http\Controllers\NetworkEquipmentController::class, 'edit'])->name('inventario.dispositivos-red.edit');
+    Route::get('/inventario/dispositivos-red/{id}', [App\Http\Controllers\NetworkEquipmentController::class, 'show'])->name('inventario.dispositivos-red.show');
     Route::put('/inventario/dispositivos-red/{id}', [App\Http\Controllers\NetworkEquipmentController::class, 'update'])->name('inventario.dispositivos-red.update');
     Route::delete('/inventario/dispositivos-red/{id}', [App\Http\Controllers\NetworkEquipmentController::class, 'destroy'])->name('inventario.dispositivos-red.destroy');
     Route::get('/inventario/dispositivos', [App\Http\Controllers\PeripheralController::class, 'index'])->name('inventario.dispositivos');
@@ -85,6 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/consumibles/crear', [App\Http\Controllers\ConsumableItemController::class, 'create'])->name('inventario.consumibles.crear');
     Route::post('/inventario/consumibles', [App\Http\Controllers\ConsumableItemController::class, 'store'])->name('inventario.consumibles.store');
     Route::get('/inventario/consumibles/{id}/editar', [App\Http\Controllers\ConsumableItemController::class, 'edit'])->name('inventario.consumibles.edit');
+    Route::get('/inventario/consumibles/{id}', [App\Http\Controllers\ConsumableItemController::class, 'show'])->name('inventario.consumibles.show');
     Route::put('/inventario/consumibles/{id}', [App\Http\Controllers\ConsumableItemController::class, 'update'])->name('inventario.consumibles.update');
     Route::delete('/inventario/consumibles/{id}', [App\Http\Controllers\ConsumableItemController::class, 'destroy'])->name('inventario.consumibles.destroy');
     Route::get('/inventario/telefonos', [App\Http\Controllers\PhoneController::class, 'index'])->name('inventario.telefonos');

@@ -290,7 +290,21 @@ class PrinterController extends Controller
         $printer->ip_addresses = $ipAddresses;
         $printer->ip_networks = $ipNetworks;
 
-        return response()->json($printer);
+        // Obtener tickets relacionados
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)
+            ->where('it.itemtype', 'Printer')
+            ->where('t.is_deleted', 0)
+            ->orderBy('t.date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('inventario/ver-impresora', [
+            'printer' => $printer,
+            'tickets' => $tickets,
+        ]);
     }
 
     public function create()

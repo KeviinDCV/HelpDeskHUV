@@ -327,6 +327,94 @@ class ComputerController extends Controller
         return redirect()->route('inventario.computadores')->with('success', 'Computador creado exitosamente');
     }
 
+    public function show($id)
+    {
+        $computer = DB::table('glpi_computers as c')
+            ->select(
+                'c.*',
+                's.name as state_name',
+                'm.name as manufacturer_name',
+                'l.completename as location_name',
+                'e.name as entity_name',
+                't.name as type_name',
+                'cm.name as model_name'
+            )
+            ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_computertypes as t', 'c.computertypes_id', '=', 't.id')
+            ->leftJoin('glpi_computermodels as cm', 'c.computermodels_id', '=', 'cm.id')
+            ->leftJoin('glpi_states as s', 'c.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as m', 'c.manufacturers_id', '=', 'm.id')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
+            ->where('c.id', $id)
+            ->where('c.is_deleted', 0)
+            ->first();
+
+        if (!$computer) {
+            abort(404);
+        }
+
+        // Obtener monitores conectados
+        $monitors = DB::table('glpi_computers_items as ci')
+            ->join('glpi_monitors as mon', function($join) {
+                $join->on('ci.items_id', '=', 'mon.id')
+                     ->where('ci.itemtype', '=', 'Monitor');
+            })
+            ->select('mon.id', 'mon.name', 'mon.serial', 'mon.manufacturers_id')
+            ->leftJoin('glpi_manufacturers as m', 'mon.manufacturers_id', '=', 'm.id')
+            ->addSelect('m.name as manufacturer_name')
+            ->where('ci.computers_id', $id)
+            ->where('mon.is_deleted', 0)
+            ->get();
+
+        // Obtener software instalado (puede no existir en algunas versiones de GLPI)
+        $software = collect();
+        try {
+            $software = DB::table('glpi_items_softwareversions as isv')
+                ->join('glpi_softwareversions as sv', 'isv.softwareversions_id', '=', 'sv.id')
+                ->join('glpi_softwares as soft', 'sv.softwares_id', '=', 'soft.id')
+                ->select('soft.name', 'sv.name as version')
+                ->where('isv.items_id', $id)
+                ->where('isv.itemtype', 'Computer')
+                ->where('soft.is_deleted', 0)
+                ->orderBy('soft.name')
+                ->limit(50)
+                ->get();
+        } catch (\Exception $e) {
+            // Tabla no existe en esta versión de GLPI, usar colección vacía
+            $software = collect();
+        }
+
+        // Obtener periféricos conectados
+        $peripherals = DB::table('glpi_computers_items as ci')
+            ->join('glpi_peripherals as p', function($join) {
+                $join->on('ci.items_id', '=', 'p.id')
+                     ->where('ci.itemtype', '=', 'Peripheral');
+            })
+            ->select('p.id', 'p.name', 'p.serial')
+            ->where('ci.computers_id', $id)
+            ->where('p.is_deleted', 0)
+            ->get();
+
+        // Obtener tickets relacionados
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)
+            ->where('it.itemtype', 'Computer')
+            ->where('t.is_deleted', 0)
+            ->orderBy('t.date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('inventario/ver-computador', [
+            'computer' => $computer,
+            'monitors' => $monitors,
+            'software' => $software,
+            'peripherals' => $peripherals,
+            'tickets' => $tickets,
+        ]);
+    }
+
     public function edit($id)
     {
         if (auth()->user()->role !== 'Administrador') {

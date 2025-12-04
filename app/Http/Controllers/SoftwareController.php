@@ -226,6 +226,52 @@ class SoftwareController extends Controller
         return redirect()->route('inventario.programas')->with('success', 'Programa creado exitosamente');
     }
 
+    public function show($id)
+    {
+        $software = DB::table('glpi_softwares as s')
+            ->select(
+                's.*',
+                'm.name as manufacturer_name',
+                'c.name as category_name',
+                'e.name as entity_name'
+            )
+            ->leftJoin('glpi_manufacturers as m', 's.manufacturers_id', '=', 'm.id')
+            ->leftJoin('glpi_softwarecategories as c', 's.softwarecategories_id', '=', 'c.id')
+            ->leftJoin('glpi_entities as e', 's.entities_id', '=', 'e.id')
+            ->where('s.id', $id)
+            ->where('s.is_deleted', 0)
+            ->first();
+
+        if (!$software) {
+            abort(404);
+        }
+
+        // Obtener versiones del software
+        $versions = DB::table('glpi_softwareversions')
+            ->select('id', 'name', 'date_creation')
+            ->where('softwares_id', $id)
+            ->orderBy('name', 'desc')
+            ->limit(20)
+            ->get();
+
+        // Obtener tickets relacionados
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)
+            ->where('it.itemtype', 'Software')
+            ->where('t.is_deleted', 0)
+            ->orderBy('t.date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('inventario/ver-programa', [
+            'software' => $software,
+            'versions' => $versions,
+            'tickets' => $tickets,
+        ]);
+    }
+
     public function edit($id)
     {
         if (auth()->user()->role !== 'Administrador') {
