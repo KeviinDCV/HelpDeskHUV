@@ -1,8 +1,8 @@
-import { LogOut, Search, Menu, X, ChevronDown } from 'lucide-react'
+import { LogOut, Search, Menu, X, ChevronDown, Command } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { router, usePage } from '@inertiajs/react'
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
+import { GlobalSearch } from '@/components/global-search'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +96,19 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   const user = auth?.user;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  
+  // Atajo CTRL+K para abrir buscador
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
   
   const handleLogout = () => {
     window.location.href = '/salir';
@@ -260,15 +273,24 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-1 sm:gap-3">
-          {/* Search Bar - Hidden on small mobile */}
-          <div className="relative group hidden sm:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 group-focus-within:text-white/80 transition-colors" />
-            <Input
-              type="text"
-              placeholder="Buscar..."
-              className="w-32 md:w-56 h-9 pl-9 pr-3 bg-white/10 border-0 text-white placeholder:text-white/50 rounded-lg focus:bg-white/20 focus:ring-1 focus:ring-white/30 transition-all"
-            />
-          </div>
+          {/* Search Button - Opens Global Search */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="hidden sm:flex items-center gap-2 h-9 px-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/70 hover:text-white"
+          >
+            <Search className="h-4 w-4" />
+            <span className="text-sm hidden md:inline">Buscar...</span>
+            <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 rounded border border-white/20 bg-white/10 px-1.5 text-[10px] font-medium">
+              <Command className="h-2.5 w-2.5" />K
+            </kbd>
+          </button>
+          {/* Mobile Search Button */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="sm:hidden p-2 hover:bg-[#3d5583] rounded-lg transition-colors"
+          >
+            <Search className="h-5 w-5" />
+          </button>
 
           {/* Notificaciones */}
           <NotificationsDropdown />
@@ -323,16 +345,18 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
       {/* Mobile Menu Panel */}
       <div className={`lg:hidden fixed top-14 left-0 bottom-0 w-72 bg-[#2c4370] z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* Mobile Search */}
+        {/* Mobile Search Button */}
         <div className="p-3 border-b border-[#3d5583] shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
-            <Input
-              type="text"
-              placeholder="Buscar..."
-              className="w-full h-9 pl-9 pr-3 bg-white/10 border-0 text-white placeholder:text-white/50 rounded-lg"
-            />
-          </div>
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setSearchOpen(true);
+            }}
+            className="w-full flex items-center gap-3 h-9 px-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/70"
+          >
+            <Search className="h-4 w-4" />
+            <span className="text-sm">Buscar...</span>
+          </button>
         </div>
 
         {/* Mobile Navigation Sections - Scrollable */}
@@ -402,6 +426,9 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           </Button>
         </div>
       </div>
+
+      {/* Global Search Modal */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   )
 }

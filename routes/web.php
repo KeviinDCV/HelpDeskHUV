@@ -26,6 +26,9 @@ Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 's
 Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->name('chatbot');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Búsqueda global
+    Route::get('/api/search', [App\Http\Controllers\SearchController::class, 'search'])->name('api.search');
+
     Route::get('dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/tickets', [App\Http\Controllers\DashboardController::class, 'getTickets'])->name('dashboard.tickets');
     Route::get('dashboard/ticket/{id}', [App\Http\Controllers\DashboardController::class, 'getTicketDetails'])->name('dashboard.ticket-details');
