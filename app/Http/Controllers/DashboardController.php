@@ -286,7 +286,7 @@ class DashboardController extends Controller
             })
             ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
             ->where('t.is_deleted', 0)
-            ->where('t.status', '!=', 6) // No cerrados
+            ->whereNotIn('t.status', [5, 6]) // No resueltos ni cerrados
             ->orderBy('t.priority', 'desc')
             ->orderBy('t.date_mod', 'desc')
             ->limit(50)
@@ -399,27 +399,25 @@ class DashboardController extends Controller
 
         DB::beginTransaction();
         try {
-            // Agregar seguimiento con la solución
-            DB::table('glpi_itilfollowups')->insert([
+            // Insertar la solución en glpi_itilsolutions
+            DB::table('glpi_itilsolutions')->insert([
                 'itemtype' => 'Ticket',
                 'items_id' => $id,
-                'date' => now(),
-                'date_mod' => now(),
+                'content' => $solution,
                 'date_creation' => now(),
+                'date_mod' => now(),
                 'users_id' => $glpiUserId,
-                'content' => '<p><strong>✅ SOLUCIÓN:</strong></p><p>' . nl2br(htmlspecialchars($solution)) . '</p>',
-                'is_private' => 0,
-                'requesttypes_id' => 1,
-                'timeline_position' => 1,
+                'status' => 2, // Aprobado
             ]);
 
-            // Cambiar estado a "Resuelto" (status = 5)
+            // Cambiar estado a "Cerrado" (status = 6)
             DB::table('glpi_tickets')
                 ->where('id', $id)
                 ->update([
-                    'status' => 5,
+                    'status' => 6,
                     'date_mod' => now(),
                     'solvedate' => now(),
+                    'closedate' => now(),
                 ]);
 
             DB::commit();

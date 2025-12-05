@@ -72,6 +72,11 @@ class PublicTicketController extends Controller
             'requesttypes_id' => 1, // Solicitud web
         ]);
 
+        // Vincular elemento (ECOM) al ticket si existe
+        if (!empty($validated['equipment_ecom'])) {
+            $this->linkEquipmentToTicket($ticketId, $validated['equipment_ecom'], $validated['device_type'] ?? 'computer');
+        }
+
         return redirect()->route('reportar')->with('success', [
             'message' => '¡Reporte enviado exitosamente!',
             'ticket_id' => $ticketId,
@@ -256,5 +261,97 @@ PROMPT;
         }
         
         return $bestMatch ?? 0;
+    }
+
+    /**
+     * Vincular un equipo (por ECOM) al ticket
+     */
+    private function linkEquipmentToTicket(int $ticketId, string $ecom, string $deviceType): void
+    {
+        try {
+            // Limpiar y normalizar el ECOM
+            $ecom = strtoupper(trim($ecom));
+            $ecom = preg_replace('/[^A-Z0-9]/', '', $ecom);
+            
+            if (empty($ecom)) {
+                return;
+            }
+
+            $itemType = null;
+            $itemId = null;
+
+            // Buscar según el tipo de dispositivo
+            if (in_array($deviceType, ['computer', 'software', 'network'])) {
+                // Buscar en computadores
+                $computer = DB::table('glpi_computers')
+                    ->where('is_deleted', 0)
+                    ->where(function($q) use ($ecom) {
+                        $q->where('name', 'LIKE', '%' . $ecom . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecom) . '%');
+                    })
+                    ->first();
+                
+                if ($computer) {
+                    $itemType = 'Computer';
+                    $itemId = $computer->id;
+                }
+            } elseif ($deviceType === 'monitor') {
+                // Buscar en monitores
+                $monitor = DB::table('glpi_monitors')
+                    ->where('is_deleted', 0)
+                    ->where(function($q) use ($ecom) {
+                        $q->where('name', 'LIKE', '%' . $ecom . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecom . '%');
+                    })
+                    ->first();
+                
+                if ($monitor) {
+                    $itemType = 'Monitor';
+                    $itemId = $monitor->id;
+                }
+            } elseif ($deviceType === 'printer') {
+                // Buscar en impresoras
+                $printer = DB::table('glpi_printers')
+                    ->where('is_deleted', 0)
+                    ->where(function($q) use ($ecom) {
+                        $q->where('name', 'LIKE', '%' . $ecom . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecom . '%');
+                    })
+                    ->first();
+                
+                if ($printer) {
+                    $itemType = 'Printer';
+                    $itemId = $printer->id;
+                }
+            }
+
+            // Si encontramos el equipo, vincularlo al ticket
+            if ($itemType && $itemId) {
+                DB::table('glpi_items_tickets')->insert([
+                    'itemtype' => $itemType,
+                    'items_id' => $itemId,
+                    'tickets_id' => $ticketId,
+                ]);
+                
+                \Log::info('PublicTicket - Equipment linked', [
+                    'ticket_id' => $ticketId,
+                    'item_type' => $itemType,
+                    'item_id' => $itemId,
+                    'ecom' => $ecom
+                ]);
+            } else {
+                \Log::warning('PublicTicket - Equipment not found', [
+                    'ticket_id' => $ticketId,
+                    'ecom' => $ecom,
+                    'device_type' => $deviceType
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('PublicTicket - Error linking equipment', [
+                'ticket_id' => $ticketId,
+                'ecom' => $ecom,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }
