@@ -341,20 +341,20 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     {/* Banner de filtro especial */}
                     {filters.filter && (
-                        <div className="mb-4 bg-[#2c4370] text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div className="mb-4 bg-[#2c4370] text-white px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm sm:text-base">
                                 <Filter className="w-4 h-4 shrink-0" />
                                 <span className="font-medium">{getSpecialFilterLabel()}</span>
                                 <span className="text-white/70">({tickets.total})</span>
                             </div>
-                            <button onClick={clearSpecialFilter} className="flex items-center gap-1 hover:bg-white/20 px-2 py-1 rounded transition-colors text-sm">
+                            <button onClick={clearSpecialFilter} className="flex items-center gap-1 hover:bg-white/20 px-2 py-1 transition-colors text-sm">
                                 <X className="w-4 h-4" />
                                 <span>Quitar</span>
                             </button>
                         </div>
                     )}
                     
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -393,7 +393,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         >
                                             <Filter className="h-4 w-4 sm:mr-1" />
                                             <span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
                                         <Button 
                                             size="sm"
@@ -648,7 +648,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 </button>
                                             </TableCell>
                                             <TableCell className="text-xs">
-                                                <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${getStatusColor(ticket.status)}`}>
+                                                <span className={`px-2 py-1 text-[10px] font-semibold ${getStatusColor(ticket.status)}`}>
                                                     {ticket.status_name}
                                                 </span>
                                             </TableCell>
@@ -791,7 +791,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <span className="text-[#2c4370]">Caso #{ticketToView?.id}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${ticketToView ? getStatusColor(ticketToView.status) : ''}`}>
+                            <span className={`px-2 py-0.5 text-[10px] font-semibold ${ticketToView ? getStatusColor(ticketToView.status) : ''}`}>
                                 {ticketToView?.status_name}
                             </span>
                         </DialogTitle>
@@ -806,15 +806,15 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
                             {/* Info Grid */}
                             <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div className="bg-gray-50 p-2 rounded">
+                                <div className="bg-gray-50 p-2">
                                     <span className="text-gray-500 block">Prioridad</span>
                                     <span className="font-medium">{ticketToView.priority_name}</span>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded">
+                                <div className="bg-gray-50 p-2">
                                     <span className="text-gray-500 block">Entidad</span>
                                     <span className="font-medium">{ticketToView.entity_name || '-'}</span>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded">
+                                <div className="bg-gray-50 p-2">
                                     <span className="text-gray-500 block">Fecha de Apertura</span>
                                     <span className="font-medium">
                                         {ticketToView.date ? new Date(ticketToView.date).toLocaleDateString('es-CO', {
@@ -826,7 +826,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         }) : '-'}
                                     </span>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded">
+                                <div className="bg-gray-50 p-2">
                                     <span className="text-gray-500 block">Última Actualización</span>
                                     <span className="font-medium">
                                         {ticketToView.date_mod ? new Date(ticketToView.date_mod).toLocaleDateString('es-CO', {
@@ -838,15 +838,15 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         }) : '-'}
                                     </span>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded">
+                                <div className="bg-gray-50 p-2">
                                     <span className="text-gray-500 block">Solicitante</span>
                                     <span className="font-medium">{ticketToView.requester_name || '-'}</span>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded">
+                                <div className="bg-gray-50 p-2">
                                     <span className="text-gray-500 block">Asignado a</span>
                                     <span className="font-medium">{ticketToView.assigned_name || '-'}</span>
                                 </div>
-                                <div className="bg-gray-50 p-2 rounded col-span-2">
+                                <div className="bg-gray-50 p-2 col-span-2">
                                     <span className="text-gray-500 block">Categoría</span>
                                     <span className="font-medium">{ticketToView.category_name || '-'}</span>
                                 </div>

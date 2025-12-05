@@ -130,14 +130,14 @@ export default function Profile({ status, flash }: ProfileProps) {
 
                 <main className="flex-1 px-6 py-6">
                     <div className="max-w-2xl mx-auto">
-                        <div className="bg-white rounded-lg shadow">
+                        <div className="bg-white shadow">
                             <div className="px-6 py-4 border-b">
                                 <h1 className="text-xl font-semibold text-gray-900">Mi Perfil</h1>
                                 <p className="text-sm text-gray-500 mt-1">Actualiza tu información personal</p>
                             </div>
 
                             {flash?.success && (
-                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
                                     <p className="text-sm text-green-700">{flash.success}</p>
                                 </div>
                             )}
@@ -254,14 +254,14 @@ export default function Profile({ status, flash }: ProfileProps) {
                         </div>
 
                         {/* Sección de cambio de contraseña */}
-                        <div className="bg-white rounded-lg shadow mt-6">
+                        <div className="bg-white shadow mt-6">
                             <div className="px-6 py-4 border-b">
                                 <h2 className="text-xl font-semibold text-gray-900">Cambiar Contraseña</h2>
                                 <p className="text-sm text-gray-500 mt-1">Asegúrate de usar una contraseña segura</p>
                             </div>
 
                             {passwordSuccess && (
-                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
                                     <p className="text-sm text-green-700">Contraseña actualizada correctamente</p>
                                 </div>
                             )}

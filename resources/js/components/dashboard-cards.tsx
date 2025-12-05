@@ -26,7 +26,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
           {/* Grid on mobile, stack on desktop */}
           <div className="grid grid-cols-3 lg:grid-cols-1 gap-2 lg:space-y-3 lg:gap-0">
             <Link href="/soporte/casos?filter=unassigned" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-red-50 rounded-lg hover:bg-red-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <TicketIcon className="w-5 h-5 lg:w-4 lg:h-4 text-red-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Sin asignar</span>
@@ -35,7 +35,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
               </div>
             </Link>
             <Link href="/soporte/casos?filter=my_cases" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <UserCheck className="w-5 h-5 lg:w-4 lg:h-4 text-blue-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Mis casos</span>
@@ -44,7 +44,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
               </div>
             </Link>
             <Link href="/soporte/casos?filter=resolved_today" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <CheckCircle2 className="w-5 h-5 lg:w-4 lg:h-4 text-green-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Resueltos</span>

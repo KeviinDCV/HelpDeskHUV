@@ -134,7 +134,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                 />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -152,7 +152,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                         <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
                                             className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
                                             <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
                                         <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial" onClick={handleExport}>
                                             <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>

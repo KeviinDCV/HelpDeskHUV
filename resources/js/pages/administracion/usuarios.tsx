@@ -275,7 +275,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                 } />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -293,7 +293,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
                                             className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
                                             <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
                                         {auth.user.role === 'Administrador' && (
                                             <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial" onClick={handleOpenCreateModal}>
@@ -468,10 +468,10 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                                         <img 
                                                             src={`/storage/${user.avatar}`} 
                                                             alt={user.name} 
-                                                            className="w-6 h-6 rounded-full object-cover"
+                                                            className="w-6 h-6 object-cover"
                                                         />
                                                     ) : (
-                                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-600">
+                                                        <div className="w-6 h-6 bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-600">
                                                             {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                                         </div>
                                                     )}
@@ -480,7 +480,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                             </TableCell>
                                             <TableCell className="text-xs">{user.email || '-'}</TableCell>
                                             <TableCell className="text-xs">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium ${
                                                     user.role === 'Administrador' 
                                                         ? 'bg-purple-100 text-purple-800' 
                                                         : user.role === 'Técnico'
@@ -494,14 +494,14 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"
-                                                    className={`h-6 px-3 text-[10px] font-semibold rounded-full transition-colors duration-200 ${
+                                                    className={`h-6 px-3 text-[10px] font-semibold transition-colors duration-200 ${
                                                         user.is_active 
                                                             ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800' 
                                                             : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800'
                                                     }`}
                                                     onClick={(e) => handleToggleActive(e, user.id)}
                                                 >
-                                                    <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+                                                    <span className={`mr-1.5 h-1.5 w-1.5 ${
                                                         user.is_active ? 'bg-green-500' : 'bg-red-500'
                                                     }`}></span>
                                                     {user.is_active ? 'Activo' : 'Inactivo'}
@@ -659,7 +659,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         id="is_active"
                                         checked={formData.is_active}
                                         onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                                        className="h-4 w-4 rounded border-gray-300"
+                                        className="h-4 w-4 border-gray-300"
                                     />
                                     <span className={`text-sm font-medium ${formData.is_active ? 'text-green-600' : 'text-red-600'}`}>
                                         {formData.is_active ? 'Activo' : 'Inactivo'}

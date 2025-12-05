@@ -7,9 +7,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use App\Models\User;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Traits\ExcelExportStyles;
 
 class UserController extends Controller
 {
+    use ExcelExportStyles;
+
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -107,44 +112,86 @@ class UserController extends Controller
 
         $users = $query->orderBy($orderByField, $sortDirection)->get();
 
-        // Crear CSV
-        $filename = 'usuarios_' . date('Y-m-d_His') . '.csv';
-        $handle = fopen('php://temp', 'r+');
-        
-        // Agregar BOM para UTF-8
-        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        // Headers
-        fputcsv($handle, [
-            'ID',
-            'Usuario',
-            'Nombre Completo',
-            'Email',
-            'Rol',
-            'Activo',
-            'Fecha de Creación'
-        ]);
+        // Crear Excel
+        $spreadsheet = new Spreadsheet();
+        $this->setDocumentProperties($spreadsheet, 'Usuarios HelpDesk', 'Listado de usuarios del sistema');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Usuarios');
+
+        // Encabezado del documento
+        $filterInfo = '';
+        if ($roleFilter && $roleFilter !== 'all') $filterInfo .= "Rol: {$roleFilter} ";
+        if ($statusFilter !== '') $filterInfo .= "Estado: " . ($statusFilter ? 'Activos' : 'Inactivos');
+        $this->createDocumentHeader($sheet, 'HELPDESK HUV - USUARIOS DEL SISTEMA', 'Hospital Universitario del Valle - Gestión de Usuarios', 'G', $filterInfo);
+
+        // Resumen rápido
+        $row = 5;
+        $totalUsers = $users->count();
+        $activeUsers = $users->where('is_active', true)->count();
+        $adminUsers = $users->where('role', 'Administrador')->count();
+        $techUsers = $users->where('role', 'Técnico')->count();
+
+        $sheet->setCellValue("A{$row}", "📊 RESUMEN: {$totalUsers} usuarios | ✅ Activos: {$activeUsers} | 👔 Admins: {$adminUsers} | 🔧 Técnicos: {$techUsers}");
+        $sheet->mergeCells("A{$row}:G{$row}");
+        $this->applySectionStyle($sheet, "A{$row}:G{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(28);
+
+        // Headers de tabla
+        $row = 7;
+        $headers = ['ID', 'Usuario', 'Nombre Completo', 'Email', 'Rol', 'Estado', 'Fecha Creación'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue("{$col}{$row}", $header);
+            $col++;
+        }
+        $this->applyHeaderStyle($sheet, "A{$row}:G{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(25);
 
         // Datos
+        $row++;
+        $startDataRow = $row;
         foreach ($users as $user) {
-            fputcsv($handle, [
-                $user->id,
-                $user->username,
-                $user->name,
-                $user->email,
-                $user->role,
-                $user->is_active ? 'Sí' : 'No',
-                $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : '-'
-            ]);
+            $sheet->setCellValue("A{$row}", $user->id);
+            $sheet->setCellValue("B{$row}", $user->username);
+            $sheet->setCellValue("C{$row}", $user->name);
+            $sheet->setCellValue("D{$row}", $user->email);
+            $sheet->setCellValue("E{$row}", $user->role);
+            $sheet->setCellValue("F{$row}", $user->is_active ? '✓ Activo' : '✗ Inactivo');
+            $sheet->setCellValue("G{$row}", $user->created_at ? $user->created_at->format('d/m/Y H:i') : '-');
+            
+            // Estilo para estado
+            if ($user->is_active) {
+                $this->applyBadgeStyle($sheet, "F{$row}", $this->successColor);
+            } else {
+                $this->applyBadgeStyle($sheet, "F{$row}", $this->dangerColor);
+            }
+            
+            // Estilo para rol
+            $roleColor = match($user->role) {
+                'Administrador' => $this->primaryColor,
+                'Técnico' => $this->warningColor,
+                default => '6B7280'
+            };
+            $this->applyBadgeStyle($sheet, "E{$row}", $roleColor);
+            
+            $row++;
         }
 
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
+        // Aplicar estilos alternados a datos
+        $this->applyAlternateRowStyles($sheet, $startDataRow, $row - 1, 'A', 'G');
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        // Auto-ajustar columnas
+        $this->autoSizeColumns($sheet, ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+
+        // Generar archivo
+        $filename = 'Usuarios_HelpDesk_' . date('Y-m-d_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function store(Request $request)

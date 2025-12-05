@@ -130,7 +130,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
             <DialogPortal>
                 <DialogOverlay />
                 <DialogPrimitive.Content
-                    className="bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 sm:max-w-2xl p-0 gap-0 overflow-hidden"
+                    className="bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] border shadow-lg duration-200 sm:max-w-2xl p-0 gap-0 overflow-hidden"
                 >
                     {/* Hidden title for accessibility */}
                     <DialogTitle className="sr-only">Búsqueda global</DialogTitle>
@@ -148,7 +148,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                         className="flex-1 border-0 shadow-none focus-visible:ring-0 text-base placeholder:text-gray-400"
                     />
                     {loading && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
-                    <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-gray-100 px-1.5 text-[10px] font-medium text-gray-500">
+                    <kbd className="hidden sm:inline-flex h-5 items-center gap-1 border bg-gray-100 px-1.5 text-[10px] font-medium text-gray-500">
                         ESC
                     </kbd>
                 </div>
@@ -174,7 +174,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                                                 selectedIndex === index ? 'bg-blue-50' : 'hover:bg-gray-50'
                                             }`}
                                         >
-                                            <div className={`p-2 rounded-lg ${config.color}`}>
+                                            <div className={`p-2 ${config.color}`}>
                                                 <Icon className="h-4 w-4" />
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -215,7 +215,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                                             selectedIndex === index ? 'bg-blue-50' : 'hover:bg-gray-50'
                                         }`}
                                     >
-                                        <div className="p-2 rounded-lg bg-gray-100">
+                                        <div className="p-2 bg-gray-100">
                                             <Icon className="h-4 w-4 text-gray-600" />
                                         </div>
                                         <span className="font-medium text-gray-700">{action.name}</span>
@@ -233,18 +233,18 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 <div className="flex items-center justify-between px-4 py-2 border-t bg-gray-50 text-xs text-gray-500">
                     <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1">
-                            <kbd className="px-1.5 py-0.5 bg-white rounded border text-[10px]">↑↓</kbd>
+                            <kbd className="px-1.5 py-0.5 bg-white border text-[10px]">↑↓</kbd>
                             navegar
                         </span>
                         <span className="flex items-center gap-1">
-                            <kbd className="px-1.5 py-0.5 bg-white rounded border text-[10px]">↵</kbd>
+                            <kbd className="px-1.5 py-0.5 bg-white border text-[10px]">↵</kbd>
                             seleccionar
                         </span>
                     </div>
                     <div className="flex items-center gap-1">
                         <Command className="h-3 w-3" />
                         <span>+</span>
-                        <kbd className="px-1.5 py-0.5 bg-white rounded border text-[10px]">K</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-white border text-[10px]">K</kbd>
                         <span>para abrir</span>
                     </div>
                 </div>

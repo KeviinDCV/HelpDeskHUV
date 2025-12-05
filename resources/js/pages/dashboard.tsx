@@ -181,13 +181,13 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                     
                     {/* Flash Messages */}
                     {props.flash?.success && (
-                        <div className="mx-3 sm:mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 flex items-center gap-3">
+                        <div className="mx-3 sm:mx-6 mt-4 bg-green-50 border border-green-200 p-3 sm:p-4 flex items-center gap-3">
                             <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                             <span className="text-green-700 text-sm sm:text-base">{props.flash.success}</span>
                         </div>
                     )}
                     {props.flash?.error && (
-                        <div className="mx-3 sm:mx-6 mt-4 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 flex items-center gap-3">
+                        <div className="mx-3 sm:mx-6 mt-4 bg-red-50 border border-red-200 p-3 sm:p-4 flex items-center gap-3">
                             <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
                             <span className="text-red-700 text-sm sm:text-base">{props.flash.error}</span>
                         </div>
@@ -197,7 +197,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                     <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4">
                         {/* Main Content */}
                         <div className="flex-1 min-w-0">
-                            <div className="bg-white rounded-lg shadow-sm">
+                            <div className="bg-white shadow-sm border border-gray-200">
                                 <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                                         {isPublicView ? (
@@ -208,7 +208,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                         <h2 className="text-base sm:text-lg font-semibold text-gray-800">
                                             {isPublicView ? 'Reportes Públicos' : 'Mis Reportes'}
                                         </h2>
-                                        <span className={`text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full ${
+                                        <span className={`text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 ${
                                             isPublicView ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                                         }`}>
                                             {isPublicView ? `${stats.publicUnassigned} pendientes` : `${stats.myTickets} activos`}
@@ -233,16 +233,16 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
                                                             <span className="text-xs text-gray-400">#{ticket.id}</span>
-                                                            <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded ${priorityColors[ticket.priority]}`}>
+                                                            <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 ${priorityColors[ticket.priority]}`}>
                                                                 {ticket.priority_name}
                                                             </span>
                                                             {!isPublicView && (
-                                                                <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded ${statusColors[ticket.status]}`}>
+                                                                <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 ${statusColors[ticket.status]}`}>
                                                                     {ticket.status_name}
                                                                 </span>
                                                             )}
                                                             {ticket.category_name && (
-                                                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 sm:px-2 py-0.5 rounded hidden sm:inline">
+                                                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 sm:px-2 py-0.5 hidden sm:inline">
                                                                     {ticket.category_name}
                                                                 </span>
                                                             )}
@@ -323,10 +323,10 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             {/* Modal de Detalles */}
             {detailModal.open && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200">
                         <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
                             <h2 className="text-lg font-semibold text-gray-900">Detalles del Caso</h2>
-                            <button onClick={() => setDetailModal({ open: false, ticket: null, loading: false })} className="p-1 hover:bg-gray-100 rounded">
+                            <button onClick={() => setDetailModal({ open: false, ticket: null, loading: false })} className="p-1 hover:bg-gray-100">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -338,10 +338,10 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                             <div className="p-4 space-y-4">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-sm text-gray-500">#{detailModal.ticket.id}</span>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityColors[detailModal.ticket.priority]}`}>
+                                    <span className={`text-xs font-medium px-2 py-0.5 ${priorityColors[detailModal.ticket.priority]}`}>
                                         {detailModal.ticket.priority_name}
                                     </span>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${statusColors[detailModal.ticket.status]}`}>
+                                    <span className={`text-xs font-medium px-2 py-0.5 ${statusColors[detailModal.ticket.status]}`}>
                                         {detailModal.ticket.status_name}
                                     </span>
                                 </div>
@@ -376,7 +376,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
 
                                 <div className="border-t pt-4">
                                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Descripción</h4>
-                                    <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 p-4 rounded-lg" dangerouslySetInnerHTML={{ __html: detailModal.ticket.content }} />
+                                    <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 p-4 border border-gray-200" dangerouslySetInnerHTML={{ __html: detailModal.ticket.content }} />
                                 </div>
 
                                 <div className="flex justify-end gap-2 pt-4 border-t">
@@ -413,10 +413,10 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             {/* Modal de Asignación */}
             {assignModal.open && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                    <div className="bg-white shadow-xl max-w-md w-full border border-gray-200">
                         <div className="flex items-center justify-between p-4 border-b">
                             <h2 className="text-lg font-semibold text-gray-900">Asignar Caso</h2>
-                            <button onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100 rounded">
+                            <button onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -466,10 +466,10 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             {/* Modal de Solución */}
             {solveModal.open && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+                    <div className="bg-white shadow-xl max-w-lg w-full border border-gray-200">
                         <div className="flex items-center justify-between p-4 border-b">
                             <h2 className="text-lg font-semibold text-gray-900">Resolver Caso</h2>
-                            <button onClick={() => setSolveModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100 rounded">
+                            <button onClick={() => setSolveModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -485,7 +485,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                     value={solution}
                                     onChange={(e) => setSolution(e.target.value)}
                                     placeholder="Describe cómo se resolvió el problema..."
-                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px]"
+                                    className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px]"
                                     autoFocus
                                 />
                             </div>

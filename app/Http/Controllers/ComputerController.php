@@ -6,9 +6,13 @@ use App\Models\Computer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Traits\ExcelExportStyles;
 
 class ComputerController extends Controller
 {
+    use ExcelExportStyles;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -215,48 +219,68 @@ class ComputerController extends Controller
 
         $computers = $query->orderBy($orderByField, $sortDirection)->get();
 
-        // Crear CSV
-        $filename = 'computadores_' . date('Y-m-d_His') . '.csv';
-        $handle = fopen('php://temp', 'r+');
-        
-        // Agregar BOM para UTF-8
-        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        // Headers
-        fputcsv($handle, [
-            'Nombre',
-            'Entidad',
-            'Estado',
-            'Fabricante',
-            'Número de serie',
-            'Tipo',
-            'Modelo',
-            'Localización',
-            'Última actualización'
-        ]);
+        // Crear Excel
+        $spreadsheet = new Spreadsheet();
+        $this->setDocumentProperties($spreadsheet, 'Inventario de Computadores', 'Listado de equipos de cómputo');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Computadores');
+
+        // Encabezado del documento
+        $filterInfo = '';
+        if ($stateFilter && $stateFilter !== 'all') $filterInfo .= "Estado filtrado ";
+        if ($manufacturerFilter && $manufacturerFilter !== 'all') $filterInfo .= "Fabricante filtrado ";
+        $this->createDocumentHeader($sheet, 'HELPDESK HUV - INVENTARIO DE COMPUTADORES', 'Hospital Universitario del Valle - Gestión de Activos TI', 'I', $filterInfo);
+
+        // Resumen
+        $row = 5;
+        $total = $computers->count();
+        $sheet->setCellValue("A{$row}", "📊 TOTAL: {$total} computadores registrados");
+        $sheet->mergeCells("A{$row}:I{$row}");
+        $this->applySectionStyle($sheet, "A{$row}:I{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(28);
+
+        // Headers de tabla
+        $row = 7;
+        $headers = ['Nombre', 'Entidad', 'Estado', 'Fabricante', 'N° Serie', 'Tipo', 'Modelo', 'Localización', 'Últ. Actualización'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue("{$col}{$row}", $header);
+            $col++;
+        }
+        $this->applyHeaderStyle($sheet, "A{$row}:I{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(25);
 
         // Datos
+        $row++;
+        $startDataRow = $row;
         foreach ($computers as $computer) {
-            fputcsv($handle, [
-                $computer->name ?? '-',
-                $computer->entity_name ?? '-',
-                $computer->state_name ?? '-',
-                $computer->manufacturer_name ?? '-',
-                $computer->serial ?? '-',
-                $computer->type_name ?? '-',
-                $computer->model_name ?? '-',
-                $computer->location_name ?? '-',
-                $computer->date_mod ? date('Y-m-d H:i', strtotime($computer->date_mod)) : '-'
-            ]);
+            $sheet->setCellValue("A{$row}", $computer->name ?? '-');
+            $sheet->setCellValue("B{$row}", $computer->entity_name ?? '-');
+            $sheet->setCellValue("C{$row}", $computer->state_name ?? '-');
+            $sheet->setCellValue("D{$row}", $computer->manufacturer_name ?? '-');
+            $sheet->setCellValue("E{$row}", $computer->serial ?? '-');
+            $sheet->setCellValue("F{$row}", $computer->type_name ?? '-');
+            $sheet->setCellValue("G{$row}", $computer->model_name ?? '-');
+            $sheet->setCellValue("H{$row}", $computer->location_name ?? '-');
+            $sheet->setCellValue("I{$row}", $computer->date_mod ? date('d/m/Y H:i', strtotime($computer->date_mod)) : '-');
+            $row++;
         }
 
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
+        // Aplicar estilos alternados
+        $this->applyAlternateRowStyles($sheet, $startDataRow, $row - 1, 'A', 'I');
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        // Auto-ajustar columnas
+        $this->autoSizeColumns($sheet, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']);
+
+        // Generar archivo
+        $filename = 'Computadores_HelpDesk_' . date('Y-m-d_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function create()

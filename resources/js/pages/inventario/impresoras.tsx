@@ -238,7 +238,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                 />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -256,7 +256,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                         <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
                                             className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
                                             <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
                                         <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial" onClick={handleExport}>
                                             <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>
@@ -467,12 +467,12 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                                 {printer.ip_addresses?.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
                                                         {printer.ip_addresses.slice(0, 2).map((ip, idx) => (
-                                                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
+                                                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-800">
                                                                 {ip}
                                                             </span>
                                                         ))}
                                                         {printer.ip_addresses.length > 2 && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600">
                                                                 +{printer.ip_addresses.length - 2}
                                                             </span>
                                                         )}
@@ -552,7 +552,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+                            <div className="flex h-10 w-10 items-center justify-center bg-red-100"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
                             <DialogTitle>Eliminar Impresora</DialogTitle>
                         </div>
                         <DialogDescription className="pt-2">¿Está seguro de eliminar la impresora <span className="font-semibold text-gray-900">"{deleteModal.name}"</span>? Esta acción no se puede deshacer.</DialogDescription>
@@ -692,7 +692,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                                 <p className="text-xs text-gray-500">Direcciones IP</p>
                                                 <div className="flex flex-wrap gap-2 mt-1">
                                                     {detailModal.printer.ip_addresses.map((ip, idx) => (
-                                                        <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                        <span key={idx} className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800">
                                                             {ip}
                                                         </span>
                                                     ))}
@@ -704,7 +704,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
                                                 <p className="text-xs text-gray-500">Redes IP</p>
                                                 <div className="flex flex-wrap gap-2 mt-1">
                                                     {detailModal.printer.ip_networks.map((net, idx) => (
-                                                        <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                        <span key={idx} className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800">
                                                             {net}
                                                         </span>
                                                     ))}

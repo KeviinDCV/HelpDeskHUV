@@ -6,9 +6,13 @@ use App\Models\Printer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Traits\ExcelExportStyles;
 
 class PrinterController extends Controller
 {
+    use ExcelExportStyles;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -189,46 +193,56 @@ class PrinterController extends Controller
 
         $printers = $query->orderBy($orderByField, $sortDirection)->get();
 
-        // Crear CSV
-        $filename = 'impresoras_' . date('Y-m-d_His') . '.csv';
-        $handle = fopen('php://temp', 'r+');
-        
-        // Agregar BOM para UTF-8
-        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        // Headers
-        fputcsv($handle, [
-            'Nombre',
-            'Entidad',
-            'Estado',
-            'Fabricante',
-            'Localización',
-            'Tipo',
-            'Modelo',
-            'Última actualización'
-        ]);
+        // Crear Excel
+        $spreadsheet = new Spreadsheet();
+        $this->setDocumentProperties($spreadsheet, 'Inventario de Impresoras', 'Listado de impresoras');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Impresoras');
 
-        // Datos
+        $this->createDocumentHeader($sheet, 'HELPDESK HUV - INVENTARIO DE IMPRESORAS', 'Hospital Universitario del Valle - Gestión de Activos TI', 'H', '');
+
+        $row = 5;
+        $total = $printers->count();
+        $sheet->setCellValue("A{$row}", "📊 TOTAL: {$total} impresoras registradas");
+        $sheet->mergeCells("A{$row}:H{$row}");
+        $this->applySectionStyle($sheet, "A{$row}:H{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(28);
+
+        $row = 7;
+        $headers = ['Nombre', 'Entidad', 'Estado', 'Fabricante', 'Localización', 'Tipo', 'Modelo', 'Últ. Actualización'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue("{$col}{$row}", $header);
+            $col++;
+        }
+        $this->applyHeaderStyle($sheet, "A{$row}:H{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(25);
+
+        $row++;
+        $startDataRow = $row;
         foreach ($printers as $printer) {
-            fputcsv($handle, [
-                $printer->name ?? '-',
-                $printer->entity_name ?? '-',
-                $printer->state_name ?? '-',
-                $printer->manufacturer_name ?? '-',
-                $printer->location_name ?? '-',
-                $printer->type_name ?? '-',
-                $printer->model_name ?? '-',
-                $printer->date_mod ? date('Y-m-d H:i', strtotime($printer->date_mod)) : '-'
-            ]);
+            $sheet->setCellValue("A{$row}", $printer->name ?? '-');
+            $sheet->setCellValue("B{$row}", $printer->entity_name ?? '-');
+            $sheet->setCellValue("C{$row}", $printer->state_name ?? '-');
+            $sheet->setCellValue("D{$row}", $printer->manufacturer_name ?? '-');
+            $sheet->setCellValue("E{$row}", $printer->location_name ?? '-');
+            $sheet->setCellValue("F{$row}", $printer->type_name ?? '-');
+            $sheet->setCellValue("G{$row}", $printer->model_name ?? '-');
+            $sheet->setCellValue("H{$row}", $printer->date_mod ? date('d/m/Y H:i', strtotime($printer->date_mod)) : '-');
+            $row++;
         }
 
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
+        $this->applyAlternateRowStyles($sheet, $startDataRow, $row - 1, 'A', 'H');
+        $this->autoSizeColumns($sheet, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $filename = 'Impresoras_HelpDesk_' . date('Y-m-d_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function show($id)

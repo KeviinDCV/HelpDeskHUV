@@ -157,7 +157,7 @@ export default function Estadisticas({
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
                     {/* Filtros */}
-                    <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                    <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-3 sm:mb-4">
                             <Filter className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
                             <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Filtros</h2>
@@ -244,7 +244,7 @@ export default function Estadisticas({
 
                     {/* Cards de resumen */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs sm:text-sm text-gray-500">Total</p>
@@ -253,7 +253,7 @@ export default function Estadisticas({
                                 <BarChart3 className="h-6 sm:h-10 w-6 sm:w-10 text-[#2c4370] opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs sm:text-sm text-gray-500">Abiertos</p>
@@ -262,7 +262,7 @@ export default function Estadisticas({
                                 <AlertCircle className="h-6 sm:h-10 w-6 sm:w-10 text-blue-500 opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs sm:text-sm text-gray-500">En Proceso</p>
@@ -271,7 +271,7 @@ export default function Estadisticas({
                                 <Clock className="h-6 sm:h-10 w-6 sm:w-10 text-yellow-500 opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs sm:text-sm text-gray-500">Pendientes</p>
@@ -280,7 +280,7 @@ export default function Estadisticas({
                                 <Calendar className="h-6 sm:h-10 w-6 sm:w-10 text-orange-500 opacity-50" />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-4 col-span-2 sm:col-span-1">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4 col-span-2 sm:col-span-1">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs sm:text-sm text-gray-500">Cerrados</p>
@@ -294,7 +294,7 @@ export default function Estadisticas({
                     {/* Gráficos principales */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         {/* Por Estado */}
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-5">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-5">
                             <div className="flex items-center gap-2 mb-3 sm:mb-4">
                                 <PieChart className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
                                 <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Casos por Estado</h3>
@@ -302,10 +302,10 @@ export default function Estadisticas({
                             <div className="space-y-2 sm:space-y-3">
                                 {byStatus.map((item) => (
                                     <div key={item.status} className="flex items-center gap-2 sm:gap-3">
-                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full shrink-0 ${statusColors[item.status] || 'bg-gray-400'}`}></div>
+                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 shrink-0 ${statusColors[item.status] || 'bg-gray-400'}`}></div>
                                         <span className="text-xs sm:text-sm flex-1 truncate">{item.status}</span>
-                                        <div className="w-16 sm:w-32 bg-gray-200 rounded-full h-1.5 sm:h-2 hidden sm:block">
-                                            <div className={`h-full rounded-full ${statusColors[item.status] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
+                                        <div className="w-16 sm:w-32 bg-gray-200 h-1.5 sm:h-2 hidden sm:block">
+                                            <div className={`h-full ${statusColors[item.status] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
                                         </div>
                                         <span className="text-xs sm:text-sm font-medium w-8 sm:w-12 text-right">{item.count}</span>
                                         <span className="text-[10px] sm:text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
@@ -315,7 +315,7 @@ export default function Estadisticas({
                         </div>
 
                         {/* Por Prioridad */}
-                        <div className="bg-white rounded-lg shadow p-3 sm:p-5">
+                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-5">
                             <div className="flex items-center gap-2 mb-3 sm:mb-4">
                                 <TrendingUp className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
                                 <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Casos por Prioridad</h3>
@@ -323,10 +323,10 @@ export default function Estadisticas({
                             <div className="space-y-2 sm:space-y-3">
                                 {byPriority.map((item) => (
                                     <div key={item.priority} className="flex items-center gap-2 sm:gap-3">
-                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full shrink-0 ${priorityColors[item.priority] || 'bg-gray-400'}`}></div>
+                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 shrink-0 ${priorityColors[item.priority] || 'bg-gray-400'}`}></div>
                                         <span className="text-xs sm:text-sm flex-1 truncate">{item.priority}</span>
-                                        <div className="w-16 sm:w-32 bg-gray-200 rounded-full h-1.5 sm:h-2 hidden sm:block">
-                                            <div className={`h-full rounded-full ${priorityColors[item.priority] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
+                                        <div className="w-16 sm:w-32 bg-gray-200 h-1.5 sm:h-2 hidden sm:block">
+                                            <div className={`h-full ${priorityColors[item.priority] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
                                         </div>
                                         <span className="text-xs sm:text-sm font-medium w-8 sm:w-12 text-right">{item.count}</span>
                                         <span className="text-[10px] sm:text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
@@ -337,7 +337,7 @@ export default function Estadisticas({
                     </div>
 
                     {/* Gráfico de tendencia por mes */}
-                    <div className="bg-white rounded-lg shadow p-3 sm:p-5">
+                    <div className="bg-white shadow border border-gray-200 p-3 sm:p-5">
                         <div className="flex items-center gap-2 mb-3 sm:mb-4">
                             <BarChart3 className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
                             <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Tendencia Mensual</h3>
@@ -347,7 +347,7 @@ export default function Estadisticas({
                                 <div key={item.month} className="flex-1 min-w-[24px] sm:min-w-[32px] flex flex-col items-center">
                                     <span className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">{item.count}</span>
                                     <div 
-                                        className="w-full bg-[#2c4370] rounded-t-sm transition-all hover:bg-[#3d5583]"
+                                        className="w-full bg-[#2c4370] transition-all hover:bg-[#3d5583]"
                                         style={{ height: `${(item.count / maxByMonth) * 100}px`, minHeight: '4px' }}
                                     ></div>
                                     <span className="text-[8px] sm:text-xs text-gray-500 mt-1 sm:mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">{item.month}</span>
@@ -357,7 +357,7 @@ export default function Estadisticas({
                     </div>
 
                     {/* Tabla de Técnicos */}
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="bg-white shadow border border-gray-200 overflow-hidden">
                         <div className="px-3 sm:px-5 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center gap-2">
                             <div className="flex items-center gap-2">
                                 <Users className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
@@ -400,7 +400,7 @@ export default function Estadisticas({
                                             <TableCell className="text-center text-blue-600">{tech.abiertos}</TableCell>
                                             <TableCell className="text-center text-green-600">{tech.cerrados}</TableCell>
                                             <TableCell className="text-center">
-                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                <span className={`px-2 py-1 text-xs font-medium ${
                                                     tech.total > 0 
                                                         ? (tech.cerrados / tech.total) >= 0.7 
                                                             ? 'bg-green-100 text-green-700' 
@@ -443,7 +443,7 @@ export default function Estadisticas({
 
                     {/* Casos por Categoría */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-lg shadow p-5">
+                        <div className="bg-white shadow border border-gray-200 p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <BarChart3 className="h-5 w-5 text-[#2c4370]" />
                                 <h3 className="font-semibold text-gray-900">Casos por Categoría</h3>
@@ -452,9 +452,9 @@ export default function Estadisticas({
                                 {byCategory.map((cat, idx) => (
                                     <div key={idx} className="flex items-center gap-3">
                                         <span className="text-sm flex-1 truncate">{cat.category || 'Sin categoría'}</span>
-                                        <div className="w-24 bg-gray-200 rounded-full h-2">
+                                        <div className="w-24 bg-gray-200 h-2">
                                             <div 
-                                                className="h-2 rounded-full bg-[#2c4370]"
+                                                className="h-2 bg-[#2c4370]"
                                                 style={{ width: `${(cat.count / (byCategory[0]?.count || 1)) * 100}%` }}
                                             ></div>
                                         </div>
@@ -465,17 +465,17 @@ export default function Estadisticas({
                         </div>
 
                         {/* Últimos casos */}
-                        <div className="bg-white rounded-lg shadow p-5">
+                        <div className="bg-white shadow border border-gray-200 p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <Clock className="h-5 w-5 text-[#2c4370]" />
                                 <h3 className="font-semibold text-gray-900">Últimos Casos</h3>
                             </div>
                             <div className="space-y-2 max-h-64 overflow-y-auto">
                                 {recentCases.map((c) => (
-                                    <div key={c.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded">
+                                    <div key={c.id} className="flex items-center gap-3 p-2 hover:bg-gray-50">
                                         <span className="text-xs font-mono text-gray-500">#{c.id}</span>
                                         <span className="text-sm flex-1 truncate">{c.name}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded ${statusColors[c.status] || 'bg-gray-400'} text-white`}>
+                                        <span className={`text-xs px-2 py-0.5 ${statusColors[c.status] || 'bg-gray-400'} text-white`}>
                                             {c.status}
                                         </span>
                                     </div>

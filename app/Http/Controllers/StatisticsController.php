@@ -28,9 +28,68 @@ class StatisticsController extends Controller
             $dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId
         ]));
 
-        // Si no hay filtros, usar cache de 5 minutos
-        $cacheDuration = (!$dateFrom && !$dateTo && !$status && !$priority && !$technicianId && !$categoryId) ? 300 : 60;
+        // Si no hay filtros, usar cache de 5 minutos para todo el resultado
+        $hasFilters = $dateFrom || $dateTo || $status || $priority || $technicianId || $categoryId;
+        
+        if (!$hasFilters) {
+            $cachedData = cache()->remember('stats_full_data', 180, function() {
+                return $this->getStatisticsData('', '', '', '', '', '');
+            });
+            
+            // Obtener técnicos y categorías de cache separado
+            $technicians = $this->getCachedTechnicians();
+            $categories = $this->getCachedCategories();
+            
+            return Inertia::render('soporte/estadisticas', array_merge($cachedData, [
+                'technicians' => $technicians,
+                'categories' => $categories,
+            ]));
+        }
 
+        // Con filtros, calcular en tiempo real pero con cache corto
+        $data = cache()->remember($cacheKey, 60, function() use ($dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId) {
+            return $this->getStatisticsData($dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId);
+        });
+
+        $technicians = $this->getCachedTechnicians();
+        $categories = $this->getCachedCategories();
+
+        return Inertia::render('soporte/estadisticas', array_merge($data, [
+            'technicians' => $technicians,
+            'categories' => $categories,
+        ]));
+    }
+
+    private function getCachedTechnicians()
+    {
+        return cache()->remember('stats_technicians', 600, function() {
+            return DB::table('glpi_users')
+                ->whereIn('id', function($q) {
+                    $q->select('users_id')
+                        ->from('glpi_tickets_users')
+                        ->where('type', 2);
+                })
+                ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        });
+    }
+
+    private function getCachedCategories()
+    {
+        return cache()->remember('stats_categories', 600, function() {
+            return DB::table('glpi_itilcategories')
+                ->where('is_incident', 1)
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        });
+    }
+
+    private function getStatisticsData($dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId)
+    {
         // Query base
         $baseQuery = DB::table('glpi_tickets')
             ->where('glpi_tickets.is_deleted', 0);
@@ -179,31 +238,7 @@ class StatisticsController extends Controller
             })
             ->toArray();
 
-        // Técnicos disponibles (con cache de 10 minutos)
-        $technicians = cache()->remember('stats_technicians', 600, function() {
-            return DB::table('glpi_users')
-                ->whereIn('id', function($q) {
-                    $q->select('users_id')
-                        ->from('glpi_tickets_users')
-                        ->where('type', 2);
-                })
-                ->select('id', DB::raw("CONCAT(firstname, ' ', realname) as name"))
-                ->orderBy('name')
-                ->get()
-                ->toArray();
-        });
-
-        // Categorías (con cache de 10 minutos)
-        $categories = cache()->remember('stats_categories', 600, function() {
-            return DB::table('glpi_itilcategories')
-                ->where('is_incident', 1)
-                ->select('id', 'name')
-                ->orderBy('name')
-                ->get()
-                ->toArray();
-        });
-
-        return Inertia::render('soporte/estadisticas', [
+        return [
             'stats' => $stats,
             'byStatus' => $byStatus,
             'byPriority' => $byPriority,
@@ -219,9 +254,7 @@ class StatisticsController extends Controller
                 'technician_id' => $technicianId,
                 'category_id' => $categoryId,
             ],
-            'technicians' => $technicians,
-            'categories' => $categories,
-        ]);
+        ];
     }
 
     public function export(Request $request)

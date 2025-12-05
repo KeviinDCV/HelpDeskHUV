@@ -131,7 +131,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 hover:bg-[#3d5583] rounded-lg transition-colors"
+            className="lg:hidden p-2 hover:bg-[#3d5583] transition-colors"
             aria-label="Menú"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -150,16 +150,16 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
             <NavigationMenuList className="gap-1">
               {/* Inventario Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 rounded focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
                   Inventario
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
-                  <div className="grid grid-cols-2 w-[420px] gap-0.5 p-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <div className="grid grid-cols-2 w-[420px] gap-0.5 p-1.5 bg-white shadow-lg border border-gray-200">
                     {inventarioItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => router.visit(item.href)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors"
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         {item.name}
                       </button>
@@ -170,16 +170,16 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Soporte Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 rounded focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
                   Soporte
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
-                  <div className="grid grid-cols-2 w-[360px] gap-0.5 p-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <div className="grid grid-cols-2 w-[360px] gap-0.5 p-1.5 bg-white shadow-lg border border-gray-200">
                     {soporteItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => router.visit(item.href)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors"
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         {item.name}
                       </button>
@@ -190,16 +190,16 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Gestión Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 rounded focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
                   Gestión
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
-                  <div className="grid grid-cols-2 w-[360px] gap-0.5 p-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <div className="grid grid-cols-2 w-[360px] gap-0.5 p-1.5 bg-white shadow-lg border border-gray-200">
                     {gestionItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => router.visit(item.href)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors"
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         {item.name}
                       </button>
@@ -210,16 +210,16 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Útiles Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 rounded focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
                   Útiles
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
-                  <div className="grid grid-cols-2 w-[360px] gap-0.5 p-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <div className="grid grid-cols-2 w-[360px] gap-0.5 p-1.5 bg-white shadow-lg border border-gray-200">
                     {utilesItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => router.visit(item.href)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors"
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         {item.name}
                       </button>
@@ -230,16 +230,16 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Administración Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 rounded focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
                   Administración
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
-                  <div className="grid grid-cols-2 w-[280px] gap-0.5 p-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <div className="grid grid-cols-2 w-[280px] gap-0.5 p-1.5 bg-white shadow-lg border border-gray-200">
                     {administracionItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => router.visit(item.href)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors"
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         {item.name}
                       </button>
@@ -250,16 +250,16 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Configuración Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 rounded focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
                   Configuración
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
-                  <div className="grid w-[240px] gap-0.5 p-1.5 bg-white rounded-md shadow-lg border border-gray-200">
+                  <div className="grid w-[240px] gap-0.5 p-1.5 bg-white shadow-lg border border-gray-200">
                     {configuracionItems.map((item) => (
                       <button
                         key={item.href}
                         onClick={() => router.visit(item.href)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors"
+                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         {item.name}
                       </button>
@@ -276,18 +276,18 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           {/* Search Button - Opens Global Search */}
           <button
             onClick={() => setSearchOpen(true)}
-            className="hidden sm:flex items-center gap-2 h-9 px-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/70 hover:text-white"
+            className="hidden sm:flex items-center gap-2 h-9 px-3 bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white"
           >
             <Search className="h-4 w-4" />
             <span className="text-sm hidden md:inline">Buscar...</span>
-            <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 rounded border border-white/20 bg-white/10 px-1.5 text-[10px] font-medium">
+            <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 border border-white/20 bg-white/10 px-1.5 text-[10px] font-medium">
               <Command className="h-2.5 w-2.5" />K
             </kbd>
           </button>
           {/* Mobile Search Button */}
           <button
             onClick={() => setSearchOpen(true)}
-            className="sm:hidden p-2 hover:bg-[#3d5583] rounded-lg transition-colors"
+            className="sm:hidden p-2 hover:bg-[#3d5583] transition-colors"
           >
             <Search className="h-5 w-5" />
           </button>
@@ -303,10 +303,10 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
                   <img 
                     src={`/storage/${user.avatar}`} 
                     alt={user.name} 
-                    className="w-7 h-7 rounded-full object-cover border border-white/30"
+                    className="w-7 h-7 object-cover border border-white/30"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-medium">
+                  <div className="w-7 h-7 bg-white/20 flex items-center justify-center text-xs font-medium">
                     {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                 )}
@@ -352,7 +352,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
               setMobileMenuOpen(false);
               setSearchOpen(true);
             }}
-            className="w-full flex items-center gap-3 h-9 px-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/70"
+            className="w-full flex items-center gap-3 h-9 px-3 bg-white/10 hover:bg-white/20 transition-colors text-white/70"
           >
             <Search className="h-4 w-4" />
             <span className="text-sm">Buscar...</span>
@@ -391,9 +391,9 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
         <div className="px-3 py-3 border-t border-[#3d5583] bg-[#1e3255] shrink-0">
           <div className="flex items-center gap-2">
             {user?.avatar ? (
-              <img src={`/storage/${user.avatar}`} alt={user.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+              <img src={`/storage/${user.avatar}`} alt={user.name} className="w-8 h-8 object-cover shrink-0" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-medium text-white shrink-0">
+              <div className="w-8 h-8 bg-white/20 flex items-center justify-center text-sm font-medium text-white shrink-0">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
             )}

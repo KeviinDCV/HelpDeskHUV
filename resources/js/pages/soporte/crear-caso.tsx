@@ -186,7 +186,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
 
                 <main className="flex-1 px-6 py-6">
                     <div className="max-w-5xl mx-auto">
-                        <div className="bg-white rounded-lg shadow">
+                        <div className="bg-white shadow border border-gray-200">
                             <div className="px-6 py-4 border-b">
                                 <h1 className="text-xl font-semibold text-gray-900">Crear Nuevo Caso</h1>
                                 <p className="text-sm text-gray-600 mt-1">Complete el formulario para registrar un nuevo caso en el sistema</p>
@@ -326,7 +326,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                                 {observerIds.map(id => {
                                                     const user = users.find((u: User) => u.id === id);
                                                     return user ? (
-                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100">
+                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] border border-blue-100">
                                                             {user.name}
                                                             <button
                                                                 type="button"
@@ -372,7 +372,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                                 {assignedIds.map(id => {
                                                     const user = users.find((u: User) => u.id === id);
                                                     return user ? (
-                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100">
+                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] border border-green-100">
                                                             {user.name}
                                                             <button
                                                                 type="button"
@@ -427,7 +427,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {selectedItems.length > 0 && (
                                         <div className="md:col-span-4 flex flex-wrap gap-1">
                                             {selectedItems.map((item, idx) => (
-                                                <span key={`${item.type}-${item.id}-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[10px] rounded border border-purple-100">
+                                                <span key={`${item.type}-${item.id}-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[10px] border border-purple-100">
                                                     {item.name}
                                                     <button
                                                         type="button"
@@ -488,7 +488,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
 
                                     <div className="md:col-span-1 flex flex-col">
                                         <Label className="text-xs mb-1">Adjuntos</Label>
-                                        <div className="flex-1 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center p-2 hover:border-gray-400 transition-colors bg-gray-50/50">
+                                        <div className="flex-1 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-2 hover:border-gray-400 transition-colors bg-gray-50/50">
                                             <Upload className="h-6 w-6 text-gray-400 mb-1" />
                                             <label htmlFor="file-upload" className="cursor-pointer text-center">
                                                 <span className="text-xs font-medium text-[#2c4370] hover:underline block">
@@ -512,7 +512,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {selectedFiles.length > 0 && (
                                         <div className="md:col-span-4 flex flex-wrap gap-2">
                                             {selectedFiles.map((file, index) => (
-                                                <div key={index} className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                                                <div key={index} className="flex items-center gap-2 bg-gray-100 px-2 py-1 border border-gray-200">
                                                     <div className="flex flex-col">
                                                         <span className="text-[10px] font-medium text-gray-700 truncate max-w-[150px]">{file.name}</span>
                                                         <span className="text-[9px] text-gray-500">{formatFileSize(file.size)}</span>

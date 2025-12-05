@@ -167,7 +167,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                 />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    <div className="bg-white rounded-lg shadow">
+                    <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -204,7 +204,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                         >
                                             <Filter className="h-4 w-4 sm:mr-1" />
                                             <span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">!</span>}
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
                                         <Button 
                                             size="sm"
@@ -459,7 +459,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+                            <div className="flex h-10 w-10 items-center justify-center bg-red-100"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
                             <DialogTitle>Eliminar Programa</DialogTitle>
                         </div>
                         <DialogDescription className="pt-2">¿Está seguro de eliminar el programa <span className="font-semibold text-gray-900">"{deleteModal.name}"</span>? Esta acción no se puede deshacer.</DialogDescription>

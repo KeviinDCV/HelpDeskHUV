@@ -6,9 +6,13 @@ use App\Models\Software;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Traits\ExcelExportStyles;
 
 class SoftwareController extends Controller
 {
+    use ExcelExportStyles;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -138,42 +142,59 @@ class SoftwareController extends Controller
 
         $softwares = $query->orderBy($orderByField, $sortDirection)->get();
 
-        // Crear CSV
-        $filename = 'programas_' . date('Y-m-d_His') . '.csv';
-        $handle = fopen('php://temp', 'r+');
-        
-        // Agregar BOM para UTF-8
-        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-        
+        // Crear Excel
+        $spreadsheet = new Spreadsheet();
+        $this->setDocumentProperties($spreadsheet, 'Inventario de Software', 'Listado de programas instalados');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Programas');
+
+        $this->createDocumentHeader($sheet, 'HELPDESK HUV - INVENTARIO DE SOFTWARE', 'Hospital Universitario del Valle - Gestión de Activos TI', 'F', '');
+
+        // Resumen
+        $row = 5;
+        $total = $softwares->count();
+        $totalInstalls = $softwares->sum('num_installations');
+        $totalLicenses = $softwares->sum('num_licenses');
+        $sheet->setCellValue("A{$row}", "📊 TOTAL: {$total} programas | 💻 Instalaciones: {$totalInstalls} | 📜 Licencias: {$totalLicenses}");
+        $sheet->mergeCells("A{$row}:F{$row}");
+        $this->applySectionStyle($sheet, "A{$row}:F{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(28);
+
         // Headers
-        fputcsv($handle, [
-            'Nombre',
-            'Entidad',
-            'Editor',
-            'Número de versiones',
-            'Número de instalaciones',
-            'Número de licencias'
-        ]);
+        $row = 7;
+        $headers = ['Nombre', 'Entidad', 'Editor', 'Versiones', 'Instalaciones', 'Licencias'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue("{$col}{$row}", $header);
+            $col++;
+        }
+        $this->applyHeaderStyle($sheet, "A{$row}:F{$row}");
+        $sheet->getRowDimension($row)->setRowHeight(25);
 
         // Datos
+        $row++;
+        $startDataRow = $row;
         foreach ($softwares as $software) {
-            fputcsv($handle, [
-                $software->name ?? '-',
-                $software->entity_name ?? '-',
-                $software->manufacturer_name ?? '-',
-                $software->num_versions ?? '0',
-                $software->num_installations ?? '0',
-                $software->num_licenses ?? '0'
-            ]);
+            $sheet->setCellValue("A{$row}", $software->name ?? '-');
+            $sheet->setCellValue("B{$row}", $software->entity_name ?? '-');
+            $sheet->setCellValue("C{$row}", $software->manufacturer_name ?? '-');
+            $sheet->setCellValue("D{$row}", $software->num_versions ?? '0');
+            $sheet->setCellValue("E{$row}", $software->num_installations ?? '0');
+            $sheet->setCellValue("F{$row}", $software->num_licenses ?? '0');
+            $row++;
         }
 
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
+        $this->applyAlternateRowStyles($sheet, $startDataRow, $row - 1, 'A', 'F');
+        $this->autoSizeColumns($sheet, ['A', 'B', 'C', 'D', 'E', 'F']);
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $filename = 'Programas_HelpDesk_' . date('Y-m-d_His') . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function create()
