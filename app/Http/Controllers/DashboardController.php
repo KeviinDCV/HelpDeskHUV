@@ -366,6 +366,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
         $solution = $request->input('solution');
+        $solveDate = $request->input('solve_date'); // Fecha opcional
         
         if (!$solution || trim($solution) === '') {
             return redirect()->back()->with('error', 'Debe ingresar una descripción de la solución.');
@@ -397,6 +398,15 @@ class DashboardController extends Controller
             return redirect()->back()->with('error', 'No tienes permiso para resolver este ticket.');
         }
 
+        // Determinar la fecha de solución (usar la proporcionada o la actual)
+        $resolveDateTime = $solveDate ? \Carbon\Carbon::parse($solveDate) : now();
+        
+        // Validar que la fecha no sea anterior a la fecha de creación del ticket
+        $ticketCreation = \Carbon\Carbon::parse($ticket->date_creation);
+        if ($resolveDateTime->lt($ticketCreation)) {
+            return redirect()->back()->with('error', 'La fecha de solución no puede ser anterior a la fecha de creación del caso.');
+        }
+
         DB::beginTransaction();
         try {
             // Insertar la solución en glpi_itilsolutions
@@ -404,8 +414,8 @@ class DashboardController extends Controller
                 'itemtype' => 'Ticket',
                 'items_id' => $id,
                 'content' => $solution,
-                'date_creation' => now(),
-                'date_mod' => now(),
+                'date_creation' => $resolveDateTime,
+                'date_mod' => $resolveDateTime,
                 'users_id' => $glpiUserId,
                 'status' => 2, // Aprobado
             ]);
@@ -415,9 +425,9 @@ class DashboardController extends Controller
                 ->where('id', $id)
                 ->update([
                     'status' => 6,
-                    'date_mod' => now(),
-                    'solvedate' => now(),
-                    'closedate' => now(),
+                    'date_mod' => $resolveDateTime,
+                    'solvedate' => $resolveDateTime,
+                    'closedate' => $resolveDateTime,
                 ]);
 
             DB::commit();

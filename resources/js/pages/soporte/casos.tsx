@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -62,6 +62,7 @@ interface Ticket {
     priority_name: string;
     requester_name: string | null;
     assigned_name: string | null;
+    assigned_user_id: number | null;
     category_name: string | null;
     item_name: string | null;
     users_id_recipient: number;
@@ -110,6 +111,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [ticketToView, setTicketToView] = React.useState<Ticket | null>(null);
     const [showFilters, setShowFilters] = React.useState(false);
     
+    // Estados para resolver caso
+    const [solveDialogOpen, setSolveDialogOpen] = React.useState(false);
+    const [ticketToSolve, setTicketToSolve] = React.useState<Ticket | null>(null);
+    const [solution, setSolution] = React.useState('');
+    const [solveDate, setSolveDate] = React.useState('');
+    const [solving, setSolving] = React.useState(false);
+    
     // Estados de filtros
     const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
     const [priorityFilter, setPriorityFilter] = React.useState(filters.priority || 'all');
@@ -154,6 +162,51 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     // Verificar si el usuario puede editar (Admin y Técnico pueden editar)
     const canEdit = () => {
         return auth.user.role === 'Administrador' || auth.user.role === 'Técnico';
+    };
+
+    // Verificar si el usuario puede resolver el ticket (asignado a él o es admin)
+    const canResolve = (ticket: Ticket) => {
+        if (auth.user.role === 'Administrador') return true;
+        // El ticket debe estar asignado a este usuario y no estar cerrado/resuelto
+        return ticket.assigned_user_id === auth.user.id && ticket.status !== 5 && ticket.status !== 6;
+    };
+
+    // Abrir modal de resolver
+    const openSolveDialog = (ticket: Ticket) => {
+        setTicketToSolve(ticket);
+        setSolution('');
+        // Por defecto, usar fecha y hora actual en zona horaria local
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        setSolveDate(localDateTime);
+        setSolveDialogOpen(true);
+    };
+
+    // Confirmar resolución
+    const confirmSolve = () => {
+        if (!ticketToSolve || !solution.trim()) return;
+        setSolving(true);
+        router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
+            solution: solution.trim(),
+            solve_date: solveDate || undefined
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSolving(false);
+                setSolveDialogOpen(false);
+                setTicketToSolve(null);
+                setSolution('');
+                setSolveDate('');
+            },
+            onError: () => {
+                setSolving(false);
+            }
+        });
     };
 
     const handleDeleteClick = (ticket: Ticket) => {
@@ -677,6 +730,18 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             {canEdit() && (
                                                 <TableCell className="text-xs">
                                                     <div className="flex items-center justify-center gap-1">
+                                                        {/* Botón Resolver - solo si está asignado al usuario o es admin y no está cerrado */}
+                                                        {canResolve(ticket) && ticket.status !== 5 && ticket.status !== 6 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 w-7 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                                                onClick={() => openSolveDialog(ticket)}
+                                                                title="Resolver"
+                                                            >
+                                                                <CheckSquare className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -862,6 +927,20 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                 >
                                     Cerrar
                                 </Button>
+                                {/* Botón Resolver en el modal */}
+                                {canResolve(ticketToView) && ticketToView.status !== 5 && ticketToView.status !== 6 && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            setViewDialogOpen(false);
+                                            openSolveDialog(ticketToView);
+                                        }}
+                                        className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                                    >
+                                        <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                                        Resolver
+                                    </Button>
+                                )}
                                 {canEdit() && (
                                     <Button
                                         size="sm"
@@ -877,6 +956,80 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal de Resolver Caso */}
+            <Dialog open={solveDialogOpen} onOpenChange={setSolveDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CheckSquare className="h-5 w-5 text-green-600" />
+                            Resolver Caso
+                        </DialogTitle>
+                        <DialogDescription>
+                            Resolver el caso <strong>#{ticketToSolve?.id}</strong>: {ticketToSolve?.name}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Descripción de la solución <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                value={solution}
+                                onChange={(e) => setSolution(e.target.value)}
+                                placeholder="Describe cómo se resolvió el problema..."
+                                className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px] text-sm"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Fecha y hora de solución
+                            </label>
+                            <Input
+                                type="datetime-local"
+                                value={solveDate}
+                                onChange={(e) => setSolveDate(e.target.value)}
+                                className="w-full"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Por defecto se usa la fecha y hora actual. Puede modificarla si la solución fue en otro momento.
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setSolveDialogOpen(false);
+                                setTicketToSolve(null);
+                                setSolution('');
+                                setSolveDate('');
+                            }}
+                            disabled={solving}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={confirmSolve}
+                            disabled={!solution.trim() || solving}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            {solving ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                    Resolviendo...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckSquare className="h-4 w-4 mr-1" />
+                                    Resolver
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>

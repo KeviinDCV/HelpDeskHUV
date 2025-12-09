@@ -85,6 +85,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     // Modal de solución
     const [solveModal, setSolveModal] = useState<{ open: boolean; ticketId: number | null; ticketName: string }>({ open: false, ticketId: null, ticketName: '' });
     const [solution, setSolution] = useState('');
+    const [solveDate, setSolveDate] = useState('');
     const [solving, setSolving] = useState(false);
 
     const isAdmin = auth?.user?.role === 'Administrador';
@@ -192,16 +193,29 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const openSolveModal = (ticketId: number, ticketName: string) => {
         setSolveModal({ open: true, ticketId, ticketName });
         setSolution('');
+        // Por defecto, usar fecha y hora actual en zona horaria local
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        setSolveDate(localDateTime);
     };
 
     const solveTicket = () => {
         if (!solveModal.ticketId || !solution.trim()) return;
         setSolving(true);
-        router.post(`/dashboard/solve-ticket/${solveModal.ticketId}`, { solution: solution.trim() }, {
+        router.post(`/dashboard/solve-ticket/${solveModal.ticketId}`, { 
+            solution: solution.trim(),
+            solve_date: solveDate || undefined
+        }, {
             onFinish: () => {
                 setSolving(false);
                 setSolveModal({ open: false, ticketId: null, ticketName: '' });
                 setSolution('');
+                setSolveDate('');
             },
         });
     };
@@ -228,7 +242,12 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             <div className="min-h-screen flex flex-col">
                 <GLPIHeader />
                 <main className="flex-1 bg-gray-50">
-                    <ViewTabs activeTab={activeTab} onTabChange={setActiveTab} />
+                    <ViewTabs 
+                        activeTab={activeTab} 
+                        onTabChange={setActiveTab}
+                        publicCount={stats.publicUnassigned}
+                        myCount={stats.myTickets}
+                    />
                     
                     {/* Flash Messages */}
                     {props.flash?.success && (
@@ -540,9 +559,23 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                     autoFocus
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Fecha y hora de solución
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={solveDate}
+                                    onChange={(e) => setSolveDate(e.target.value)}
+                                    className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Por defecto se usa la fecha y hora actual. Puede modificarla si la solución fue en otro momento.
+                                </p>
+                            </div>
                         </div>
                         <div className="flex justify-end gap-2 p-4 border-t">
-                            <Button variant="outline" onClick={() => setSolveModal({ open: false, ticketId: null, ticketName: '' })}>
+                            <Button variant="outline" onClick={() => { setSolveModal({ open: false, ticketId: null, ticketName: '' }); setSolveDate(''); }}>
                                 Cancelar
                             </Button>
                             <Button

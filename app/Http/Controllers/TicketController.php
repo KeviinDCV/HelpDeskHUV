@@ -79,6 +79,12 @@ class TicketController extends Controller
                          LEFT JOIN users lu ON tu.users_id = lu.id
                          WHERE tu.tickets_id = t.id AND tu.type = 2 
                          LIMIT 1) as assigned_name"),
+                DB::raw("(SELECT lu.id
+                         FROM glpi_tickets_users tu 
+                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id
+                         LEFT JOIN users lu ON gu.name = lu.username
+                         WHERE tu.tickets_id = t.id AND tu.type = 2 
+                         LIMIT 1) as assigned_user_id"),
                 DB::raw("CASE 
                     WHEN t.status = 1 THEN 'Nuevo'
                     WHEN t.status = 2 THEN 'En curso (asignado)'
@@ -372,6 +378,13 @@ class TicketController extends Controller
 
         DB::beginTransaction();
         try {
+            // Determinar el estado correcto:
+            // Si hay técnicos asignados y el estado es "Nuevo" (1), cambiar a "En curso (asignado)" (2)
+            $status = $validated['status'];
+            if (!empty($validated['assigned_ids']) && count($validated['assigned_ids']) > 0 && $status == 1) {
+                $status = 2; // En curso (asignado)
+            }
+
             // Crear el ticket en glpi_tickets
             $ticketId = DB::table('glpi_tickets')->insertGetId([
                 'entities_id' => 0,
@@ -382,7 +395,7 @@ class TicketController extends Controller
                 'date_mod' => now(),
                 'time_to_resolve' => $validated['time_to_resolve'] ?? null,
                 'internal_time_to_resolve' => $validated['internal_time_to_resolve'] ?? null,
-                'status' => $validated['status'],
+                'status' => $status,
                 'priority' => $validated['priority'],
                 'locations_id' => $validated['locations_id'] ?? 0,
                 'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
