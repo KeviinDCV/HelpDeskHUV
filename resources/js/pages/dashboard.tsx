@@ -89,11 +89,25 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
 
     const isAdmin = auth?.user?.role === 'Administrador';
 
-    // Polling cada 10 segundos para actualizar tickets
+    // Polling cada 30 segundos para actualizar tickets (solo cuando la pestaña está activa)
     useEffect(() => {
+        let intervalId: NodeJS.Timeout | null = null;
+        let abortController: AbortController | null = null;
+
         const fetchTickets = async () => {
+            // No hacer fetch si la página no está visible
+            if (document.visibilityState !== 'visible') return;
+            
+            // Cancelar request anterior si existe
+            if (abortController) {
+                abortController.abort();
+            }
+            abortController = new AbortController();
+
             try {
-                const response = await fetch('/dashboard/tickets');
+                const response = await fetch('/dashboard/tickets', {
+                    signal: abortController.signal,
+                });
                 if (response.ok) {
                     const data = await response.json();
                     setPublicTickets(data.publicTickets);
@@ -101,12 +115,49 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                     setStats(data.stats);
                 }
             } catch (error) {
-                console.error('Error fetching tickets:', error);
+                // Silenciar errores de abort y conexión cuando la página está en segundo plano
+                if (error instanceof Error && error.name === 'AbortError') return;
+                // Solo loguear si estamos en desarrollo y la página está visible
+                if (document.visibilityState === 'visible' && import.meta.env.DEV) {
+                    console.warn('Dashboard polling error:', error);
+                }
             }
         };
 
-        const interval = setInterval(fetchTickets, 10000);
-        return () => clearInterval(interval);
+        const startPolling = () => {
+            if (!intervalId) {
+                intervalId = setInterval(fetchTickets, 30000); // 30 segundos
+            }
+        };
+
+        const stopPolling = () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchTickets(); // Actualizar inmediatamente al volver
+                startPolling();
+            } else {
+                stopPolling();
+            }
+        };
+
+        // Iniciar polling
+        startPolling();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            stopPolling();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const openDetailModal = async (ticketId: number) => {
