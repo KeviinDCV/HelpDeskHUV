@@ -41,6 +41,7 @@ export default function Login({ status }: LoginProps) {
                                     <div className="text-3xl">HUV</div>
                                 </div>
                             </h1>
+                            <p className="text-white/80 text-sm font-medium mt-2">Sistemas HUV</p>
                         </div>
 
                         {/* Login Form */}
