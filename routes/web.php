@@ -132,6 +132,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/api/notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
     Route::delete('/api/notifications/{id}', [App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::post('/api/notifications/clear-read', [App\Http\Controllers\NotificationController::class, 'clearRead'])->name('notifications.clear-read');
+
+    // ========================================
+    // Rutas en desarrollo
+    // ========================================
+    
+    // Inventario - En desarrollo
+    Route::get('/inventario/cartuchos', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('inventario.cartuchos');
+    Route::get('/inventario/gabinetes', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('inventario.gabinetes');
+    Route::get('/inventario/multitomas', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('inventario.multitomas');
+    
+    // Gestión - En desarrollo
+    Route::get('/gestion/licencias', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('gestion.licencias');
+    Route::get('/gestion/documentos', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('gestion.documentos');
+    Route::get('/gestion/lineas', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('gestion.lineas');
+    Route::get('/gestion/certificados', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('gestion.certificados');
+    Route::get('/gestion/centros-datos', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('gestion.centros-datos');
+    
+    // Útiles - En desarrollo
+    Route::get('/utiles/proyectos', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('utiles.proyectos');
+    Route::get('/utiles/recordatorios', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('utiles.recordatorios');
+    Route::get('/utiles/canales-rss', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('utiles.canales-rss');
+    Route::get('/utiles/base-conocimiento', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('utiles.base-conocimiento');
+    Route::get('/utiles/reservas', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('utiles.reservas');
+    Route::get('/utiles/reportes', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('utiles.reportes');
+    
+    // Administración - En desarrollo
+    Route::get('/administracion/grupos', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('administracion.grupos');
+    Route::get('/administracion/entidades', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('administracion.entidades');
+    Route::get('/administracion/reglas', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('administracion.reglas');
+    
+    // Configuración - En desarrollo
+    Route::get('/configuracion/desplegables', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('configuracion.desplegables');
+    Route::get('/configuracion/niveles-servicio', [App\Http\Controllers\EnDesarrolloController::class, 'show'])->name('configuracion.niveles-servicio');
 });
 
 require __DIR__.'/settings.php';
