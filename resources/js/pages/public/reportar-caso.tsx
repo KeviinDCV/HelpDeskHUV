@@ -509,20 +509,21 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
             const el = messageRef.current;
             const isUser = message.role === 'user';
 
+            // iOS WhatsApp-style animation: smooth slide up from bottom with fade and subtle scale
             gsap.fromTo(el,
                 {
                     opacity: 0,
-                    scale: 0.8,
-                    x: isUser ? 60 : -60,
-                    y: 15
+                    y: 30,
+                    scale: 0.95,
+                    transformOrigin: isUser ? 'bottom right' : 'bottom left'
                 },
                 {
                     opacity: 1,
-                    scale: 1,
-                    x: 0,
                     y: 0,
-                    duration: 0.5,
-                    ease: 'back.out(1.2)'
+                    scale: 1,
+                    duration: 0.4,
+                    ease: 'power2.out',
+                    clearProps: 'transform'
                 }
             );
         }
