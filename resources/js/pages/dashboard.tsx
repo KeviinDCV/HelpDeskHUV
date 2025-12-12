@@ -5,8 +5,9 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ViewTabs } from '@/components/view-tabs';
 import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, X, MapPin, Tag, User, Loader2, Users, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import gsap from 'gsap';
 
 interface Ticket {
     id: number;
@@ -68,6 +69,8 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const { props } = usePage<{ flash?: { success?: string; error?: string } }>();
     const [activeTab, setActiveTab] = useState('Reportes Públicos');
     const [taking, setTaking] = useState<number | null>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const previousTabRef = useRef('Reportes Públicos');
     
     // Estados para datos actualizables
     const [publicTickets, setPublicTickets] = useState(initialPublicTickets);
@@ -233,6 +236,41 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
         return tmp.textContent || tmp.innerText || '';
     };
 
+    // Handle tab change with GSAP animation
+    const handleTabChange = (newTab: string) => {
+        if (newTab === activeTab || !contentRef.current) return;
+        
+        const isMovingRight = 
+            (previousTabRef.current === 'Reportes Públicos' && newTab === 'Mis Reportes');
+        
+        // Animate out current content
+        gsap.to(contentRef.current, {
+            x: isMovingRight ? -100 : 100,
+            opacity: 0,
+            duration: 0.3,
+            ease: 'power2.inOut',
+            onComplete: () => {
+                // Change tab
+                setActiveTab(newTab);
+                previousTabRef.current = newTab;
+                
+                // Set initial position for incoming content
+                gsap.set(contentRef.current, {
+                    x: isMovingRight ? 100 : -100,
+                    opacity: 0
+                });
+                
+                // Animate in new content
+                gsap.to(contentRef.current, {
+                    x: 0,
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: 'power2.inOut'
+                });
+            }
+        });
+    };
+
     const currentTickets = activeTab === 'Reportes Públicos' ? publicTickets : myTickets;
     const isPublicView = activeTab === 'Reportes Públicos';
 
@@ -244,7 +282,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                 <main className="flex-1 bg-gray-50">
                     <ViewTabs 
                         activeTab={activeTab} 
-                        onTabChange={setActiveTab}
+                        onTabChange={handleTabChange}
                         publicCount={stats.publicUnassigned}
                         myCount={stats.myTickets}
                     />
@@ -267,7 +305,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                     <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4">
                         {/* Main Content */}
                         <div className="flex-1 min-w-0">
-                            <div className="bg-white shadow-sm border border-gray-200">
+                            <div ref={contentRef} className="bg-white shadow-sm border border-gray-200" style={{ willChange: 'transform' }}>
                                 <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                                         {isPublicView ? (
