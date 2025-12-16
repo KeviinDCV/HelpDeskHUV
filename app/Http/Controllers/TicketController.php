@@ -72,25 +72,44 @@ class TicketController extends Controller
                          LIMIT 1) as requester_name"),
                 DB::raw("(SELECT lu.id
                          FROM glpi_tickets_users tu 
-                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id
-                         LEFT JOIN users lu ON gu.name = lu.username
+                         LEFT JOIN users lu ON tu.users_id = lu.glpi_user_id
                          WHERE tu.tickets_id = t.id AND tu.type = 1 
                          LIMIT 1) as requester_user_id"),
                 DB::raw("(SELECT COALESCE(
-                            NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
-                            lu.name
-                         )
-                         FROM glpi_tickets_users tu 
-                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id 
-                         LEFT JOIN users lu ON tu.users_id = lu.id
-                         WHERE tu.tickets_id = t.id AND tu.type = 2 
-                         LIMIT 1) as assigned_name"),
-                DB::raw("(SELECT lu.id
-                         FROM glpi_tickets_users tu 
-                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id
-                         LEFT JOIN users lu ON gu.name = lu.username
-                         WHERE tu.tickets_id = t.id AND tu.type = 2 
-                         LIMIT 1) as assigned_user_id"),
+                            (SELECT CONCAT(gu.firstname, ' ', gu.realname)
+                             FROM glpi_itilsolutions sol
+                             LEFT JOIN glpi_users gu ON sol.users_id = gu.id
+                             WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket'
+                             ORDER BY sol.id DESC LIMIT 1),
+                            (SELECT COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name)
+                             FROM glpi_tickets_users tu
+                             LEFT JOIN glpi_users gu ON tu.users_id = gu.id
+                             LEFT JOIN users lu ON tu.users_id = lu.id
+                             WHERE tu.tickets_id = t.id AND tu.type = 2
+                             LIMIT 1)
+                         )) as assigned_name"),
+                DB::raw("(SELECT COALESCE(
+                            (SELECT lu.id
+                             FROM glpi_itilsolutions sol
+                             LEFT JOIN users lu ON sol.users_id = lu.glpi_user_id
+                             WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket'
+                             ORDER BY sol.id DESC LIMIT 1),
+                            (SELECT lu.id
+                             FROM glpi_tickets_users tu
+                             LEFT JOIN users lu ON tu.users_id = lu.glpi_user_id
+                             WHERE tu.tickets_id = t.id AND tu.type = 2
+                             LIMIT 1)
+                         )) as assigned_user_id"),
+                DB::raw("(SELECT COALESCE(
+                            (SELECT sol.users_id
+                             FROM glpi_itilsolutions sol
+                             WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket'
+                             ORDER BY sol.id DESC LIMIT 1),
+                            (SELECT tu.users_id
+                             FROM glpi_tickets_users tu
+                             WHERE tu.tickets_id = t.id AND tu.type = 2
+                             LIMIT 1)
+                         )) as assigned_glpi_id"),
                 DB::raw("CASE 
                     WHEN t.status = 1 THEN 'Nuevo'
                     WHEN t.status = 2 THEN 'En curso (asignado)'
@@ -160,12 +179,28 @@ class TicketController extends Controller
         }
         
         if ($assignedFilter !== '') {
-            $query->whereExists(function ($q) use ($assignedFilter) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $assignedFilter);
+            // Buscar por técnico que dio la solución (glpi_itilsolutions) O por técnico asignado (glpi_tickets_users)
+            $query->where(function ($q) use ($assignedFilter) {
+                $q->whereExists(function ($sub) use ($assignedFilter) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_itilsolutions')
+                        ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                        ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                        ->where('glpi_itilsolutions.users_id', $assignedFilter);
+                })->orWhere(function ($sub) use ($assignedFilter) {
+                    $sub->whereExists(function ($inner) use ($assignedFilter) {
+                        $inner->select(DB::raw(1))
+                              ->from('glpi_tickets_users')
+                              ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                              ->where('glpi_tickets_users.type', 2)
+                              ->where('glpi_tickets_users.users_id', $assignedFilter);
+                    })->whereNotExists(function ($inner) {
+                        $inner->select(DB::raw(1))
+                              ->from('glpi_itilsolutions')
+                              ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                              ->where('glpi_itilsolutions.itemtype', 'Ticket');
+                    });
+                });
             });
         }
         
@@ -472,30 +507,31 @@ class TicketController extends Controller
                     ]);
                     
                     // Notificar al usuario asignado (si es diferente del creador)
-                    if ($assignedId != $creatorId && $assignedId != auth()->id()) {
-                        // Buscar el user_id en nuestra tabla users que corresponda al glpi_users id
-                        $localUser = User::where('id', $assignedId)->first();
-                        if ($localUser) {
-                            Notification::createTicketAssigned(
-                                $localUser->id,
-                                $ticketId,
-                                $validated['name'],
-                                $creatorName
-                            );
-                        }
+                    // $assignedId es glpi_user_id, necesitamos buscar el usuario local por glpi_user_id
+                    $localUser = User::where('glpi_user_id', $assignedId)->first();
+                    if ($localUser && $localUser->id != auth()->id()) {
+                        Notification::createTicketAssigned(
+                            $localUser->id,
+                            $ticketId,
+                            $validated['name'],
+                            $creatorName
+                        );
                     }
                 }
                 
                 // Si es prioridad alta (4), muy alta (5) o urgente (6), notificar a todos los técnicos
                 if ($validated['priority'] >= 4) {
-                    $technicians = User::where('role', 'Técnico')
-                        ->orWhere('role', 'Administrador')
+                    $technicians = User::where(function($q) {
+                            $q->where('role', 'Técnico')
+                              ->orWhere('role', 'Administrador');
+                        })
                         ->where('id', '!=', auth()->id())
+                        ->whereNotNull('glpi_user_id')
                         ->get();
                     
                     foreach ($technicians as $tech) {
-                        // Evitar duplicar notificación si ya está asignado
-                        if (!in_array($tech->id, $validated['assigned_ids'])) {
+                        // Evitar duplicar notificación si ya está asignado (comparar por glpi_user_id)
+                        if (!in_array($tech->glpi_user_id, $validated['assigned_ids'])) {
                             Notification::createTicketUrgent(
                                 $tech->id,
                                 $ticketId,
@@ -948,16 +984,15 @@ class TicketController extends Controller
                     ->where('tu.type', 1)
                     ->first();
 
-                if ($requester && $requester->users_id != auth()->id()) {
-                    $localUser = User::where('id', $requester->users_id)->first();
-                    if ($localUser) {
-                        if ($validated['status'] == 5) {
-                            Notification::createTicketResolved($localUser->id, $id, $validated['name']);
-                        } elseif ($validated['status'] == 6) {
-                            Notification::createTicketClosed($localUser->id, $id, $validated['name']);
-                        } else {
-                            Notification::createTicketStatusChange($localUser->id, $id, $validated['name'], $newStatusName);
-                        }
+                // $requester->users_id es glpi_user_id, buscar usuario local por glpi_user_id
+                $localRequester = $requester ? User::where('glpi_user_id', $requester->users_id)->first() : null;
+                if ($localRequester && $localRequester->id != auth()->id()) {
+                    if ($validated['status'] == 5) {
+                        Notification::createTicketResolved($localRequester->id, $id, $validated['name']);
+                    } elseif ($validated['status'] == 6) {
+                        Notification::createTicketClosed($localRequester->id, $id, $validated['name']);
+                    } else {
+                        Notification::createTicketStatusChange($localRequester->id, $id, $validated['name'], $newStatusName);
                     }
                 }
 
@@ -967,11 +1002,10 @@ class TicketController extends Controller
                     ->where('tu.type', 2)
                     ->first();
 
-                if ($assigned && $assigned->users_id != auth()->id() && $assigned->users_id != ($requester->users_id ?? 0)) {
-                    $localUser = User::where('id', $assigned->users_id)->first();
-                    if ($localUser) {
-                        Notification::createTicketStatusChange($localUser->id, $id, $validated['name'], $newStatusName);
-                    }
+                // $assigned->users_id es glpi_user_id, buscar usuario local por glpi_user_id
+                $localAssigned = $assigned ? User::where('glpi_user_id', $assigned->users_id)->first() : null;
+                if ($localAssigned && $localAssigned->id != auth()->id() && $localAssigned->id != ($localRequester->id ?? 0)) {
+                    Notification::createTicketStatusChange($localAssigned->id, $id, $validated['name'], $newStatusName);
                 }
             }
 
@@ -1036,15 +1070,14 @@ class TicketController extends Controller
                 ->where('tu.type', 1) // Requester
                 ->first();
             
-            if ($requester && $requester->users_id != auth()->id()) {
-                $localUser = User::where('id', $requester->users_id)->first();
-                if ($localUser) {
-                    Notification::createTicketClosed(
-                        $localUser->id,
-                        $id,
-                        $ticket->name
-                    );
-                }
+            // $requester->users_id es glpi_user_id, buscar usuario local por glpi_user_id
+            $localUser = $requester ? User::where('glpi_user_id', $requester->users_id)->first() : null;
+            if ($localUser && $localUser->id != auth()->id()) {
+                Notification::createTicketClosed(
+                    $localUser->id,
+                    $id,
+                    $ticket->name
+                );
             }
 
             DB::commit();
@@ -1084,15 +1117,30 @@ class TicketController extends Controller
                 return redirect()->back()->with('error', 'Caso no encontrado');
             }
 
-            // Verificar si el técnico es el creador (requester) mapeando el usuario de GLPI al usuario local
+            // Verificar si el técnico es el creador (requester) o el asignado
             $requesterUserId = DB::table('glpi_tickets_users as tu')
-                ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
-                ->leftJoin('users as lu', 'gu.name', '=', 'lu.username')
+                ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.glpi_user_id')
                 ->where('tu.tickets_id', $id)
                 ->where('tu.type', 1) // Requester/Creator
                 ->value('lu.id');
 
-            if ($requesterUserId != $user->id) {
+            $assignedUserId = DB::table('glpi_tickets_users as tu')
+                ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.glpi_user_id')
+                ->where('tu.tickets_id', $id)
+                ->where('tu.type', 2) // Assigned
+                ->value('lu.id');
+
+            // También verificar si dio la solución (glpi_itilsolutions)
+            $solutionUserId = DB::table('glpi_itilsolutions as sol')
+                ->leftJoin('users as lu', 'sol.users_id', '=', 'lu.glpi_user_id')
+                ->where('sol.items_id', $id)
+                ->where('sol.itemtype', 'Ticket')
+                ->orderByDesc('sol.id')
+                ->value('lu.id');
+
+            $canDelete = ($requesterUserId == $user->id) || ($assignedUserId == $user->id) || ($solutionUserId == $user->id);
+
+            if (!$canDelete) {
                 return redirect()->back()->with('error', 'No tienes permisos para eliminar este caso');
             }
         }

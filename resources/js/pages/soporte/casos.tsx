@@ -64,6 +64,7 @@ interface Ticket {
     requester_user_id: number | null;
     assigned_name: string | null;
     assigned_user_id: number | null;
+    assigned_glpi_id: number | null;
     category_name: string | null;
     item_name: string | null;
     users_id_recipient: number;
@@ -155,8 +156,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const canDelete = (ticket: Ticket) => {
         if (auth.user.role === 'Administrador') return true;
         if (auth.user.role === 'Técnico') {
-            // Técnico solo puede eliminar tickets que él creó
-            return ticket.requester_user_id === auth.user.id;
+            // Técnico puede eliminar tickets donde es el asignado (resolvió) o el solicitante
+            return ticket.assigned_user_id === auth.user.id || ticket.requester_user_id === auth.user.id;
         }
         return false;
     };
