@@ -24,8 +24,9 @@ class DashboardController extends Controller
         // Estadísticas rápidas
         $stats = [
             'publicUnassigned' => $publicTickets->count(),
-            'myTickets' => $myTickets->count(),
-            'resolvedToday' => $this->getResolvedTodayCount(),
+            'myTickets' => $this->getMyTicketsCount($user), // Todos mis casos
+            'myPending' => $myTickets->count(), // Mis casos sin resolver
+            'myResolved' => $this->getMyResolvedCount($user), // Mis casos resueltos
         ];
 
         // Obtener técnicos/admins para asignar (solo admins pueden asignar)
@@ -63,8 +64,9 @@ class DashboardController extends Controller
 
         $stats = [
             'publicUnassigned' => $publicTickets->count(),
-            'myTickets' => $myTickets->count(),
-            'resolvedToday' => $this->getResolvedTodayCount(),
+            'myTickets' => $this->getMyTicketsCount($user), // Todos mis casos
+            'myPending' => $myTickets->count(), // Mis casos sin resolver
+            'myResolved' => $this->getMyResolvedCount($user), // Mis casos resueltos
         ];
 
         return response()->json([
@@ -441,29 +443,42 @@ class DashboardController extends Controller
     }
 
     /**
-     * Contar tickets asignados al usuario actual
+     * Contar todos los tickets asignados al usuario (incluyendo resueltos)
      */
-    private function getMyTicketsCount(): int
+    private function getMyTicketsCount($user): int
     {
-        $user = auth()->user();
+        $glpiUser = DB::table('glpi_users')
+            ->where('name', $user->username ?? $user->name)
+            ->first();
+        
+        $glpiUserId = $glpiUser ? $glpiUser->id : 0;
         
         return DB::table('glpi_tickets as t')
             ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
             ->where('tu.type', 2) // Técnico asignado
+            ->where('tu.users_id', $glpiUserId)
             ->where('t.is_deleted', 0)
-            ->whereIn('t.status', [1, 2, 3, 4]) // Activos
+            ->where('t.status', '!=', 6) // Excluir cerrados
             ->count();
     }
 
     /**
-     * Contar tickets resueltos hoy
+     * Contar tickets resueltos del usuario
      */
-    private function getResolvedTodayCount(): int
+    private function getMyResolvedCount($user): int
     {
-        return DB::table('glpi_tickets')
-            ->where('is_deleted', 0)
-            ->where('status', 5) // Resuelto
-            ->whereDate('date_mod', today())
+        $glpiUser = DB::table('glpi_users')
+            ->where('name', $user->username ?? $user->name)
+            ->first();
+        
+        $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+        
+        return DB::table('glpi_tickets as t')
+            ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
+            ->where('tu.type', 2) // Técnico asignado
+            ->where('tu.users_id', $glpiUserId)
+            ->where('t.is_deleted', 0)
+            ->whereIn('t.status', [5, 6]) // Resuelto o Cerrado
             ->count();
     }
 }

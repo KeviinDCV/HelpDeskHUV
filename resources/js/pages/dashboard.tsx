@@ -36,7 +36,8 @@ interface Technician {
 interface Stats {
     publicUnassigned: number;
     myTickets: number;
-    resolvedToday: number;
+    myPending: number;
+    myResolved: number;
 }
 
 interface DashboardProps {

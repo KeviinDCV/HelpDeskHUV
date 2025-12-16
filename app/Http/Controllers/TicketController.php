@@ -70,6 +70,12 @@ class TicketController extends Controller
                          LEFT JOIN users lu ON tu.users_id = lu.id
                          WHERE tu.tickets_id = t.id AND tu.type = 1 
                          LIMIT 1) as requester_name"),
+                DB::raw("(SELECT lu.id
+                         FROM glpi_tickets_users tu 
+                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id
+                         LEFT JOIN users lu ON gu.name = lu.username
+                         WHERE tu.tickets_id = t.id AND tu.type = 1 
+                         LIMIT 1) as requester_user_id"),
                 DB::raw("(SELECT COALESCE(
                             NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
                             lu.name
@@ -196,10 +202,36 @@ class TicketController extends Controller
                   ->where('glpi_tickets_users.type', 2)
                   ->where('glpi_tickets_users.users_id', $glpiUserId);
             })->where('t.status', '!=', 6);
-        } elseif ($specialFilter === 'resolved_today') {
-            // Resueltos hoy
-            $query->where('t.status', 5)
-                  ->whereDate('t.date_mod', today());
+        } elseif ($specialFilter === 'my_pending') {
+            // Mis casos sin resolver (asignados a mí, pendientes)
+            $user = auth()->user();
+            $glpiUser = DB::table('glpi_users')
+                ->where('name', $user->username ?? $user->name)
+                ->first();
+            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            
+            $query->whereExists(function ($q) use ($glpiUserId) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2)
+                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->whereNotIn('t.status', [5, 6]); // Excluir resueltos y cerrados
+        } elseif ($specialFilter === 'my_resolved') {
+            // Mis casos resueltos (asignados a mí, resueltos o cerrados)
+            $user = auth()->user();
+            $glpiUser = DB::table('glpi_users')
+                ->where('name', $user->username ?? $user->name)
+                ->first();
+            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            
+            $query->whereExists(function ($q) use ($glpiUserId) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2)
+                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->whereIn('t.status', [5, 6]); // Solo resueltos y cerrados
         }
         
         $tickets = $query->orderBy($orderByField, $sortDirection)
@@ -1052,18 +1084,15 @@ class TicketController extends Controller
                 return redirect()->back()->with('error', 'Caso no encontrado');
             }
 
-            // Verificar si el técnico es el creador (users_id_recipient)
-            // También verificamos en glpi_tickets_users con type=1 (requester)
-            $isCreator = DB::table('glpi_tickets_users')
-                ->where('tickets_id', $id)
-                ->where('type', 1) // Requester/Creator
-                ->where('users_id', $user->id)
-                ->exists();
+            // Verificar si el técnico es el creador (requester) mapeando el usuario de GLPI al usuario local
+            $requesterUserId = DB::table('glpi_tickets_users as tu')
+                ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
+                ->leftJoin('users as lu', 'gu.name', '=', 'lu.username')
+                ->where('tu.tickets_id', $id)
+                ->where('tu.type', 1) // Requester/Creator
+                ->value('lu.id');
 
-            // O si el usuario está registrado como el recipient
-            $isRecipient = $ticket->users_id_recipient == $user->id;
-
-            if (!$isCreator && !$isRecipient) {
+            if ($requesterUserId != $user->id) {
                 return redirect()->back()->with('error', 'No tienes permisos para eliminar este caso');
             }
         }

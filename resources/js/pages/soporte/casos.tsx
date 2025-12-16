@@ -61,6 +61,7 @@ interface Ticket {
     priority: number;
     priority_name: string;
     requester_name: string | null;
+    requester_user_id: number | null;
     assigned_name: string | null;
     assigned_user_id: number | null;
     category_name: string | null;
@@ -136,7 +137,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         switch (filters.filter) {
             case 'unassigned': return 'Sin asignar';
             case 'my_cases': return 'Mis casos';
-            case 'resolved_today': return 'Resueltos hoy';
+            case 'my_pending': return 'Sin resolver';
+            case 'my_resolved': return 'Resueltos';
             default: return null;
         }
     };
@@ -154,7 +156,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (auth.user.role === 'Administrador') return true;
         if (auth.user.role === 'Técnico') {
             // Técnico solo puede eliminar tickets que él creó
-            return ticket.users_id_recipient === auth.user.id;
+            return ticket.requester_user_id === auth.user.id;
         }
         return false;
     };
