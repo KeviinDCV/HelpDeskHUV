@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Send, Bot, User, Briefcase, MapPin, Phone, FileText, AlertTriangle, Monitor, Cpu, HelpCircle } from 'lucide-react';
+import { CheckCircle, Send, Bot, FileText, Monitor, Cpu, HelpCircle } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { driver } from 'driver.js';
@@ -327,26 +327,26 @@ export default function ReportarCaso() {
         return (
             <>
                 <Head title="Reporte Enviado - HelpDesk HUV" />
-                <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center">
-                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <CheckCircle className="w-12 h-12 text-green-600" />
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+                    <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] border border-slate-100 p-8 max-w-md w-full text-center">
+                        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                            <CheckCircle className="w-8 h-8 text-green-600" />
                         </div>
-                        <h1 className="text-2xl font-bold text-gray-800 mb-2">¡Reporte Enviado!</h1>
-                        <p className="text-gray-600 mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
+                        <h1 className="text-xl font-bold text-[#2d3e5e] mb-2">¡Reporte Enviado!</h1>
+                        <p className="text-slate-500 text-sm mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
 
-                        <div className="bg-[#2c4370] text-white rounded-xl p-6 mb-6">
-                            <p className="text-sm text-white/80 mb-1">Número de caso</p>
-                            <p className="text-4xl font-bold">#{flash.success.ticket_id}</p>
+                        <div className="bg-[#2d3e5e] text-white rounded-lg p-5 mb-6">
+                            <p className="text-xs text-white/70 uppercase tracking-wider mb-1">Número de caso</p>
+                            <p className="text-3xl font-bold">#{flash.success.ticket_id}</p>
                         </div>
 
-                        <p className="text-sm text-gray-500 mb-6">
+                        <p className="text-xs text-slate-400 mb-6">
                             Guarda este número para hacer seguimiento de tu caso.
                         </p>
 
                         <button
                             onClick={() => window.location.reload()}
-                            className="w-full bg-[#2c4370] text-white py-3 px-6 rounded-xl font-semibold hover:bg-[#3d5583] transition-colors"
+                            className="w-full bg-[#2d3e5e] text-white py-3 px-6 rounded-lg font-semibold hover:bg-[#3d5583] transition-colors text-sm"
                         >
                             Crear Nuevo Reporte
                         </button>
@@ -359,146 +359,215 @@ export default function ReportarCaso() {
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
-            <div className="min-h-screen bg-gradient-to-br from-[#2c4370] to-[#1a2a4a] flex items-center justify-center p-2 sm:p-4">
-                <div className="w-full max-w-5xl">
-                    {/* Header - Más compacto en móvil */}
-                    <div className="text-center mb-3 sm:mb-6">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 sm:mb-3 bg-white rounded-full p-1.5 sm:p-2 shadow-lg">
-                            <img 
-                                src="/images/Logo.png" 
-                                alt="HelpDesk HUV" 
-                                className="w-full h-full object-contain"
-                            />
-                        </div>
-                        <h1 className="text-xl sm:text-3xl font-bold text-white tracking-tight">Reporte Sistemas HUV</h1>
+            <div className="h-screen bg-gray-50 flex flex-col items-center justify-center p-4 lg:p-6 overflow-hidden">
+                {/* Header */}
+                <header className="w-full max-w-6xl mb-4 flex flex-col items-center">
+                    <img 
+                        src="/images/huv-h.png" 
+                        alt="Hospital Universitario del Valle" 
+                        className="h-20 object-contain mb-2"
+                    />
+                    <div className="text-center">
+                        <h1 className="text-xl font-bold text-[#2d3e5e] tracking-tight leading-none">Reporte Sistemas HUV</h1>
+                        <p className="text-slate-400 text-xs font-medium mt-1">Chatbot de Soporte Técnico</p>
                     </div>
+                </header>
 
-                    {/* Layout: Stack en móvil, grid en desktop */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
-                        {/* Chat Principal */}
-                        <div className="lg:col-span-2 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col transform-gpu h-[calc(100vh-140px)] sm:h-[700px]">
-                            <div id="chat-header" className="bg-gradient-to-r from-[#2c4370] to-[#3d5583] px-4 sm:px-8 py-3 sm:py-6 flex-shrink-0">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 sm:gap-6">
-                                        <div className="w-10 h-10 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
-                                            <Bot className="w-6 h-6 sm:w-9 sm:h-9 text-white" />
-                                        </div>
-                                        <div>
-                                            <h1 className="text-white font-bold text-lg sm:text-2xl tracking-wide">Evarisbot</h1>
-                                            <p className="text-white/90 text-xs sm:text-base font-medium">Asistente de Soporte</p>
-                                        </div>
+                {/* Main Content */}
+                <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+                    {/* Chat Section */}
+                    <section className="lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100">
+                        {/* Chat Header */}
+                        <div id="chat-header" className="bg-white p-4 border-b border-slate-100 flex items-center justify-between z-10">
+                            <div className="flex items-center space-x-3">
+                                <div className="relative">
+                                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                                        <Bot className="w-5 h-5 text-[#2d3e5e]" />
                                     </div>
-                                    <button
-                                        id="help-button"
-                                        onClick={startTour}
-                                        className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                                        title="Ver tutorial"
-                                    >
-                                        <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                                    </button>
+                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                                </div>
+                                <div>
+                                    <h2 className="text-slate-800 font-semibold text-sm">Evarisbot</h2>
+                                    <p className="text-slate-400 text-[10px] uppercase tracking-wider font-medium">En línea</p>
                                 </div>
                             </div>
+                            <button
+                                id="help-button"
+                                onClick={startTour}
+                                className="text-slate-300 hover:text-[#2d3e5e] transition-colors rounded-full p-2"
+                                title="Ver tutorial"
+                            >
+                                <HelpCircle className="w-5 h-5" />
+                            </button>
+                        </div>
 
-                            <div id="chat-messages" className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50">
-                                {messages.map((msg, index) => (
-                                    <AnimatedMessage
-                                        key={index}
-                                        message={msg}
-                                        isNew={index === messages.length - 1}
-                                    />
-                                ))}
-                                {isLoading && (
-                                    <div className="flex justify-start">
-                                        <div className="bg-white px-6 py-4 rounded-2xl rounded-bl-sm shadow-md border">
-                                            <span className="flex items-center gap-2">
-                                                <span className="w-3 h-3 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                                <span className="w-3 h-3 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                                <span className="w-3 h-3 bg-[#2c4370] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                                <div ref={messagesEndRef} />
+                        {/* Chat Messages */}
+                        <div id="chat-messages" ref={messagesContainerRef} className="flex-1 bg-white p-6 overflow-y-auto flex flex-col space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                            {/* Timestamp */}
+                            <div className="flex justify-center">
+                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
+                                    {new Date().toLocaleDateString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
+                                </span>
                             </div>
 
-                            <div id="chat-input" className="p-3 sm:p-6 bg-white border-t flex-shrink-0">
-                                <div className="flex items-center gap-2 sm:gap-4">
-                                    <input
-                                        ref={inputRef}
-                                        type="text"
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyPress={handleKeyPress}
-                                        placeholder="Escribe tu mensaje..."
-                                        className="flex-1 px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-lg border-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#2c4370]/50 focus:border-[#2c4370]"
-                                        autoFocus
-                                    />
+                            {messages.map((msg, index) => (
+                                <AnimatedMessage
+                                    key={index}
+                                    message={msg}
+                                    isNew={index === messages.length - 1}
+                                />
+                            ))}
+                            {isLoading && (
+                                <div className="flex items-start space-x-3 max-w-[90%]">
+                                    <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 flex items-center justify-center">
+                                        <Bot className="w-4 h-4 text-[#2d3e5e]" />
+                                    </div>
+                                    <div className="bg-slate-50 px-4 py-3 rounded-2xl rounded-tl-none">
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                            <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                            <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Chat Input */}
+                        <div id="chat-input" className="p-4 bg-white border-t border-slate-100">
+                            <form className="relative flex items-center" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder="Escribe tu mensaje..."
+                                    className="w-full bg-slate-50 text-slate-700 text-sm rounded-full py-3.5 pl-5 pr-14 focus:outline-none focus:ring-1 focus:ring-[#2d3e5e]/20 focus:bg-white transition-all border border-slate-200 placeholder-slate-400"
+                                    autoFocus
+                                />
+                                <div className="absolute right-2 flex items-center">
                                     <button
                                         ref={sendButtonRef}
+                                        type="submit"
                                         onClick={() => { sendMessage(); inputRef.current?.focus(); }}
                                         disabled={!input.trim() || isLoading}
-                                        className="w-12 h-12 sm:w-16 sm:h-16 bg-[#2c4370] text-white rounded-full flex items-center justify-center hover:bg-[#3d5583] disabled:opacity-50 transition-all shadow-lg shrink-0"
+                                        className="text-[#2d3e5e] hover:bg-blue-50 p-2 rounded-full transition-colors flex items-center justify-center disabled:opacity-40"
                                     >
-                                        <Send className="w-5 h-5 sm:w-7 sm:h-7" />
+                                        <Send className="w-5 h-5" />
                                     </button>
                                 </div>
+                            </form>
+                            <div className="text-center mt-2">
+                                <p className="text-[10px] text-slate-300">Presiona Enter para enviar</p>
                             </div>
                         </div>
+                    </section>
 
-                        {/* Panel Resumen - Oculto en móvil hasta que haya datos */}
-                        <div id="summary-panel" className="hidden lg:flex rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex-col transform-gpu h-auto lg:h-[700px]">
-                            <div className="bg-gradient-to-r from-[#3d5583] to-[#2c4370] px-4 sm:px-6 py-3 sm:py-5">
-                                <h2 className="text-white font-semibold text-base sm:text-lg">📋 Resumen del Reporte</h2>
+                    {/* Summary Panel */}
+                    <aside id="summary-panel" className="lg:col-span-4 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col h-full border border-slate-100 overflow-hidden">
+                            {/* Summary Header */}
+                            <div className="p-5 border-b border-slate-100">
+                                <div className="flex items-center space-x-2">
+                                    <FileText className="w-5 h-5 text-orange-400" />
+                                    <h3 className="text-[#2d3e5e] font-bold text-sm uppercase tracking-wide">Resumen del Reporte</h3>
+                                </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-white">
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide">Quien Reporta</h3>
-                                    <FieldItem icon={User} value={formData.reporter_name} placeholder="Nombre pendiente..." />
-                                    <FieldItem icon={Briefcase} value={formData.reporter_position} placeholder="Cargo pendiente..." />
-                                    <FieldItem icon={MapPin} value={formData.reporter_service} placeholder="Servicio pendiente..." />
-                                    {formData.reporter_extension && <FieldItem icon={Phone} value={`Ext. ${formData.reporter_extension}`} isOptional />}
+                            {/* Summary Content */}
+                            <div className="flex-1 p-6 overflow-y-auto space-y-8" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                                {/* Quien Reporta */}
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
+                                    <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
+                                        <TimelineItem 
+                                            label="Nombre" 
+                                            value={formData.reporter_name} 
+                                            placeholder="Pendiente..." 
+                                            isActive={!formData.reporter_name}
+                                        />
+                                        <TimelineItem 
+                                            label="Cargo" 
+                                            value={formData.reporter_position} 
+                                            placeholder="..." 
+                                            isActive={!!formData.reporter_name && !formData.reporter_position}
+                                        />
+                                        <TimelineItem 
+                                            label="Servicio" 
+                                            value={formData.reporter_service} 
+                                            placeholder="..." 
+                                            isActive={!!formData.reporter_position && !formData.reporter_service}
+                                        />
+                                        {formData.reporter_extension && (
+                                            <TimelineItem label="Extensión" value={formData.reporter_extension} />
+                                        )}
+                                    </ul>
                                 </div>
 
-                                <div className="space-y-3 pt-4 border-t">
-                                    <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wide">El Problema</h3>
-                                    <FieldItem icon={FileText} value={formData.name} placeholder="Título pendiente..." />
-                                    {formData.device_type && <FieldItem icon={Monitor} value={deviceLabels[formData.device_type] || formData.device_type} isOptional />}
-                                    {formData.equipment_ecom && <FieldItem icon={Cpu} value={`ECOM: ${formData.equipment_ecom}`} isOptional />}
-                                    {formData.priority && formData.priority !== '3' && <FieldItem icon={AlertTriangle} value={`Prioridad: ${priorityLabels[formData.priority]}`} isOptional />}
-                                    {formData.content && (
-                                        <div className="p-4 rounded-xl bg-green-50 border border-green-200 shadow-sm">
-                                            <p className="text-sm text-green-900 leading-relaxed">{formData.content}</p>
+                                {/* El Problema */}
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">El Problema</h4>
+                                    <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <FileText className="w-4 h-4 text-slate-300 mt-0.5" />
+                                        <div className="flex-1">
+                                            <span className="block text-xs text-slate-400 mb-1">Descripción</span>
+                                            {formData.name ? (
+                                                <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
+                                            ) : (
+                                                <span className="block text-sm text-slate-300 italic">Título pendiente...</span>
+                                            )}
+                                            {formData.content && (
+                                                <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {formData.device_type && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                                            <Monitor className="w-3.5 h-3.5" />
+                                            <span>{deviceLabels[formData.device_type] || formData.device_type}</span>
+                                        </div>
+                                    )}
+                                    {formData.equipment_ecom && (
+                                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                                            <Cpu className="w-3.5 h-3.5" />
+                                            <span>ECOM: {formData.equipment_ecom}</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div id="submit-button" className="p-6 border-t bg-gray-50">
+                            {/* Submit Button */}
+                            <div id="submit-button" className="p-5 bg-slate-50 border-t border-slate-100">
                                 <Button
                                     onClick={handleSubmit}
                                     disabled={!isFormComplete() || processing}
-                                    className="w-full bg-[#2c4370] hover:bg-[#3d5583] text-white py-4 text-lg rounded-xl font-bold disabled:opacity-50 shadow-md transition-transform transform hover:scale-[1.02]"
+                                    className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
+                                        isFormComplete() && !processing
+                                            ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-300 cursor-not-allowed opacity-80'
+                                    }`}
                                 >
                                     {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
                                 </Button>
-                                {!isFormComplete() && (
-                                    <p className="text-sm text-gray-500 text-center mt-3 font-medium">Conversa con Evarisbot para completar tu reporte</p>
-                                )}
+                                <p className="text-center text-[10px] text-slate-400 mt-3 px-4 leading-relaxed">
+                                    {isFormComplete() 
+                                        ? 'Revisa los datos y envía tu reporte.'
+                                        : 'Interactúa con el asistente para habilitar el envío del reporte.'
+                                    }
+                                </p>
                             </div>
                         </div>
-                    </div>
+                    </aside>
+                </main>
 
-                    <div className="mt-4 text-center text-white/60 text-xs">
-                        <p>Hospital Universitario del Valle - Gestión de la Información</p>
-                    </div>
-                </div>
             </div>
         </>
     );
 }
 
-// Componente de mensaje con animación
+// Componente de mensaje con animación - Nuevo estilo chatbot
 function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean }) {
     const messageRef = useRef<HTMLDivElement>(null);
     const hasAnimated = useRef(false);
@@ -509,19 +578,18 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
             const el = messageRef.current;
             const isUser = message.role === 'user';
 
-            // iOS WhatsApp-style animation: smooth slide up from bottom with fade and subtle scale
             gsap.fromTo(el,
                 {
                     opacity: 0,
-                    y: 30,
-                    scale: 0.95,
+                    y: 20,
+                    scale: 0.97,
                     transformOrigin: isUser ? 'bottom right' : 'bottom left'
                 },
                 {
                     opacity: 1,
                     y: 0,
                     scale: 1,
-                    duration: 0.4,
+                    duration: 0.35,
                     ease: 'power2.out',
                     clearProps: 'transform'
                 }
@@ -529,29 +597,46 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
         }
     }, [isNew, message.role]);
 
+    if (message.role === 'user') {
+        return (
+            <div ref={messageRef} className="flex justify-end">
+                <div className="max-w-[80%] bg-[#2d3e5e] text-white px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-line">
+                    {message.content}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div
-            ref={messageRef}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-        >
-            <div className={`max-w-[85%] px-6 py-4 rounded-2xl text-lg leading-relaxed whitespace-pre-line shadow-md ${message.role === 'user'
-                    ? 'bg-[#2c4370] text-white rounded-br-sm shadow-lg'
-                    : 'bg-white text-gray-800 shadow-md rounded-bl-sm border border-gray-100'
-                }`}>
-                {message.content}
+        <div ref={messageRef} className="flex items-start space-x-3 max-w-[90%]">
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 flex items-center justify-center mt-1">
+                <Bot className="w-4 h-4 text-[#2d3e5e]" />
+            </div>
+            <div className="flex flex-col space-y-2">
+                <div className="bg-slate-50 p-3.5 rounded-2xl rounded-tl-none text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                    {message.content}
+                </div>
             </div>
         </div>
     );
 }
 
-function FieldItem({ icon: Icon, value, placeholder, isOptional }: { icon: React.ElementType; value?: string; placeholder?: string; isOptional?: boolean }) {
+// Componente Timeline para el resumen
+function TimelineItem({ label, value, placeholder, isActive }: { label: string; value?: string; placeholder?: string; isActive?: boolean }) {
     const filled = !!value;
     return (
-        <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${filled ? (isOptional ? 'bg-blue-50 border border-blue-200' : 'bg-green-50 border border-green-200') : 'bg-gray-50 border border-gray-200'}`}>
-            <Icon className={`w-6 h-6 ${filled ? (isOptional ? 'text-blue-600' : 'text-green-600') : 'text-gray-400'}`} />
-            <span className={`text-base font-medium truncate ${filled ? (isOptional ? 'text-blue-900' : 'text-green-900') : 'text-gray-500'}`}>
-                {value || placeholder}
-            </span>
-        </div>
+        <li className="relative">
+            <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
+                filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
+            }`}></span>
+            <div className="flex flex-col">
+                <span className="text-xs text-slate-400 font-medium mb-1">{label}</span>
+                <span className={`text-sm font-medium ${
+                    filled ? 'text-slate-800' : 'text-slate-300 italic'
+                }`}>
+                    {value || placeholder}
+                </span>
+            </div>
+        </li>
     );
 }
