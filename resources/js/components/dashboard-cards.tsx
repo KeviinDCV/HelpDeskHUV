@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Pin, TicketIcon, UserCheck, CheckCircle2, Clock } from 'lucide-react'
+import { Pin, TicketIcon, UserCheck, CheckCircle2, Clock, Plus, Zap } from 'lucide-react'
 import { Link } from '@inertiajs/react'
 
 interface Stats {
@@ -68,42 +68,30 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
 
       {/* Hidden on mobile - shown on desktop */}
       <div className="hidden lg:block space-y-4">
-        {/* Su planeación Card */}
-        <Card className="bg-gray-100 border-gray-300">
+        {/* Shortcuts Card */}
+        <Card className="bg-white border shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-center text-[#2c5599]">
-              Su planeación
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-[#2c5599]" />
+              <CardTitle className="text-sm font-semibold text-[#2c5599]">
+                Shortcuts
+              </CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-center text-muted-foreground">
-              No hay eventos para mostrar
-            </p>
+          <CardContent className="space-y-2">
+            <Link href="/soporte/crear-caso" className="block">
+              <div className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 transition-colors rounded-lg cursor-pointer group">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                  <Plus className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Crear nuevo caso</p>
+                  <p className="text-xs text-gray-500">Reportar un problema o solicitud</p>
+                </div>
+              </div>
+            </Link>
+            {/* Futuros shortcuts se agregarán aquí */}
           </CardContent>
-        </Card>
-
-        {/* Recordatorios personales Card */}
-        <Card className="bg-gray-100 border-gray-300">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-[#2c5599] flex-1 text-center">
-                Recordatorios personales
-              </CardTitle>
-              <Pin className="h-4 w-4 text-gray-500" />
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* Recordatorios públicos Card */}
-        <Card className="bg-gray-100 border-gray-300">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-[#2c5599] flex-1 text-center">
-                Recordatorios públicos
-              </CardTitle>
-              <Pin className="h-4 w-4 text-gray-500" />
-            </div>
-          </CardHeader>
         </Card>
       </div>
     </div>

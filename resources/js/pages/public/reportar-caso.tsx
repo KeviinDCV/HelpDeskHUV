@@ -359,42 +359,42 @@ export default function ReportarCaso() {
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
-            <div className="h-screen bg-gray-50 flex flex-col items-center justify-center p-4 lg:p-6 overflow-hidden">
+            <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden">
                 {/* Header */}
-                <header className="w-full max-w-6xl mb-4 flex flex-col items-center">
+                <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
                     <img 
                         src="/images/huv-h.png" 
                         alt="Hospital Universitario del Valle" 
-                        className="h-20 object-contain mb-2"
+                        className="h-12 sm:h-16 lg:h-20 object-contain mb-1 sm:mb-2"
                     />
                     <div className="text-center">
-                        <h1 className="text-xl font-bold text-[#2d3e5e] tracking-tight leading-none">Reporte Sistemas HUV</h1>
-                        <p className="text-slate-400 text-xs font-medium mt-1">Chatbot de Soporte Técnico</p>
+                        <h1 className="text-base sm:text-lg lg:text-xl font-bold text-[#2d3e5e] tracking-tight leading-none">Reporte Sistemas HUV</h1>
+                        <p className="text-slate-400 text-[10px] sm:text-xs font-medium mt-0.5 sm:mt-1 hidden sm:block">Chatbot de Soporte Técnico</p>
                     </div>
                 </header>
 
                 {/* Main Content */}
-                <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+                <main className="w-full max-w-6xl flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 flex-1 min-h-0 overflow-hidden">
                     {/* Chat Section */}
-                    <section className="lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100">
+                    <section className="flex-1 lg:flex-none lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100 min-h-0">
                         {/* Chat Header */}
-                        <div id="chat-header" className="bg-white p-4 border-b border-slate-100 flex items-center justify-between z-10">
+                        <div id="chat-header" className="bg-[#2d3e5e] p-4 flex items-center justify-between z-10">
                             <div className="flex items-center space-x-3">
                                 <div className="relative">
-                                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
-                                        <Bot className="w-5 h-5 text-[#2d3e5e]" />
+                                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                        <Bot className="w-5 h-5 text-white" />
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#2d3e5e] rounded-full"></div>
                                 </div>
                                 <div>
-                                    <h2 className="text-slate-800 font-semibold text-sm">Evarisbot</h2>
-                                    <p className="text-slate-400 text-[10px] uppercase tracking-wider font-medium">En línea</p>
+                                    <h2 className="text-white font-semibold text-sm">Evarisbot</h2>
+                                    <p className="text-white/70 text-[10px] uppercase tracking-wider font-medium">En línea</p>
                                 </div>
                             </div>
                             <button
                                 id="help-button"
                                 onClick={startTour}
-                                className="text-slate-300 hover:text-[#2d3e5e] transition-colors rounded-full p-2"
+                                className="text-white/50 hover:text-white transition-colors rounded-full p-2"
                                 title="Ver tutorial"
                             >
                                 <HelpCircle className="w-5 h-5" />
@@ -402,7 +402,7 @@ export default function ReportarCaso() {
                         </div>
 
                         {/* Chat Messages */}
-                        <div id="chat-messages" ref={messagesContainerRef} className="flex-1 bg-white p-6 overflow-y-auto flex flex-col space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                        <div id="chat-messages" ref={messagesContainerRef} className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
                             {/* Timestamp */}
                             <div className="flex justify-center">
                                 <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
@@ -435,7 +435,7 @@ export default function ReportarCaso() {
                         </div>
 
                         {/* Chat Input */}
-                        <div id="chat-input" className="p-4 bg-white border-t border-slate-100">
+                        <div id="chat-input" className="p-3 sm:p-4 bg-white border-t border-slate-100 shrink-0">
                             <form className="relative flex items-center" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
                                 <input
                                     ref={inputRef}
@@ -459,25 +459,52 @@ export default function ReportarCaso() {
                                     </button>
                                 </div>
                             </form>
-                            <div className="text-center mt-2">
-                                <p className="text-[10px] text-slate-300">Presiona Enter para enviar</p>
-                            </div>
+                            <p className="text-[10px] text-slate-300 text-center mt-1.5 sm:mt-2 hidden sm:block">Presiona Enter para enviar</p>
                         </div>
                     </section>
 
                     {/* Summary Panel */}
-                    <aside id="summary-panel" className="lg:col-span-4 flex flex-col h-full">
+                    <aside id="summary-panel" className="lg:order-none shrink-0 lg:flex-1 lg:col-span-4 flex flex-col lg:h-full">
                         <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col h-full border border-slate-100 overflow-hidden">
                             {/* Summary Header */}
-                            <div className="p-5 border-b border-slate-100">
-                                <div className="flex items-center space-x-2">
-                                    <FileText className="w-5 h-5 text-orange-400" />
-                                    <h3 className="text-[#2d3e5e] font-bold text-sm uppercase tracking-wide">Resumen del Reporte</h3>
+                            <div className="p-3 sm:p-4 lg:p-5 bg-[#2d3e5e] shrink-0">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                        <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white/80" />
+                                        <h3 className="text-white font-bold text-xs sm:text-sm uppercase tracking-wide">Resumen</h3>
+                                    </div>
+                                    {/* Mobile: Show compact status */}
+                                    <div className="flex items-center gap-2 lg:hidden">
+                                        <span className={`w-2 h-2 rounded-full ${formData.reporter_name ? 'bg-green-400' : 'bg-orange-400'}`}></span>
+                                        <span className="text-[10px] text-white/70">
+                                            {isFormComplete() ? 'Completo' : 'En progreso'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Summary Content */}
-                            <div className="flex-1 p-6 overflow-y-auto space-y-8" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                            <div className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                                {/* Mobile: Compact horizontal layout */}
+                                <div className="lg:hidden flex flex-wrap gap-2 text-xs">
+                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_name ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                        {formData.reporter_name || 'Nombre'}
+                                    </div>
+                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_position ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                        {formData.reporter_position || 'Cargo'}
+                                    </div>
+                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_service ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                        {formData.reporter_service || 'Servicio'}
+                                    </div>
+                                    {formData.name && (
+                                        <div className="px-2 py-1 rounded-full border bg-blue-50 border-blue-200 text-blue-700 truncate max-w-[150px]">
+                                            {formData.name}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Desktop: Full timeline layout */}
+                                <div className="hidden lg:block space-y-8">
                                 {/* Quien Reporta */}
                                 <div>
                                     <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
@@ -536,10 +563,11 @@ export default function ReportarCaso() {
                                         </div>
                                     )}
                                 </div>
+                                </div>
                             </div>
 
                             {/* Submit Button */}
-                            <div id="submit-button" className="p-5 bg-slate-50 border-t border-slate-100">
+                            <div id="submit-button" className="p-3 sm:p-4 lg:p-5 bg-slate-50 border-t border-slate-100 shrink-0">
                                 <Button
                                     onClick={handleSubmit}
                                     disabled={!isFormComplete() || processing}
@@ -551,7 +579,7 @@ export default function ReportarCaso() {
                                 >
                                     {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
                                 </Button>
-                                <p className="text-center text-[10px] text-slate-400 mt-3 px-4 leading-relaxed">
+                                <p className="text-center text-[10px] text-slate-400 mt-2 lg:mt-3 px-2 lg:px-4 leading-relaxed hidden sm:block">
                                     {isFormComplete() 
                                         ? 'Revisa los datos y envía tu reporte.'
                                         : 'Interactúa con el asistente para habilitar el envío del reporte.'
