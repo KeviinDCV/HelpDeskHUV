@@ -381,8 +381,8 @@ export default function ReportarCaso() {
                         <div id="chat-header" className="bg-[#2d3e5e] p-4 flex items-center justify-between z-10">
                             <div className="flex items-center space-x-3">
                                 <div className="relative">
-                                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                        <Bot className="w-5 h-5 text-white" />
+                                    <div className="w-10 h-10 bg-white/20 rounded-full overflow-hidden">
+                                        <img src="/images/Evaris.png" alt="Evarisbot" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#2d3e5e] rounded-full"></div>
                                 </div>
@@ -419,8 +419,8 @@ export default function ReportarCaso() {
                             ))}
                             {isLoading && (
                                 <div className="flex items-start space-x-3 max-w-[90%]">
-                                    <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 flex items-center justify-center">
-                                        <Bot className="w-4 h-4 text-[#2d3e5e]" />
+                                    <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden">
+                                        <img src="/images/Evaris.png" alt="Evarisbot" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="bg-slate-50 px-4 py-3 rounded-2xl rounded-tl-none">
                                         <span className="flex items-center gap-1.5">
@@ -637,8 +637,8 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
 
     return (
         <div ref={messageRef} className="flex items-start space-x-3 max-w-[90%]">
-            <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 flex items-center justify-center mt-1">
-                <Bot className="w-4 h-4 text-[#2d3e5e]" />
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden mt-1">
+                <img src="/images/Evaris.png" alt="Evarisbot" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col space-y-2">
                 <div className="bg-slate-50 p-3.5 rounded-2xl rounded-tl-none text-slate-600 text-sm leading-relaxed whitespace-pre-line">
