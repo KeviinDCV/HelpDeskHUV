@@ -195,7 +195,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     // Confirmar resolución
-    const confirmSolve = () => {
+    const confirmSolve = async () => {
         if (!ticketToSolve || !solution.trim()) {
             console.log('confirmSolve blocked:', { ticketToSolve, solution: solution.trim() });
             return;
@@ -217,33 +217,45 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         // Formatear fecha para el backend (si existe)
         const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
         
-        router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
-            solution: solution.trim(),
-            solve_date: formattedDate
-        }, {
-            preserveScroll: true,
-            onSuccess: (page: any) => {
+        try {
+            // Usar fetch con FormData para enviar la solicitud
+            const formData = new FormData();
+            formData.append('solution', solution.trim());
+            if (formattedDate) {
+                formData.append('solve_date', formattedDate);
+            }
+            
+            // Obtener el token CSRF
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            
+            const response = await fetch(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: formData
+            });
+            
+            if (response.ok || response.redirected) {
                 setSolving(false);
-                // Verificar si hay mensaje de error en flash
-                if (page.props?.flash?.error) {
-                    setSolveError(page.props.flash.error);
-                    return;
-                }
                 setSolveDialogOpen(false);
                 setTicketToSolve(null);
                 setSolution('');
                 setSolveDate('');
-                router.reload();
-            },
-            onError: (errors) => {
+                // Recargar la página
+                window.location.reload();
+            } else {
+                const text = await response.text();
+                console.error('Response error:', text);
                 setSolving(false);
-                console.error('Error al resolver:', errors);
                 setSolveError('Error al resolver el caso. Intente nuevamente.');
-            },
-            onFinish: () => {
-                setSolving(false);
             }
-        });
+        } catch (error) {
+            console.error('Fetch error:', error);
+            setSolving(false);
+            setSolveError('Error de conexión. Intente nuevamente.');
+        }
     };
 
     const handleDeleteClick = (ticket: Ticket) => {

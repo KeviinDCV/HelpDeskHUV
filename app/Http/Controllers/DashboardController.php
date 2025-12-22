@@ -437,6 +437,13 @@ class DashboardController extends Controller
 
         DB::beginTransaction();
         try {
+            \Log::info('Solving ticket', [
+                'ticket_id' => $id,
+                'user_id' => $glpiUserId,
+                'solution' => substr($solution, 0, 100),
+                'resolve_date' => $resolveDateTime->toDateTimeString()
+            ]);
+            
             // Insertar la solución en glpi_itilsolutions
             DB::table('glpi_itilsolutions')->insert([
                 'itemtype' => 'Ticket',
@@ -445,6 +452,8 @@ class DashboardController extends Controller
                 'date_creation' => $resolveDateTime,
                 'date_mod' => $resolveDateTime,
                 'users_id' => $glpiUserId,
+                'users_id_editor' => 0,
+                'users_id_approval' => 0,
                 'status' => 2, // Aprobado
             ]);
 
@@ -459,11 +468,18 @@ class DashboardController extends Controller
                 ]);
 
             DB::commit();
+            
+            \Log::info('Ticket solved successfully', ['ticket_id' => $id]);
 
             return redirect()->back()->with('success', '¡Ticket resuelto exitosamente!');
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Error solving ticket', [
+                'ticket_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->back()->with('error', 'Error al resolver el ticket: ' . $e->getMessage());
         }
     }
