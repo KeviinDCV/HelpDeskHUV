@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -485,6 +485,15 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             <span className="hidden sm:inline">Exportar</span>
                                             <span className="sm:hidden">Excel</span>
                                         </Button>
+                                        <Link href="/soporte/crear-caso">
+                                            <Button 
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
+                                            >
+                                                <Plus className="h-4 w-4 sm:mr-1" />
+                                                <span className="hidden sm:inline">Crear Caso</span>
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </div>
                             </div>
