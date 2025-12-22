@@ -199,9 +199,14 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             return;
         }
         setSolving(true);
+        
+        // Formatear fecha para el backend (si existe)
+        const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
+        console.log('Sending solve request:', { ticketId: ticketToSolve.id, solveDate, formattedDate });
+        
         router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
             solution: solution.trim(),
-            solve_date: solveDate || undefined
+            solve_date: formattedDate
         }, {
             preserveScroll: true,
             onSuccess: () => {

@@ -418,7 +418,16 @@ class DashboardController extends Controller
         }
 
         // Determinar la fecha de solución (usar la proporcionada o la actual)
-        $resolveDateTime = $solveDate ? \Carbon\Carbon::parse($solveDate) : now();
+        try {
+            if ($solveDate && !empty($solveDate)) {
+                $resolveDateTime = \Carbon\Carbon::parse($solveDate);
+            } else {
+                $resolveDateTime = now();
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error parsing solve_date: ' . $solveDate . ' - ' . $e->getMessage());
+            $resolveDateTime = now();
+        }
         
         // Validar que la fecha no sea anterior a la fecha de creación del ticket
         $ticketCreation = \Carbon\Carbon::parse($ticket->date_creation);
