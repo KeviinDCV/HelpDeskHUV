@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Pin, TicketIcon, UserCheck, CheckCircle2, Clock, Plus, Zap } from 'lucide-react'
+import { Pin, TicketIcon, UserCheck, CheckCircle2, Clock, Plus, Zap, MessageSquare } from 'lucide-react'
 import { Link } from '@inertiajs/react'
 
 interface Stats {
@@ -90,7 +90,17 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
                 </div>
               </div>
             </Link>
-            {/* Futuros shortcuts se agregarán aquí */}
+            <Link href="/reportar" target="_blank" className="block">
+              <div className="flex items-center gap-3 p-3 bg-purple-50 hover:bg-purple-100 transition-colors rounded-lg cursor-pointer group">
+                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center group-hover:bg-purple-600 transition-colors">
+                  <MessageSquare className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Reportar Caso (IA)</p>
+                  <p className="text-xs text-gray-500">Portal público para usuarios</p>
+                </div>
+              </div>
+            </Link>
           </CardContent>
         </Card>
       </div>
