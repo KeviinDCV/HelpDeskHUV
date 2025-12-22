@@ -383,11 +383,16 @@ class DashboardController extends Controller
      */
     public function solveTicket(Request $request, $id)
     {
+        \Log::info('solveTicket START', ['id' => $id, 'all_input' => $request->all()]);
+        
         $user = auth()->user();
         $solution = $request->input('solution');
         $solveDate = $request->input('solve_date'); // Fecha opcional
         
+        \Log::info('solveTicket data', ['user' => $user->username ?? 'unknown', 'solution' => $solution, 'solveDate' => $solveDate]);
+        
         if (!$solution || trim($solution) === '') {
+            \Log::warning('solveTicket: Empty solution');
             return redirect()->back()->with('error', 'Debe ingresar una descripción de la solución.');
         }
 
@@ -396,7 +401,10 @@ class DashboardController extends Controller
             ->where('is_deleted', 0)
             ->first();
 
+        \Log::info('solveTicket: ticket lookup', ['found' => $ticket ? true : false]);
+
         if (!$ticket) {
+            \Log::warning('solveTicket: Ticket not found');
             return redirect()->back()->with('error', 'Ticket no encontrado.');
         }
 
@@ -406,6 +414,8 @@ class DashboardController extends Controller
             ->first();
         
         $glpiUserId = $glpiUser ? $glpiUser->id : $user->id;
+        
+        \Log::info('solveTicket: glpi user', ['glpiUser' => $glpiUser ? $glpiUser->id : null, 'glpiUserId' => $glpiUserId]);
 
         $isAssigned = DB::table('glpi_tickets_users')
             ->where('tickets_id', $id)
@@ -413,7 +423,10 @@ class DashboardController extends Controller
             ->where('type', 2)
             ->exists();
 
+        \Log::info('solveTicket: permission check', ['isAssigned' => $isAssigned, 'userRole' => $user->role]);
+
         if (!$isAssigned && $user->role !== 'Administrador') {
+            \Log::warning('solveTicket: No permission');
             return redirect()->back()->with('error', 'No tienes permiso para resolver este ticket.');
         }
 
@@ -429,10 +442,13 @@ class DashboardController extends Controller
             $resolveDateTime = now();
         }
         
-        // Validar que la fecha no sea anterior a la fecha de creación del ticket
-        $ticketCreation = \Carbon\Carbon::parse($ticket->date_creation);
-        if ($resolveDateTime->lt($ticketCreation)) {
-            return redirect()->back()->with('error', 'La fecha de solución no puede ser anterior a la fecha de creación del caso.');
+        // Validar que la fecha no sea anterior a la fecha de apertura del ticket (campo 'date')
+        $ticketDate = \Carbon\Carbon::parse($ticket->date);
+        \Log::info('solveTicket: date check', ['resolveDateTime' => $resolveDateTime->toDateTimeString(), 'ticketDate' => $ticketDate->toDateTimeString()]);
+        
+        if ($resolveDateTime->lt($ticketDate)) {
+            \Log::warning('solveTicket: Date before opening');
+            return redirect()->back()->with('error', 'La fecha de solución no puede ser anterior a la fecha de apertura del caso.');
         }
 
         DB::beginTransaction();

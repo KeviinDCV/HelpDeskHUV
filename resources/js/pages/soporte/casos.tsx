@@ -195,9 +195,11 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     // Confirmar resolución
-    const confirmSolve = async () => {
+    const confirmSolve = () => {
+        console.log('confirmSolve called', { ticketToSolve, solution, solveDate });
+        
         if (!ticketToSolve || !solution.trim()) {
-            console.log('confirmSolve blocked:', { ticketToSolve, solution: solution.trim() });
+            alert('Debe ingresar una solución');
             return;
         }
         
@@ -214,48 +216,44 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         setSolving(true);
         setSolveError(null);
         
-        // Formatear fecha para el backend (si existe)
+        // Formatear fecha para el backend
         const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
         
-        try {
-            // Usar fetch con FormData para enviar la solicitud
-            const formData = new FormData();
-            formData.append('solution', solution.trim());
-            if (formattedDate) {
-                formData.append('solve_date', formattedDate);
-            }
-            
-            // Obtener el token CSRF
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-            
-            const response = await fetch(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                },
-                body: formData
-            });
-            
-            if (response.ok || response.redirected) {
+        console.log('Sending POST to:', `/dashboard/solve-ticket/${ticketToSolve.id}`, { solution: solution.trim(), solve_date: formattedDate });
+        
+        // Usar router.post de Inertia
+        router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
+            solution: solution.trim(),
+            solve_date: formattedDate
+        }, {
+            preserveState: true,
+            onSuccess: (page: any) => {
+                console.log('onSuccess called', page.props?.flash);
                 setSolving(false);
+                
+                // Verificar si hay mensaje de error en flash
+                if (page.props?.flash?.error) {
+                    setSolveError(page.props.flash.error);
+                    return;
+                }
+                
+                // Si no hay error, cerrar el modal
                 setSolveDialogOpen(false);
                 setTicketToSolve(null);
                 setSolution('');
                 setSolveDate('');
-                // Recargar la página
-                window.location.reload();
-            } else {
-                const text = await response.text();
-                console.error('Response error:', text);
+            },
+            onError: (errors: any) => {
+                console.log('onError called', errors);
                 setSolving(false);
-                setSolveError('Error al resolver el caso. Intente nuevamente.');
+                const errorMsg = typeof errors === 'object' ? Object.values(errors).join(', ') : 'Error al resolver';
+                setSolveError(errorMsg);
+            },
+            onFinish: () => {
+                console.log('onFinish called');
+                setSolving(false);
             }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            setSolving(false);
-            setSolveError('Error de conexión. Intente nuevamente.');
-        }
+        });
     };
 
     const handleDeleteClick = (ticket: Ticket) => {
@@ -1138,7 +1136,11 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             Cancelar
                         </Button>
                         <Button
-                            onClick={confirmSolve}
+                            type="button"
+                            onClick={() => {
+                                console.log('Resolve button clicked');
+                                confirmSolve();
+                            }}
                             disabled={!solution.trim() || solving}
                             className="bg-green-600 hover:bg-green-700 text-white"
                         >
