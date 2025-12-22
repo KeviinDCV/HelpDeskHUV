@@ -121,6 +121,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [solution, setSolution] = React.useState('');
     const [solveDate, setSolveDate] = React.useState('');
     const [solving, setSolving] = React.useState(false);
+    const [solveError, setSolveError] = React.useState<string | null>(null);
     
     // Estados de filtros
     const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
@@ -180,6 +181,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const openSolveDialog = (ticket: Ticket) => {
         setTicketToSolve(ticket);
         setSolution('');
+        setSolveError(null);
         // Por defecto, usar fecha y hora actual en zona horaria local
         const now = new Date();
         const year = now.getFullYear();
@@ -198,29 +200,45 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             console.log('confirmSolve blocked:', { ticketToSolve, solution: solution.trim() });
             return;
         }
+        
+        // Validar fecha antes de enviar
+        if (solveDate && ticketToSolve.date) {
+            const solveDateObj = new Date(solveDate);
+            const ticketDateObj = new Date(ticketToSolve.date);
+            if (solveDateObj < ticketDateObj) {
+                setSolveError('La fecha de solución no puede ser anterior a la fecha de creación del caso.');
+                return;
+            }
+        }
+        
         setSolving(true);
+        setSolveError(null);
         
         // Formatear fecha para el backend (si existe)
         const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
-        console.log('Sending solve request:', { ticketId: ticketToSolve.id, solveDate, formattedDate });
         
         router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
             solution: solution.trim(),
             solve_date: formattedDate
         }, {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page: any) => {
                 setSolving(false);
+                // Verificar si hay mensaje de error en flash
+                if (page.props?.flash?.error) {
+                    setSolveError(page.props.flash.error);
+                    return;
+                }
                 setSolveDialogOpen(false);
                 setTicketToSolve(null);
                 setSolution('');
                 setSolveDate('');
-                // Recargar la página para ver los cambios
                 router.reload();
             },
             onError: (errors) => {
                 setSolving(false);
                 console.error('Error al resolver:', errors);
+                setSolveError('Error al resolver el caso. Intente nuevamente.');
             },
             onFinish: () => {
                 setSolving(false);
@@ -1058,6 +1076,14 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             Resolver el caso <strong>#{ticketToSolve?.id}</strong>: {ticketToSolve?.name}
                         </DialogDescription>
                     </DialogHeader>
+                    
+                    {/* Mensaje de error */}
+                    {solveError && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm rounded">
+                            {solveError}
+                        </div>
+                    )}
+                    
                     <div className="space-y-4 py-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
