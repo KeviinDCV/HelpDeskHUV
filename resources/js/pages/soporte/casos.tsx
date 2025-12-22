@@ -111,6 +111,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
     const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
     const [ticketToView, setTicketToView] = React.useState<Ticket | null>(null);
+    const [ticketSolution, setTicketSolution] = React.useState<{ content: string; solved_by: string | null; date_creation: string } | null>(null);
+    const [loadingSolution, setLoadingSolution] = React.useState(false);
     const [showFilters, setShowFilters] = React.useState(false);
     
     // Estados para resolver caso
@@ -358,6 +360,21 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         });
     };
 
+    const handleExport = () => {
+        const params = new URLSearchParams();
+        params.append('sort', filters.sort);
+        params.append('direction', filters.direction);
+        if (filters.search) params.append('search', filters.search);
+        if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+        if (filters.priority && filters.priority !== 'all') params.append('priority', filters.priority);
+        if (filters.category && filters.category !== 'all') params.append('category', filters.category);
+        if (filters.assigned && filters.assigned !== 'all') params.append('assigned', filters.assigned);
+        if (filters.date_from) params.append('date_from', filters.date_from);
+        if (filters.date_to) params.append('date_to', filters.date_to);
+        if (filters.filter) params.append('filter', filters.filter);
+        window.location.href = `/soporte/casos/export?${params}`;
+    };
+
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
         return filters.direction === 'asc' 
@@ -454,6 +471,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         <Button 
                                             size="sm"
                                             className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
+                                            onClick={handleExport}
                                         >
                                             <span className="hidden sm:inline">Exportar</span>
                                             <span className="sm:hidden">Excel</span>
@@ -693,9 +711,27 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             <TableCell className="text-xs font-medium">{ticket.id}</TableCell>
                                             <TableCell className="font-medium text-xs">
                                                 <button 
-                                                    onClick={() => {
+                                                    onClick={async () => {
                                                         setTicketToView(ticket);
+                                                        setTicketSolution(null);
                                                         setViewDialogOpen(true);
+                                                        // Fetch solution if case is resolved or closed
+                                                        if (ticket.status === 5 || ticket.status === 6) {
+                                                            setLoadingSolution(true);
+                                                            try {
+                                                                const response = await fetch(`/dashboard/ticket/${ticket.id}`);
+                                                                if (response.ok) {
+                                                                    const data = await response.json();
+                                                                    if (data.solution) {
+                                                                        setTicketSolution(data.solution);
+                                                                    }
+                                                                }
+                                                            } catch (e) {
+                                                                console.error('Error fetching solution:', e);
+                                                            } finally {
+                                                                setLoadingSolution(false);
+                                                            }
+                                                        }
                                                     }}
                                                     className="text-[#2c4370] hover:underline block truncate max-w-md text-left"
                                                     title={ticket.name}
@@ -919,6 +955,31 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                     <span className="font-medium">{ticketToView.category_name || '-'}</span>
                                 </div>
                             </div>
+
+                            {/* Solución del caso */}
+                            {(ticketToView.status === 5 || ticketToView.status === 6) && (
+                                <div className="pt-3 border-t">
+                                    <span className="text-xs font-semibold text-green-700 block mb-2">Solución</span>
+                                    {loadingSolution ? (
+                                        <div className="bg-green-50 p-3 border border-green-200 flex items-center justify-center">
+                                            <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+                                            <span className="ml-2 text-xs text-green-600">Cargando solución...</span>
+                                        </div>
+                                    ) : ticketSolution ? (
+                                        <div className="bg-green-50 p-3 border border-green-200">
+                                            <div className="text-xs text-gray-700 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: ticketSolution.content }} />
+                                            <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-[10px] text-green-700">
+                                                <span>Resuelto por: <strong>{ticketSolution.solved_by || 'Usuario del sistema'}</strong></span>
+                                                <span>{ticketSolution.date_creation ? new Date(ticketSolution.date_creation).toLocaleString('es-CO') : '-'}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 p-3 border border-gray-200 text-xs text-gray-500">
+                                            No se encontró solución registrada
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Acciones */}
                             <div className="flex justify-end gap-2 pt-2 border-t">

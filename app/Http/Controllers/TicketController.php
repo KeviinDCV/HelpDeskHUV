@@ -327,6 +327,264 @@ class TicketController extends Controller
         ]);
     }
 
+    public function export(Request $request)
+    {
+        // Aumentar tiempo de ejecución para exportaciones grandes
+        set_time_limit(300);
+        
+        $sortField = $request->input('sort', 'id');
+        $sortDirection = $request->input('direction', 'desc');
+        $search = $request->input('search', '');
+        $statusFilter = $request->input('status', '');
+        $priorityFilter = $request->input('priority', '');
+        $categoryFilter = $request->input('category', '');
+        $assignedFilter = $request->input('assigned', '');
+        $dateFrom = $request->input('date_from', '');
+        $dateTo = $request->input('date_to', '');
+        $specialFilter = $request->input('filter', '');
+
+        $sortableFields = [
+            'id' => 't.id',
+            'name' => 't.name',
+            'entity_name' => 'e.name',
+            'date' => 't.date',
+            'date_mod' => 't.date_mod',
+            'status' => 't.status',
+            'priority' => 't.priority',
+        ];
+
+        if (!array_key_exists($sortField, $sortableFields)) {
+            $sortField = 'id';
+        }
+        $orderByField = $sortableFields[$sortField];
+
+        $query = DB::table('glpi_tickets as t')
+            ->select(
+                't.id',
+                't.name',
+                't.date',
+                't.date_mod',
+                't.priority',
+                't.status',
+                'e.name as entity_name',
+                'cat.completename as category_name',
+                DB::raw("(SELECT COALESCE(
+                            NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
+                            lu.name
+                         )
+                         FROM glpi_tickets_users tu 
+                         LEFT JOIN glpi_users gu ON tu.users_id = gu.id 
+                         LEFT JOIN users lu ON tu.users_id = lu.id
+                         WHERE tu.tickets_id = t.id AND tu.type = 1 
+                         LIMIT 1) as requester_name"),
+                DB::raw("(SELECT COALESCE(
+                            (SELECT CONCAT(gu.firstname, ' ', gu.realname)
+                             FROM glpi_itilsolutions sol
+                             LEFT JOIN glpi_users gu ON sol.users_id = gu.id
+                             WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket'
+                             ORDER BY sol.id DESC LIMIT 1),
+                            (SELECT COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name)
+                             FROM glpi_tickets_users tu
+                             LEFT JOIN glpi_users gu ON tu.users_id = gu.id
+                             LEFT JOIN users lu ON tu.users_id = lu.id
+                             WHERE tu.tickets_id = t.id AND tu.type = 2
+                             LIMIT 1)
+                         )) as assigned_name"),
+                DB::raw("CASE 
+                    WHEN t.status = 1 THEN 'Nuevo'
+                    WHEN t.status = 2 THEN 'En curso (asignado)'
+                    WHEN t.status = 3 THEN 'En curso (planificado)'
+                    WHEN t.status = 4 THEN 'En espera'
+                    WHEN t.status = 5 THEN 'Resuelto'
+                    WHEN t.status = 6 THEN 'Cerrado'
+                    ELSE 'Desconocido'
+                END as status_name"),
+                DB::raw("CASE 
+                    WHEN t.priority = 1 THEN 'Muy baja'
+                    WHEN t.priority = 2 THEN 'Baja'
+                    WHEN t.priority = 3 THEN 'Media'
+                    WHEN t.priority = 4 THEN 'Alta'
+                    WHEN t.priority = 5 THEN 'Muy alta'
+                    WHEN t.priority = 6 THEN 'Urgente'
+                    ELSE 'Media'
+                END as priority_name")
+            )
+            ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
+            ->where('t.is_deleted', 0);
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('t.name', 'LIKE', "%{$search}%")
+                  ->orWhere('t.id', 'LIKE', "%{$search}%")
+                  ->orWhere('e.name', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($statusFilter !== '') {
+            $query->where('t.status', $statusFilter);
+        }
+        if ($priorityFilter !== '') {
+            $query->where('t.priority', $priorityFilter);
+        }
+        if ($categoryFilter !== '') {
+            $query->where('t.itilcategories_id', $categoryFilter);
+        }
+        if ($assignedFilter !== '') {
+            $query->where(function ($q) use ($assignedFilter) {
+                $q->whereExists(function ($sub) use ($assignedFilter) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_itilsolutions')
+                        ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                        ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                        ->where('glpi_itilsolutions.users_id', $assignedFilter);
+                })->orWhere(function ($sub) use ($assignedFilter) {
+                    $sub->whereExists(function ($inner) use ($assignedFilter) {
+                        $inner->select(DB::raw(1))
+                              ->from('glpi_tickets_users')
+                              ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                              ->where('glpi_tickets_users.type', 2)
+                              ->where('glpi_tickets_users.users_id', $assignedFilter);
+                    })->whereNotExists(function ($inner) {
+                        $inner->select(DB::raw(1))
+                              ->from('glpi_itilsolutions')
+                              ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                              ->where('glpi_itilsolutions.itemtype', 'Ticket');
+                    });
+                });
+            });
+        }
+        if ($dateFrom && $dateFrom !== '') {
+            $query->where('t.date', '>=', $dateFrom . ' 00:00:00');
+        }
+        if ($dateTo && $dateTo !== '') {
+            $query->where('t.date', '<=', $dateTo . ' 23:59:59');
+        }
+
+        // Filtros especiales
+        if ($specialFilter === 'unassigned') {
+            $query->where('t.status', 1)
+                  ->whereNotExists(function ($q) {
+                      $q->select(DB::raw(1))
+                        ->from('glpi_tickets_users')
+                        ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                        ->where('glpi_tickets_users.type', 2);
+                  });
+        } elseif ($specialFilter === 'my_cases') {
+            $user = auth()->user();
+            $glpiUser = DB::table('glpi_users')->where('name', $user->username ?? $user->name)->first();
+            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            $query->whereExists(function ($q) use ($glpiUserId) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2)
+                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->where('t.status', '!=', 6);
+        } elseif ($specialFilter === 'my_pending') {
+            $user = auth()->user();
+            $glpiUser = DB::table('glpi_users')->where('name', $user->username ?? $user->name)->first();
+            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            $query->whereExists(function ($q) use ($glpiUserId) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2)
+                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->whereNotIn('t.status', [5, 6]);
+        } elseif ($specialFilter === 'my_resolved') {
+            $user = auth()->user();
+            $glpiUser = DB::table('glpi_users')->where('name', $user->username ?? $user->name)->first();
+            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            $query->whereExists(function ($q) use ($glpiUserId) {
+                $q->select(DB::raw(1))
+                  ->from('glpi_tickets_users')
+                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                  ->where('glpi_tickets_users.type', 2)
+                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->whereIn('t.status', [5, 6]);
+        }
+
+        $tickets = $query->orderBy($orderByField, $sortDirection)->get();
+
+        // Crear Excel
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Casos');
+
+        // Propiedades del documento
+        $spreadsheet->getProperties()
+            ->setCreator('HelpDesk HUV')
+            ->setTitle('Listado de Casos')
+            ->setSubject('Exportación de casos de soporte');
+
+        // Encabezado
+        $sheet->setCellValue('A1', 'HELPDESK HUV - LISTADO DE CASOS');
+        $sheet->mergeCells('A1:I1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A2', 'Hospital Universitario del Valle - Gestión de Soporte');
+        $sheet->mergeCells('A2:I2');
+        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A3', 'Generado: ' . date('d/m/Y H:i'));
+        $sheet->mergeCells('A3:I3');
+        $sheet->getStyle('A3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        // Headers de tabla
+        $row = 5;
+        $headers = ['ID', 'Título', 'Estado', 'Prioridad', 'Entidad', 'Categoría', 'Solicitante', 'Asignado a', 'Fecha Apertura', 'Última Actualización'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue("{$col}{$row}", $header);
+            $col++;
+        }
+        $sheet->getStyle("A{$row}:J{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$row}:J{$row}")->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('2c4370');
+        $sheet->getStyle("A{$row}:J{$row}")->getFont()->getColor()->setRGB('FFFFFF');
+
+        // Datos
+        $row++;
+        foreach ($tickets as $ticket) {
+            $sheet->setCellValue("A{$row}", $ticket->id);
+            $sheet->setCellValue("B{$row}", $ticket->name ?? '-');
+            $sheet->setCellValue("C{$row}", $ticket->status_name ?? '-');
+            $sheet->setCellValue("D{$row}", $ticket->priority_name ?? '-');
+            $sheet->setCellValue("E{$row}", $ticket->entity_name ?? '-');
+            $sheet->setCellValue("F{$row}", $ticket->category_name ?? '-');
+            $sheet->setCellValue("G{$row}", $ticket->requester_name ?? '-');
+            $sheet->setCellValue("H{$row}", $ticket->assigned_name ?? '-');
+            $sheet->setCellValue("I{$row}", $ticket->date ? date('d/m/Y H:i', strtotime($ticket->date)) : '-');
+            $sheet->setCellValue("J{$row}", $ticket->date_mod ? date('d/m/Y H:i', strtotime($ticket->date_mod)) : '-');
+            $row++;
+        }
+
+        // Anchos de columna fijos (evitar autosize que es muy lento)
+        $sheet->getColumnDimension('A')->setWidth(8);   // ID
+        $sheet->getColumnDimension('B')->setWidth(50);  // Título
+        $sheet->getColumnDimension('C')->setWidth(18);  // Estado
+        $sheet->getColumnDimension('D')->setWidth(12);  // Prioridad
+        $sheet->getColumnDimension('E')->setWidth(20);  // Entidad
+        $sheet->getColumnDimension('F')->setWidth(25);  // Categoría
+        $sheet->getColumnDimension('G')->setWidth(25);  // Solicitante
+        $sheet->getColumnDimension('H')->setWidth(25);  // Asignado
+        $sheet->getColumnDimension('I')->setWidth(18);  // Fecha Apertura
+        $sheet->getColumnDimension('J')->setWidth(18);  // Última Actualización
+
+        // Generar archivo
+        $filename = 'Casos_HelpDesk_' . date('Y-m-d_His') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
     public function create()
     {
         // Obtener usuarios activos de Laravel con su glpi_user_id
@@ -680,6 +938,22 @@ class TicketController extends Controller
                 ];
             });
 
+        // Obtener solución del caso (si existe)
+        $solution = DB::table('glpi_itilsolutions')
+            ->select(
+                'glpi_itilsolutions.id',
+                'glpi_itilsolutions.content',
+                'glpi_itilsolutions.date_creation',
+                'glpi_itilsolutions.users_id',
+                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as solved_by")
+            )
+            ->leftJoin('glpi_users as gu', 'glpi_itilsolutions.users_id', '=', 'gu.id')
+            ->leftJoin('users as lu', 'glpi_itilsolutions.users_id', '=', 'lu.glpi_user_id')
+            ->where('glpi_itilsolutions.itemtype', 'Ticket')
+            ->where('glpi_itilsolutions.items_id', $id)
+            ->orderBy('glpi_itilsolutions.id', 'desc')
+            ->first();
+
         // Obtener archivos adjuntos
         $attachments = [];
         
@@ -727,6 +1001,7 @@ class TicketController extends Controller
             'technician' => $technician,
             'ticketItems' => $ticketItems,
             'attachments' => $attachments,
+            'solution' => $solution,
             'auth' => [
                 'user' => auth()->user()
             ]
@@ -833,6 +1108,22 @@ class TicketController extends Controller
             }
         }
 
+        // Obtener solución del caso (si existe)
+        $solution = DB::table('glpi_itilsolutions')
+            ->select(
+                'glpi_itilsolutions.id',
+                'glpi_itilsolutions.content',
+                'glpi_itilsolutions.date_creation',
+                'glpi_itilsolutions.users_id',
+                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as solved_by")
+            )
+            ->leftJoin('glpi_users as gu', 'glpi_itilsolutions.users_id', '=', 'gu.id')
+            ->leftJoin('users as lu', 'glpi_itilsolutions.users_id', '=', 'lu.glpi_user_id')
+            ->where('glpi_itilsolutions.itemtype', 'Ticket')
+            ->where('glpi_itilsolutions.items_id', $id)
+            ->orderBy('glpi_itilsolutions.id', 'desc')
+            ->first();
+
         return Inertia::render('soporte/editar-caso', [
             'ticket' => $ticket,
             'ticketUsers' => $ticketUsers,
@@ -842,6 +1133,7 @@ class TicketController extends Controller
             'users' => $users,
             'itemTypes' => $itemTypes,
             'attachments' => $attachments,
+            'solution' => $solution,
             'auth' => [
                 'user' => auth()->user()
             ]

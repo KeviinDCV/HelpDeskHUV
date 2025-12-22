@@ -23,9 +23,17 @@ interface Ticket {
     category_name: string | null;
 }
 
+interface Solution {
+    id: number;
+    content: string;
+    date_creation: string;
+    solved_by: string | null;
+}
+
 interface TicketDetail extends Ticket {
     location_name: string | null;
     assigned_tech: string | null;
+    solution: Solution | null;
 }
 
 interface Technician {
@@ -487,6 +495,20 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Descripción</h4>
                                     <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 p-4 border border-gray-200" dangerouslySetInnerHTML={{ __html: detailModal.ticket.content }} />
                                 </div>
+
+                                {/* Solución del caso */}
+                                {detailModal.ticket.solution && (
+                                    <div className="border-t pt-4">
+                                        <h4 className="text-sm font-semibold text-green-700 mb-2">Solución</h4>
+                                        <div className="bg-green-50 p-4 border border-green-200">
+                                            <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: detailModal.ticket.solution.content }} />
+                                            <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
+                                                <span>Resuelto por: <strong>{detailModal.ticket.solution.solved_by || 'Usuario del sistema'}</strong></span>
+                                                <span>{new Date(detailModal.ticket.solution.date_creation).toLocaleString('es-CO')}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="flex justify-end gap-2 pt-4 border-t">
                                     <Button variant="outline" onClick={() => setDetailModal({ open: false, ticket: null, loading: false })}>

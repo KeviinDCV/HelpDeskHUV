@@ -50,12 +50,21 @@ interface Attachment {
     glpi_id?: number;
 }
 
+interface Solution {
+    id: number;
+    content: string;
+    date_creation: string;
+    users_id: number;
+    solved_by: string | null;
+}
+
 interface VerCasoProps {
     ticket: Ticket;
     requester: Person | null;
     technician: Person | null;
     ticketItems: TicketItem[];
     attachments: Attachment[];
+    solution: Solution | null;
     auth: { user: { name: string; role: string } };
 }
 
@@ -87,7 +96,7 @@ const itemTypeLabels: Record<string, string> = {
     'Enclosure': 'Gabinete',
 };
 
-export default function VerCaso({ ticket, requester, technician, ticketItems, attachments }: VerCasoProps) {
+export default function VerCaso({ ticket, requester, technician, ticketItems, attachments, solution: existingSolution }: VerCasoProps) {
     const [showSolution, setShowSolution] = useState(false);
     const [solution, setSolution] = useState('');
     const [processing, setProcessing] = useState(false);
@@ -293,6 +302,25 @@ export default function VerCaso({ ticket, requester, technician, ticketItems, at
                                             {stripHtml(ticket.content)}
                                         </div>
                                     </div>
+
+                                    {/* Solución (si existe) */}
+                                    {existingSolution && (
+                                        <div className="md:col-span-4">
+                                            <Label className="text-xs text-gray-500 flex items-center gap-1">
+                                                <Wrench className="w-3 h-3" />
+                                                Solución del Caso
+                                            </Label>
+                                            <div className="mt-1 p-3 bg-green-50 rounded border border-green-200">
+                                                <div className="text-sm whitespace-pre-wrap text-gray-700">
+                                                    {stripHtml(existingSolution.content)}
+                                                </div>
+                                                <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
+                                                    <span>Resuelto por: <strong>{existingSolution.solved_by || 'Usuario del sistema'}</strong></span>
+                                                    <span>{formatDate(existingSolution.date_creation)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Elementos Asociados */}
                                     {ticketItems.length > 0 && (

@@ -80,6 +80,14 @@ interface Attachment {
     size: number;
 }
 
+interface Solution {
+    id: number;
+    content: string;
+    date_creation: string;
+    users_id: number;
+    solved_by: string | null;
+}
+
 interface EditTicketProps {
     ticket: Ticket;
     ticketUsers: TicketUser[];
@@ -89,12 +97,13 @@ interface EditTicketProps {
     categories: Category[];
     itemTypes: ItemType[];
     attachments: Attachment[];
+    solution: Solution | null;
     auth: {
         user: User;
     };
 }
 
-export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, locations, categories, itemTypes, attachments, auth }: EditTicketProps) {
+export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, locations, categories, itemTypes, attachments, solution, auth }: EditTicketProps) {
     // Inicializar con datos existentes
     const currentRequesterId = ticketUsers.find(tu => tu.type === 1)?.users_id;
     const currentObserverIds = ticketUsers.filter(tu => tu.type === 3).map(tu => tu.users_id);
@@ -515,6 +524,20 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                             className="mt-1 h-8 text-xs"
                                         />
                                     </div>
+
+                                    {/* Solución existente (solo lectura) */}
+                                    {solution && (
+                                        <div className="md:col-span-4">
+                                            <Label className="text-xs flex items-center gap-1 text-green-700">Solución del Caso</Label>
+                                            <div className="mt-1 p-3 bg-green-50 rounded border border-green-200">
+                                                <div className="text-sm whitespace-pre-wrap text-gray-700" dangerouslySetInnerHTML={{ __html: solution.content }} />
+                                                <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
+                                                    <span>Resuelto por: <strong>{solution.solved_by || 'Usuario del sistema'}</strong></span>
+                                                    <span>{solution.date_creation ? new Date(solution.date_creation).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Descripción y Adjuntos en paralelo */}
                                     <div className="md:col-span-3">

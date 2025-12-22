@@ -124,6 +124,23 @@ class DashboardController extends Controller
 
         $ticket->assigned_tech = $assignedTech ? $assignedTech->name : null;
 
+        // Obtener solución del caso (si existe)
+        $solution = DB::table('glpi_itilsolutions')
+            ->select(
+                'glpi_itilsolutions.id',
+                'glpi_itilsolutions.content',
+                'glpi_itilsolutions.date_creation',
+                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as solved_by")
+            )
+            ->leftJoin('glpi_users as gu', 'glpi_itilsolutions.users_id', '=', 'gu.id')
+            ->leftJoin('users as lu', 'glpi_itilsolutions.users_id', '=', 'lu.glpi_user_id')
+            ->where('glpi_itilsolutions.itemtype', 'Ticket')
+            ->where('glpi_itilsolutions.items_id', $id)
+            ->orderBy('glpi_itilsolutions.id', 'desc')
+            ->first();
+
+        $ticket->solution = $solution;
+
         return response()->json($ticket);
     }
 

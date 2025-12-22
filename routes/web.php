@@ -104,6 +104,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // Rutas de Soporte
     Route::get('/soporte/casos', [App\Http\Controllers\TicketController::class, 'index'])->name('soporte.casos');
+    Route::get('/soporte/casos/export', [App\Http\Controllers\TicketController::class, 'export'])->name('soporte.casos.export');
     Route::get('/soporte/crear-caso', [App\Http\Controllers\TicketController::class, 'create'])->name('soporte.crear-caso');
     Route::post('/soporte/casos', [App\Http\Controllers\TicketController::class, 'store'])->name('soporte.casos.store');
     Route::get('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'show'])->name('soporte.casos.show');
