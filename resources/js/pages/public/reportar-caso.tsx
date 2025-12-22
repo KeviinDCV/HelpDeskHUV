@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
+import Snowfall from 'react-snowfall';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -55,6 +56,20 @@ export default function ReportarCaso() {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const sendButtonRef = useRef<HTMLButtonElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    
+    // Custom snowflake images
+    const snowflakeImages = useRef<HTMLImageElement[]>([]);
+    
+    useEffect(() => {
+        // Create snowflake images
+        const snowflake1 = new Image();
+        snowflake1.src = '/images/snowflake1.svg';
+        
+        const snowflake2 = new Image();
+        snowflake2.src = '/images/snowflake2.svg';
+        
+        snowflakeImages.current = [snowflake1, snowflake2];
+    }, []);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -359,7 +374,19 @@ export default function ReportarCaso() {
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
-            <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden">
+            <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden relative">
+                {/* Snowfall effect */}
+                <Snowfall 
+                    snowflakeCount={50}
+                    images={snowflakeImages.current}
+                    style={{ 
+                        position: 'fixed',
+                        width: '100vw',
+                        height: '100vh',
+                        pointerEvents: 'none',
+                        zIndex: 10
+                    }}
+                />
                 {/* Header */}
                 <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
                     <img 
@@ -374,9 +401,12 @@ export default function ReportarCaso() {
                 </header>
 
                 {/* Main Content */}
-                <main className="w-full max-w-6xl flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 flex-1 min-h-0 overflow-hidden">
+                <main className="w-full max-w-6xl flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 flex-1 min-h-0">
                     {/* Chat Section */}
-                    <section className="flex-1 lg:flex-none lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100 min-h-0">
+                    <div className="flex-1 lg:flex-none lg:col-span-8 relative min-h-0">
+                        {/* Santa Hat - Outside the card */}
+                        <img src="/images/gorro.webp" alt="Santa Hat" className="absolute -top-6 -right-6 w-20 h-20 sm:w-24 sm:h-24 z-50 transform rotate-12" />
+                    <section className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100 h-full">
                         {/* Chat Header */}
                         <div id="chat-header" className="bg-[#2d3e5e] p-4 flex items-center justify-between z-10">
                             <div className="flex items-center space-x-3">
@@ -462,9 +492,12 @@ export default function ReportarCaso() {
                             <p className="text-[10px] text-slate-300 text-center mt-1.5 sm:mt-2 hidden sm:block">Presiona Enter para enviar</p>
                         </div>
                     </section>
+                    </div>
 
                     {/* Summary Panel */}
-                    <aside id="summary-panel" className="lg:order-none shrink-0 lg:flex-1 lg:col-span-4 flex flex-col lg:h-full">
+                    <aside id="summary-panel" className="lg:order-none shrink-0 lg:flex-1 lg:col-span-4 flex flex-col lg:h-full relative">
+                        {/* Santa Hat - Outside the card */}
+                        <img src="/images/gorro.webp" alt="Santa Hat" className="absolute -top-13 -right-12 w-20 h-20 sm:w-24 sm:h-24 z-50 transform rotate-25" />
                         <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col h-full border border-slate-100 overflow-hidden">
                             {/* Summary Header */}
                             <div className="p-3 sm:p-4 lg:p-5 bg-[#2d3e5e] shrink-0">
