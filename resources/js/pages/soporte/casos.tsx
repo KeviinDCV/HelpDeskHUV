@@ -194,7 +194,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
     // Confirmar resolución
     const confirmSolve = () => {
-        if (!ticketToSolve || !solution.trim()) return;
+        if (!ticketToSolve || !solution.trim()) {
+            console.log('confirmSolve blocked:', { ticketToSolve, solution: solution.trim() });
+            return;
+        }
         setSolving(true);
         router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
             solution: solution.trim(),
@@ -207,8 +210,14 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 setTicketToSolve(null);
                 setSolution('');
                 setSolveDate('');
+                // Recargar la página para ver los cambios
+                router.reload();
             },
-            onError: () => {
+            onError: (errors) => {
+                setSolving(false);
+                console.error('Error al resolver:', errors);
+            },
+            onFinish: () => {
                 setSolving(false);
             }
         });
