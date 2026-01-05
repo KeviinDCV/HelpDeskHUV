@@ -175,15 +175,15 @@ class TicketController extends Controller
         }
         
         if ($categoryFilter !== '') {
-            // Obtener el completename de la categoría seleccionada
-            $selectedCategory = DB::table('glpi_itilcategories')
+            // Obtener el name de la categoría seleccionada
+            $selectedCategoryName = DB::table('glpi_itilcategories')
                 ->where('id', $categoryFilter)
-                ->value('completename');
+                ->value('name');
             
-            if ($selectedCategory) {
-                // Buscar TODOS los IDs que tengan el mismo completename (para manejar duplicados en GLPI)
+            if ($selectedCategoryName) {
+                // Buscar TODOS los IDs que tengan el mismo name (para unificar duplicados en GLPI)
                 $categoryIds = DB::table('glpi_itilcategories')
-                    ->where('completename', $selectedCategory)
+                    ->where('name', $selectedCategoryName)
                     ->pluck('id')
                     ->toArray();
                 
@@ -300,18 +300,18 @@ class TicketController extends Controller
                 'filter' => $specialFilter,
             ], fn($value) => $value !== '' && $value !== null));
         
-        // Obtener categorías para el filtro (agrupadas por completename para evitar duplicados)
+        // Obtener categorías para el filtro (agrupadas por name para unificar duplicados de GLPI)
         $categories = DB::table('glpi_itilcategories')
             ->select(
                 DB::raw('MIN(id) as id'),
-                DB::raw('MIN(name) as name'),
-                'completename'
+                'name',
+                DB::raw('MIN(completename) as completename')
             )
             ->where('is_incident', 1)
-            ->whereNotNull('completename')
-            ->where('completename', '!=', '')
-            ->groupBy('completename')
-            ->orderBy('completename')
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->groupBy('name')
+            ->orderBy('name')
             ->get();
         
         // Obtener técnicos de la tabla users de Laravel (Técnicos y Administradores activos)
