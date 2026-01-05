@@ -175,7 +175,22 @@ class TicketController extends Controller
         }
         
         if ($categoryFilter !== '') {
-            $query->where('t.itilcategories_id', $categoryFilter);
+            // Obtener el completename de la categoría seleccionada
+            $selectedCategory = DB::table('glpi_itilcategories')
+                ->where('id', $categoryFilter)
+                ->value('completename');
+            
+            if ($selectedCategory) {
+                // Buscar TODOS los IDs que tengan el mismo completename (para manejar duplicados en GLPI)
+                $categoryIds = DB::table('glpi_itilcategories')
+                    ->where('completename', $selectedCategory)
+                    ->pluck('id')
+                    ->toArray();
+                
+                $query->whereIn('t.itilcategories_id', $categoryIds);
+            } else {
+                $query->where('t.itilcategories_id', $categoryFilter);
+            }
         }
         
         if ($assignedFilter !== '') {
@@ -285,10 +300,17 @@ class TicketController extends Controller
                 'filter' => $specialFilter,
             ], fn($value) => $value !== '' && $value !== null));
         
-        // Obtener categorías para el filtro
+        // Obtener categorías para el filtro (agrupadas por completename para evitar duplicados)
         $categories = DB::table('glpi_itilcategories')
-            ->select('id', 'name', 'completename')
+            ->select(
+                DB::raw('MIN(id) as id'),
+                DB::raw('MIN(name) as name'),
+                'completename'
+            )
             ->where('is_incident', 1)
+            ->whereNotNull('completename')
+            ->where('completename', '!=', '')
+            ->groupBy('completename')
             ->orderBy('completename')
             ->get();
         
