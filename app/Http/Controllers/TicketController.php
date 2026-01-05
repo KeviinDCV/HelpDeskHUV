@@ -181,13 +181,23 @@ class TicketController extends Controller
                 ->value('name');
             
             if ($selectedCategoryName) {
-                // Buscar TODOS los IDs que tengan el mismo name (para unificar duplicados en GLPI)
-                $categoryIds = DB::table('glpi_itilcategories')
-                    ->where('name', $selectedCategoryName)
-                    ->pluck('id')
-                    ->toArray();
+                // Buscar TODOS los IDs que contengan TODAS las palabras del nombre en el completename
+                // Esto unifica "Mantenimiento Preventivo" con "Hardware > Mantenimiento > Preventivo"
+                $words = preg_split('/\s+/', trim($selectedCategoryName));
                 
-                $query->whereIn('t.itilcategories_id', $categoryIds);
+                $categoryQuery = DB::table('glpi_itilcategories');
+                foreach ($words as $word) {
+                    if (strlen($word) > 2) { // Ignorar palabras muy cortas
+                        $categoryQuery->where('completename', 'LIKE', '%' . $word . '%');
+                    }
+                }
+                $categoryIds = $categoryQuery->pluck('id')->toArray();
+                
+                if (!empty($categoryIds)) {
+                    $query->whereIn('t.itilcategories_id', $categoryIds);
+                } else {
+                    $query->where('t.itilcategories_id', $categoryFilter);
+                }
             } else {
                 $query->where('t.itilcategories_id', $categoryFilter);
             }
