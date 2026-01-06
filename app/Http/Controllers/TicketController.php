@@ -1114,11 +1114,18 @@ class TicketController extends Controller
             ->orderBy(DB::raw("SUBSTRING_INDEX(completename, ' > ', -1)"))
             ->get();
 
-        // Obtener categorías de GLPI
+        // Obtener categorías de GLPI (agrupadas por name para unificar duplicados)
         $categories = DB::table('glpi_itilcategories')
-            ->select('id', 'name', 'completename')
+            ->select(
+                DB::raw('MIN(id) as id'),
+                'name',
+                DB::raw('MIN(completename) as completename')
+            )
             ->where('is_incident', 1)
-            ->orderBy('completename')
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->groupBy('name')
+            ->orderBy('name')
             ->get();
 
         // Obtener usuarios de Laravel con glpi_user_id para asignar
