@@ -460,7 +460,30 @@ class TicketController extends Controller
             $query->where('t.priority', $priorityFilter);
         }
         if ($categoryFilter !== '') {
-            $query->where('t.itilcategories_id', $categoryFilter);
+            // Usar la misma lógica de búsqueda por palabras que en index()
+            $selectedCategoryName = DB::table('glpi_itilcategories')
+                ->where('id', $categoryFilter)
+                ->value('name');
+            
+            if ($selectedCategoryName) {
+                $words = preg_split('/\s+/', trim($selectedCategoryName));
+                
+                $categoryQuery = DB::table('glpi_itilcategories');
+                foreach ($words as $word) {
+                    if (strlen($word) > 2) {
+                        $categoryQuery->where('completename', 'LIKE', '%' . $word . '%');
+                    }
+                }
+                $categoryIds = $categoryQuery->pluck('id')->toArray();
+                
+                if (!empty($categoryIds)) {
+                    $query->whereIn('t.itilcategories_id', $categoryIds);
+                } else {
+                    $query->where('t.itilcategories_id', $categoryFilter);
+                }
+            } else {
+                $query->where('t.itilcategories_id', $categoryFilter);
+            }
         }
         if ($assignedFilter !== '') {
             $query->where(function ($q) use ($assignedFilter) {
