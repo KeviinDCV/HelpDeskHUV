@@ -449,7 +449,7 @@ PROMPT;
 
             $categoryList = implode("\n", array_map(
                 fn($c) => "- {$c['id']}: {$c['fullname']}",
-                array_slice($categories, 0, 25)
+                $categories // Enviar todas las categorías para que la IA encuentre la correcta
             ));
 
             // PASO 1: Usar IA para analizar el problema y determinar tipo de dispositivo + categoría
@@ -460,31 +460,28 @@ DATOS DEL REPORTE:
 - Título: {$data['name']}
 - Descripción: {$data['content']}
 - Área/Servicio del usuario: {$data['reporter_service']}
-- Tipo dispositivo indicado: {$data['device_type']}
 
-CATEGORÍAS DISPONIBLES:
+CATEGORÍAS DISPONIBLES (busca la más apropiada por nombre):
 {$categoryList}
 
-TIPOS DE DISPOSITIVO VÁLIDOS:
-- Computer (computador, PC, equipo, software, SAP, programa, sistema, red, internet, wifi)
+TIPOS DE DISPOSITIVO:
+- Computer (PC, software, SAP, programa, sistema)
 - Printer (impresora, toner, atasco papel, no imprime)
 - Monitor (pantalla, monitor)
 - Phone (teléfono, extensión, línea)
 - NetworkEquipment (switch, router, punto de acceso)
 
-INSTRUCCIONES:
-1. Analiza la descripción del problema para determinar el tipo de dispositivo CORRECTO
-2. Selecciona la categoría más apropiada basada en el problema
-3. Responde SOLO en este formato JSON exacto:
-{"device_type": "Computer|Printer|Monitor|Phone|NetworkEquipment", "category_id": [número]}
+REGLAS DE CLASIFICACIÓN:
+- Problemas de INTERNET/RED/WIFI/CONEXIÓN → Busca categoría que contenga "Redes" o "Red" (ej: "Redes > Equipo Sin Red")
+- Problemas de SOFTWARE/SAP/PROGRAMA → Busca categoría que contenga "Software"
+- Problemas de HARDWARE/NO ENCIENDE/LENTO → Busca categoría que contenga "Hardware"
+- Problemas de IMPRESORA → Busca categoría que contenga "Impresora"
+- Problemas de TELÉFONO → Busca categoría que contenga "Teléfono" o "Phone"
 
-Ejemplos:
-- "impresora atascada" → {"device_type": "Printer", "category_id": 12}
-- "no tengo internet" → {"device_type": "Computer", "category_id": 11}
-- "SAP no abre" → {"device_type": "Computer", "category_id": 6}
-- "teléfono sin tono" → {"device_type": "Phone", "category_id": 17}
+IMPORTANTE: El category_id debe ser un ID de la lista de CATEGORÍAS DISPONIBLES arriba.
 
-Responde SOLO el JSON:
+Responde SOLO en este formato JSON:
+{"device_type": "Computer|Printer|Monitor|Phone|NetworkEquipment", "category_id": [número de la lista]}
 PROMPT;
 
             $deviceType = $data['device_type'] ?? 'Computer';
