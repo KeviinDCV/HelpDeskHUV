@@ -52,10 +52,12 @@ class ChatbotController extends Controller
             for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
                 try {
                     $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
-                        'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                        'HTTP-Referer' => config('app.url'),
+                        'X-Title' => config('app.name'),
                         'Content-Type' => 'application/json',
-                    ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                        'model' => 'llama-3.3-70b-versatile',
+                    ])->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => 'z-ai/glm-4.5-air:free',
                         'messages' => $messages,
                         'temperature' => 0.1,
                         'max_tokens' => 500,
@@ -105,8 +107,8 @@ class ChatbotController extends Controller
                 ]);
             }
 
-            // Log del error de Groq para depuración
-            \Log::error('Groq API Error', [
+            // Log del error de OpenRouter para depuración
+            \Log::error('OpenRouter API Error', [
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
@@ -256,8 +258,8 @@ class ChatbotController extends Controller
         $ecomSample = array_slice($ecomList, 0, 15);
         $ecomListStr = implode(', ', $ecomSample);
 
-        // Crear lista de categorías
-        $categoryListStr = implode(", ", array_map(fn($c) => "{$c['id']}={$c['name']}", $categories));
+        // Crear lista de categorías COMPLETA con descripciones
+        $categoryListStr = implode("\n", array_map(fn($c) => "  - {$c['id']} = {$c['name']}", $categories));
 
         return <<<PROMPT
 Eres Evarisbot, asistente del Hospital Universitario del Valle para reportar problemas técnicos.
@@ -269,10 +271,14 @@ DATOS YA CAPTURADOS: {$currentDataStr}
 2. NUNCA pidas un dato que ya está en "DATOS YA CAPTURADOS"
 3. NUNCA pidas un dato que el usuario acaba de dar en su mensaje
 4. Si el usuario da múltiples datos, captúralos TODOS en el JSON
+5. GUARDA TODA la información que el usuario mencione sobre el problema - será analizada después
 
 === FORMATO OBLIGATORIO ===
+SIEMPRE que el usuario proporcione cualquier dato, debes responder con este formato EXACTO:
 {FIELDS}{"campo1": "valor1", "campo2": "valor2"}{/FIELDS}
 Mensaje breve aquí.
+
+IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye {FIELDS} con ese dato.
 
 === CAMPOS A CAPTURAR ===
 - reporter_name: Nombre (busca: "soy X", "me llamo X", "mi nombre es X", o cualquier nombre propio)
@@ -281,31 +287,38 @@ Mensaje breve aquí.
 - reporter_extension: Extensión (4 dígitos, busca: "ext", "extensión", números de 4 dígitos)
 - device_type: computer|printer|monitor|phone|network
 - equipment_ecom: Código ECOM (busca: "ecom" + números)
-- name: Título corto del problema
-- content: Descripción del problema
+- name: Título corto del problema (IMPORTANTE: captura la esencia del problema)
+- content: Descripción COMPLETA del problema (IMPORTANTE: incluye TODOS los detalles que mencione el usuario)
 - itilcategories_id: Ver sección CATEGORÍAS abajo
 - priority: 3 (siempre)
 
-=== CATEGORÍAS (itilcategories_id) - MUY IMPORTANTE ===
-11 = RED/INTERNET: sin internet, sin red, no conecta, wifi no funciona, cable de red, IP, red caída
-6 = SOFTWARE: SAP, Excel, Word, Servinte, correo, navegador, programa no abre, error de aplicación
-2 = HARDWARE: PC no enciende, lento, pantalla azul, teclado, mouse, memoria, disco duro físico
-12 = IMPRESIÓN: no imprime, impresora, toner, atasco papel, cola de impresión
-17 = TELÉFONO: teléfono no funciona, sin tono, extensión, llamadas
-1 = GENERAL: otros problemas no clasificados
+=== CATEGORÍAS DISPONIBLES (itilcategories_id) ===
+{$categoryListStr}
 
-PALABRAS CLAVE PARA RED (id=11):
-- "internet", "red", "wifi", "conexión", "conectar", "IP", "cable de red", "sin red", "no navega"
+=== GUÍA DE CLASIFICACIÓN DE CATEGORÍAS ===
+PALABRAS CLAVE → CATEGORÍA:
+- "internet", "red", "wifi", "conexión", "no conecta", "sin red", "IP", "cable de red" → Busca categoría de RED (probablemente 11)
+- "programa", "SAP", "Excel", "Word", "Servinte", "sistema", "aplicación", "no abre", "error" → Busca categoría de SOFTWARE (probablemente 6)
+- "no enciende", "apagado", "lento", "pantalla azul", "reinicia", "teclado", "mouse", "físico" → Busca categoría de HARDWARE (probablemente 2)
+- "impresora", "no imprime", "toner", "atasco", "papel", "cola de impresión" → Busca categoría de IMPRESIÓN (probablemente 12)
+- "teléfono", "extensión", "sin tono", "llamadas", "no suena" → Busca categoría de TELÉFONO (probablemente 17)
 
-PALABRAS CLAVE PARA SOFTWARE (id=6):
-- "programa", "aplicación", "SAP", "Excel", "Word", "Servinte", "sistema", "no abre", "error"
+=== CAPTURA DE INFORMACIÓN DEL PROBLEMA ===
+CRÍTICO: Cuando el usuario describa su problema, captura TODA la información en "content":
+- Qué está fallando exactamente
+- Cuándo empezó el problema
+- Qué mensajes de error aparecen
+- Qué intentó hacer el usuario
+- Cualquier detalle adicional
 
-PALABRAS CLAVE PARA HARDWARE (id=2):
-- "no enciende", "apagado", "lento", "pantalla azul", "reinicia solo", "teclado", "mouse", "físico"
+EJEMPLO CORRECTO:
+Usuario: "No me abre SAP, me sale un error de conexión desde ayer, ya reinicié el computador pero sigue igual"
+{FIELDS}{"name": "SAP no abre - error de conexión", "content": "El sistema SAP no abre, muestra error de conexión. El problema comenzó desde ayer. El usuario ya reinició el computador pero el problema persiste.", "device_type": "computer", "itilcategories_id": "6"}{/FIELDS}
+Entendido, problema con SAP. ¿Me dices tu nombre para crear el reporte?
 
-=== EXTRACCIÓN DE DATOS ===
+=== EXTRACCIÓN DE DATOS - EJEMPLOS ===
 EJEMPLO: "No tengo internet" o "sin red" o "no conecta a la red"
-{FIELDS}{"name": "Sin internet", "content": "El equipo no tiene conexión a internet", "device_type": "network", "itilcategories_id": "11"}{/FIELDS}
+{FIELDS}{"name": "Sin conexión a internet", "content": "El equipo no tiene conexión a internet/red", "device_type": "network", "itilcategories_id": "11"}{/FIELDS}
 Entendido, problema de red. ¿Me dices tu nombre para crear el reporte?
 
 EJEMPLO: "Soy María García, administrativa de Urgencias, extensión 1234, no me abre SAP"
@@ -349,6 +362,7 @@ MONITOR → device_type="monitor" → PEDIR ECOM del PC
 - SIEMPRE responde en español
 - SIEMPRE usa el formato {FIELDS}...{/FIELDS} primero
 - SIEMPRE extrae TODOS los datos posibles del mensaje
+- SIEMPRE captura la descripción COMPLETA del problema en "content"
 - NUNCA repitas preguntas sobre datos ya capturados
 - Mensajes CORTOS y directos (máximo 2 oraciones)
 - NO uses emojis ni decoraciones

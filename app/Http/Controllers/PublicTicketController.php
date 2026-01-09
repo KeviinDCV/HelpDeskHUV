@@ -39,17 +39,31 @@ class PublicTicketController extends Controller
             'itilcategories_id' => 'nullable',
         ]);
 
+        // ANÁLISIS PROFUNDO CON IA - Clasificar categoría y elemento correctamente
+        $analysis = $this->analyzeAndClassify($validated);
+        
         // Mejorar título y descripción con IA
         $improved = $this->improveWithAI($validated);
         
         // Buscar localización basada en el servicio/área del reportante
         $locationId = $this->findLocationId($validated['reporter_service']);
         
-        // Convertir campos a integer
+        // Usar la categoría del análisis profundo (más precisa) o la original
         $priority = (int) ($validated['priority'] ?? 3);
-        $categoryId = !empty($validated['itilcategories_id']) ? (int) $validated['itilcategories_id'] : 0;
+        $categoryId = $analysis['category_id'] ?? (!empty($validated['itilcategories_id']) ? (int) $validated['itilcategories_id'] : 0);
         
-        \Log::info('PublicTicket - Category ID', ['raw' => $validated['itilcategories_id'] ?? 'null', 'converted' => $categoryId]);
+        // Actualizar device_type si el análisis lo corrigió
+        if (!empty($analysis['device_type'])) {
+            $validated['device_type'] = $analysis['device_type'];
+        }
+        
+        \Log::info('PublicTicket - Analysis Result', [
+            'original_category' => $validated['itilcategories_id'] ?? 'null',
+            'analyzed_category' => $categoryId,
+            'device_type' => $validated['device_type'] ?? 'null',
+            'element_found' => $analysis['element_found'] ?? null,
+            'reasoning' => $analysis['reasoning'] ?? 'none'
+        ]);
         
         // Crear el ticket con datos mejorados
         $ticketId = DB::table('glpi_tickets')->insertGetId([
@@ -72,8 +86,22 @@ class PublicTicketController extends Controller
             'requesttypes_id' => 1, // Solicitud web
         ]);
 
-        // Vincular elemento (ECOM) al ticket si existe
-        if (!empty($validated['equipment_ecom'])) {
+        // Vincular elemento al ticket
+        // Prioridad: 1) Elemento encontrado en análisis, 2) Buscar por ECOM
+        if (!empty($analysis['element_found'])) {
+            // Usar el elemento ya encontrado y validado en el análisis
+            DB::table('glpi_items_tickets')->insert([
+                'tickets_id' => $ticketId,
+                'itemtype' => $analysis['element_found']['type'],
+                'items_id' => $analysis['element_found']['id'],
+            ]);
+            
+            \Log::info('PublicTicket - Element linked from analysis', [
+                'ticket_id' => $ticketId,
+                'element' => $analysis['element_found']
+            ]);
+        } elseif (!empty($validated['equipment_ecom'])) {
+            // Fallback: buscar por ECOM si no se encontró en el análisis
             $this->linkEquipmentToTicket($ticketId, $validated['equipment_ecom'], $validated['device_type'] ?? 'computer');
         }
 
@@ -122,10 +150,12 @@ PROMPT;
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                'HTTP-Referer' => config('app.url'),
+                'X-Title' => config('app.name'),
                 'Content-Type' => 'application/json',
-            ])->timeout(10)->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => 'llama-3.3-70b-versatile',
+            ])->timeout(15)->post('https://openrouter.ai/api/v1/chat/completions', [
+                'model' => 'z-ai/glm-4.5-air:free',
                 'messages' => [
                     ['role' => 'system', 'content' => 'Responde únicamente en JSON válido.'],
                     ['role' => 'user', 'content' => $prompt],
@@ -265,15 +295,17 @@ PROMPT;
 
     /**
      * Vincular un equipo (por ECOM) al ticket
+     * Busca en múltiples tablas según el tipo de dispositivo
      */
     private function linkEquipmentToTicket(int $ticketId, string $ecom, string $deviceType): void
     {
         try {
             // Limpiar y normalizar el ECOM
-            $ecom = strtoupper(trim($ecom));
-            $ecom = preg_replace('/[^A-Z0-9]/', '', $ecom);
+            $ecomOriginal = trim($ecom);
+            $ecomUpper = strtoupper($ecomOriginal);
+            $ecomClean = preg_replace('/[^A-Z0-9]/', '', $ecomUpper);
             
-            if (empty($ecom)) {
+            if (empty($ecomClean)) {
                 return;
             }
 
@@ -282,12 +314,15 @@ PROMPT;
 
             // Buscar según el tipo de dispositivo
             if (in_array($deviceType, ['computer', 'software', 'network'])) {
-                // Buscar en computadores
+                // Buscar en computadores - múltiples variantes
                 $computer = DB::table('glpi_computers')
                     ->where('is_deleted', 0)
-                    ->where(function($q) use ($ecom) {
-                        $q->where('name', 'LIKE', '%' . $ecom . '%')
-                          ->orWhere('name', 'LIKE', '%' . strtolower($ecom) . '%');
+                    ->where(function($q) use ($ecomClean, $ecomOriginal, $ecomUpper) {
+                        $q->where('name', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecomClean) . '%')
+                          ->orWhere('name', 'LIKE', '%' . $ecomOriginal . '%')
+                          ->orWhere('otherserial', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecomClean . '%');
                     })
                     ->first();
                 
@@ -299,9 +334,11 @@ PROMPT;
                 // Buscar en monitores
                 $monitor = DB::table('glpi_monitors')
                     ->where('is_deleted', 0)
-                    ->where(function($q) use ($ecom) {
-                        $q->where('name', 'LIKE', '%' . $ecom . '%')
-                          ->orWhere('serial', 'LIKE', '%' . $ecom . '%');
+                    ->where(function($q) use ($ecomClean, $ecomOriginal) {
+                        $q->where('name', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecomClean) . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('otherserial', 'LIKE', '%' . $ecomClean . '%');
                     })
                     ->first();
                 
@@ -313,15 +350,48 @@ PROMPT;
                 // Buscar en impresoras
                 $printer = DB::table('glpi_printers')
                     ->where('is_deleted', 0)
-                    ->where(function($q) use ($ecom) {
-                        $q->where('name', 'LIKE', '%' . $ecom . '%')
-                          ->orWhere('serial', 'LIKE', '%' . $ecom . '%');
+                    ->where(function($q) use ($ecomClean, $ecomOriginal) {
+                        $q->where('name', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecomClean) . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('otherserial', 'LIKE', '%' . $ecomClean . '%');
                     })
                     ->first();
                 
                 if ($printer) {
                     $itemType = 'Printer';
                     $itemId = $printer->id;
+                }
+            } elseif ($deviceType === 'phone') {
+                // Buscar en teléfonos
+                $phone = DB::table('glpi_phones')
+                    ->where('is_deleted', 0)
+                    ->where(function($q) use ($ecomClean, $ecomOriginal) {
+                        $q->where('name', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecomClean) . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecomClean . '%');
+                    })
+                    ->first();
+                
+                if ($phone) {
+                    $itemType = 'Phone';
+                    $itemId = $phone->id;
+                }
+            }
+
+            // Si no encontramos en el tipo específico, buscar en computadores como fallback
+            if (!$itemType && !in_array($deviceType, ['computer', 'software', 'network'])) {
+                $computer = DB::table('glpi_computers')
+                    ->where('is_deleted', 0)
+                    ->where(function($q) use ($ecomClean) {
+                        $q->where('name', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecomClean) . '%');
+                    })
+                    ->first();
+                
+                if ($computer) {
+                    $itemType = 'Computer';
+                    $itemId = $computer->id;
                 }
             }
 
@@ -337,12 +407,13 @@ PROMPT;
                     'ticket_id' => $ticketId,
                     'item_type' => $itemType,
                     'item_id' => $itemId,
-                    'ecom' => $ecom
+                    'ecom' => $ecomOriginal
                 ]);
             } else {
                 \Log::warning('PublicTicket - Equipment not found', [
                     'ticket_id' => $ticketId,
-                    'ecom' => $ecom,
+                    'ecom' => $ecomOriginal,
+                    'ecom_clean' => $ecomClean,
                     'device_type' => $deviceType
                 ]);
             }
@@ -353,5 +424,217 @@ PROMPT;
                 'error' => $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Análisis profundo con IA para clasificar categoría, tipo de dispositivo y elemento correctamente
+     * La IA analiza el contexto completo para determinar qué tipo de equipo y categoría corresponde
+     */
+    private function analyzeAndClassify(array $data): array
+    {
+        try {
+            // Obtener categorías disponibles
+            $categories = DB::table('glpi_itilcategories')
+                ->select('id', 'name', 'completename')
+                ->where('is_incident', 1)
+                ->where('is_helpdeskvisible', 1)
+                ->orderBy('completename')
+                ->get()
+                ->map(fn($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'fullname' => $c->completename
+                ])
+                ->toArray();
+
+            $categoryList = implode("\n", array_map(
+                fn($c) => "- {$c['id']}: {$c['fullname']}",
+                array_slice($categories, 0, 25)
+            ));
+
+            // PASO 1: Usar IA para analizar el problema y determinar tipo de dispositivo + categoría
+            $prompt = <<<PROMPT
+Analiza este reporte de soporte técnico hospitalario y clasifica correctamente.
+
+DATOS DEL REPORTE:
+- Título: {$data['name']}
+- Descripción: {$data['content']}
+- Área/Servicio del usuario: {$data['reporter_service']}
+- Tipo dispositivo indicado: {$data['device_type']}
+
+CATEGORÍAS DISPONIBLES:
+{$categoryList}
+
+TIPOS DE DISPOSITIVO VÁLIDOS:
+- Computer (computador, PC, equipo, software, SAP, programa, sistema, red, internet, wifi)
+- Printer (impresora, toner, atasco papel, no imprime)
+- Monitor (pantalla, monitor)
+- Phone (teléfono, extensión, línea)
+- NetworkEquipment (switch, router, punto de acceso)
+
+INSTRUCCIONES:
+1. Analiza la descripción del problema para determinar el tipo de dispositivo CORRECTO
+2. Selecciona la categoría más apropiada basada en el problema
+3. Responde SOLO en este formato JSON exacto:
+{"device_type": "Computer|Printer|Monitor|Phone|NetworkEquipment", "category_id": [número]}
+
+Ejemplos:
+- "impresora atascada" → {"device_type": "Printer", "category_id": 12}
+- "no tengo internet" → {"device_type": "Computer", "category_id": 11}
+- "SAP no abre" → {"device_type": "Computer", "category_id": 6}
+- "teléfono sin tono" → {"device_type": "Phone", "category_id": 17}
+
+Responde SOLO el JSON:
+PROMPT;
+
+            $deviceType = $data['device_type'] ?? 'Computer';
+            $categoryId = !empty($data['itilcategories_id']) ? (int) $data['itilcategories_id'] : 0;
+            $elementTable = 'Computer';
+
+            // Llamar a la IA para clasificación inteligente
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                'HTTP-Referer' => config('app.url'),
+                'X-Title' => config('app.name'),
+                'Content-Type' => 'application/json',
+            ])->timeout(15)->post('https://openrouter.ai/api/v1/chat/completions', [
+                'model' => 'z-ai/glm-4.5-air:free',
+                'messages' => [
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+                'temperature' => 0.1,
+                'max_tokens' => 100,
+            ]);
+
+            if ($response->successful()) {
+                $content = trim($response->json()['choices'][0]['message']['content'] ?? '');
+                \Log::info('PublicTicket - AI Classification Response', ['response' => $content]);
+                
+                // Extraer JSON de la respuesta
+                if (preg_match('/\{[^}]+\}/', $content, $jsonMatch)) {
+                    $parsed = json_decode($jsonMatch[0], true);
+                    if ($parsed) {
+                        // Actualizar tipo de dispositivo si la IA lo determinó
+                        if (!empty($parsed['device_type'])) {
+                            $deviceType = $parsed['device_type'];
+                        }
+                        // Actualizar categoría si la IA la determinó
+                        if (!empty($parsed['category_id'])) {
+                            $aiCategoryId = (int) $parsed['category_id'];
+                            if (collect($categories)->contains('id', $aiCategoryId)) {
+                                $categoryId = $aiCategoryId;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Mapear device_type a tabla de GLPI
+            $typeMapping = [
+                'Computer' => ['table' => 'glpi_computers', 'type' => 'Computer'],
+                'Printer' => ['table' => 'glpi_printers', 'type' => 'Printer'],
+                'Monitor' => ['table' => 'glpi_monitors', 'type' => 'Monitor'],
+                'Phone' => ['table' => 'glpi_phones', 'type' => 'Phone'],
+                'NetworkEquipment' => ['table' => 'glpi_networkequipments', 'type' => 'NetworkEquipment'],
+                // Compatibilidad con valores del chatbot
+                'computer' => ['table' => 'glpi_computers', 'type' => 'Computer'],
+                'printer' => ['table' => 'glpi_printers', 'type' => 'Printer'],
+                'monitor' => ['table' => 'glpi_monitors', 'type' => 'Monitor'],
+                'phone' => ['table' => 'glpi_phones', 'type' => 'Phone'],
+                'network' => ['table' => 'glpi_networkequipments', 'type' => 'NetworkEquipment'],
+            ];
+
+            $mapping = $typeMapping[$deviceType] ?? $typeMapping['Computer'];
+            $dbTable = $mapping['table'];
+            $elementTable = $mapping['type'];
+
+            \Log::info('PublicTicket - Device Type Resolved', [
+                'original' => $data['device_type'] ?? 'null',
+                'resolved' => $deviceType,
+                'elementTable' => $elementTable,
+                'dbTable' => $dbTable
+            ]);
+
+            // PASO 2: Buscar elemento por ECOM si existe
+            $foundElement = null;
+            if (!empty($data['equipment_ecom'])) {
+                $ecom = trim($data['equipment_ecom']);
+                $ecomClean = preg_replace('/[^A-Za-z0-9]/', '', $ecom);
+                
+                $element = DB::table($dbTable)
+                    ->select('id', 'name')
+                    ->where('is_deleted', 0)
+                    ->where(function($q) use ($ecomClean, $ecom) {
+                        $q->where('name', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('name', 'LIKE', '%' . strtolower($ecomClean) . '%')
+                          ->orWhere('serial', 'LIKE', '%' . $ecomClean . '%')
+                          ->orWhere('otherserial', 'LIKE', '%' . $ecomClean . '%');
+                    })
+                    ->first();
+                
+                if ($element) {
+                    $foundElement = [
+                        'id' => $element->id,
+                        'name' => $element->name,
+                        'type' => $elementTable
+                    ];
+                    \Log::info('PublicTicket - Element found by ECOM', ['element' => $foundElement]);
+                }
+            }
+
+            // PASO 3: Si no hay ECOM, buscar por ubicación/servicio del usuario
+            if (!$foundElement && !empty($data['reporter_service'])) {
+                $service = mb_strtolower(trim($data['reporter_service']));
+                
+                // Buscar elementos de este tipo cuya ubicación coincida con el servicio
+                $element = DB::table($dbTable . ' as e')
+                    ->leftJoin('glpi_locations as l', 'e.locations_id', '=', 'l.id')
+                    ->select('e.id', 'e.name', 'l.name as location', 'l.completename as location_full')
+                    ->where('e.is_deleted', 0)
+                    ->where(function($q) use ($service) {
+                        $q->whereRaw('LOWER(l.name) LIKE ?', ['%' . $service . '%'])
+                          ->orWhereRaw('LOWER(l.completename) LIKE ?', ['%' . $service . '%'])
+                          ->orWhereRaw('LOWER(e.name) LIKE ?', ['%' . $service . '%']);
+                    })
+                    ->first();
+                
+                if ($element) {
+                    $foundElement = [
+                        'id' => $element->id,
+                        'name' => $element->name,
+                        'type' => $elementTable,
+                        'location' => $element->location_full ?? $element->location
+                    ];
+                    \Log::info('PublicTicket - Element found by location', [
+                        'element' => $foundElement, 
+                        'service' => $service,
+                        'deviceType' => $elementTable
+                    ]);
+                }
+            }
+
+            $result = [
+                'category_id' => $categoryId,
+                'device_type' => $elementTable, // Usar el tipo normalizado (Computer, Printer, etc.)
+                'element_found' => $foundElement,
+                'reasoning' => $foundElement 
+                    ? "Tipo: {$elementTable}, Elemento: {$foundElement['name']}" 
+                    : "Tipo: {$elementTable}, sin elemento específico",
+            ];
+
+            \Log::info('PublicTicket - Analysis Complete', $result);
+            return $result;
+
+        } catch (\Exception $e) {
+            \Log::error('PublicTicket - Analysis Error', ['error' => $e->getMessage()]);
+        }
+
+        // Fallback
+        return [
+            'category_id' => !empty($data['itilcategories_id']) ? (int) $data['itilcategories_id'] : 0,
+            'device_type' => $data['device_type'] ?? 'Computer',
+            'element_found' => null,
+            'reasoning' => 'Fallback',
+        ];
     }
 }
