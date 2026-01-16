@@ -129,233 +129,237 @@ export default function Profile({ status, flash }: ProfileProps) {
                 } />
 
                 <main className="flex-1 px-6 py-6">
-                    <div className="max-w-2xl mx-auto">
-                        <div className="bg-white shadow">
-                            <div className="px-6 py-4 border-b">
-                                <h1 className="text-xl font-semibold text-gray-900">Mi Perfil</h1>
-                                <p className="text-sm text-gray-500 mt-1">Actualiza tu información personal</p>
-                            </div>
-
-                            {flash?.success && (
-                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
-                                    <p className="text-sm text-green-700">{flash.success}</p>
+                    <div className="max-w-6xl mx-auto">
+                        {/* Grid de 2 columnas */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Mi Perfil */}
+                            <div className="bg-white shadow">
+                                <div className="px-6 py-4 border-b">
+                                    <h1 className="text-xl font-semibold text-gray-900">Mi Perfil</h1>
+                                    <p className="text-sm text-gray-500 mt-1">Actualiza tu información personal</p>
                                 </div>
-                            )}
 
-                            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                                {/* Avatar */}
-                                <div className="flex items-center gap-6">
-                                    <div className="relative">
-                                        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                                            {avatarPreview ? (
-                                                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <User className="w-12 h-12 text-gray-400" />
-                                            )}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="absolute bottom-0 right-0 w-8 h-8 bg-[#2c4370] text-white rounded-full flex items-center justify-center shadow-md hover:bg-[#3d5583] transition-colors"
-                                        >
-                                            <Camera className="w-4 h-4" />
-                                        </button>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleAvatarChange}
-                                            className="hidden"
-                                        />
+                                {flash?.success && (
+                                    <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
+                                        <p className="text-sm text-green-700">{flash.success}</p>
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-gray-900">{user.name}</p>
-                                        <p className="text-sm text-gray-500">{user.role}</p>
-                                        <p className="text-xs text-gray-400 mt-1">@{user.username}</p>
-                                    </div>
-                                </div>
-                                {errors.avatar && <p className="text-sm text-red-600">{errors.avatar}</p>}
+                                )}
 
-                                {/* Nombre */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="name" className="flex items-center gap-2">
-                                        <User className="w-4 h-4 text-gray-400" />
-                                        Nombre Completo
-                                    </Label>
-                                    <Input
-                                        id="name"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        placeholder="Tu nombre completo"
-                                        required
-                                    />
-                                    {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
-                                </div>
-
-                                {/* Email */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="flex items-center gap-2">
-                                        <Mail className="w-4 h-4 text-gray-400" />
-                                        Correo Electrónico
-                                    </Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="tu@email.com"
-                                        required
-                                    />
-                                    {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
-                                </div>
-
-                                {/* Teléfono */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="phone" className="flex items-center gap-2">
-                                        <Phone className="w-4 h-4 text-gray-400" />
-                                        Teléfono
-                                    </Label>
-                                    <Input
-                                        id="phone"
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        placeholder="Ej: 3001234567"
-                                    />
-                                    {errors.phone && <p className="text-sm text-red-600">{errors.phone}</p>}
-                                </div>
-
-                                {/* Info de solo lectura */}
-                                <div className="pt-4 border-t space-y-3">
-                                    <p className="text-xs text-gray-500 uppercase font-semibold">Información de la cuenta</p>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span className="text-gray-500">Usuario:</span>
-                                            <span className="ml-2 font-medium">{user.username}</span>
+                                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                                    {/* Avatar */}
+                                    <div className="flex items-center gap-6">
+                                        <div className="relative">
+                                            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                                                {avatarPreview ? (
+                                                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <User className="w-12 h-12 text-gray-400" />
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="absolute bottom-0 right-0 w-8 h-8 bg-[#2c4370] text-white rounded-full flex items-center justify-center shadow-md hover:bg-[#3d5583] transition-colors"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                            </button>
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleAvatarChange}
+                                                className="hidden"
+                                            />
                                         </div>
                                         <div>
-                                            <span className="text-gray-500">Rol:</span>
-                                            <span className="ml-2 font-medium">{user.role}</span>
+                                            <p className="font-medium text-gray-900">{user.name}</p>
+                                            <p className="text-sm text-gray-500">{user.role}</p>
+                                            <p className="text-xs text-gray-400 mt-1">@{user.username}</p>
                                         </div>
                                     </div>
-                                </div>
+                                    {errors.avatar && <p className="text-sm text-red-600">{errors.avatar}</p>}
 
-                                {/* Botón guardar */}
-                                <div className="pt-4 flex justify-end">
-                                    <Button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
-                                    >
-                                        {processing ? 'Guardando...' : 'Guardar Cambios'}
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
+                                    {/* Nombre */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name" className="flex items-center gap-2">
+                                            <User className="w-4 h-4 text-gray-400" />
+                                            Nombre Completo
+                                        </Label>
+                                        <Input
+                                            id="name"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="Tu nombre completo"
+                                            required
+                                        />
+                                        {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
+                                    </div>
 
-                        {/* Sección de cambio de contraseña */}
-                        <div className="bg-white shadow mt-6">
-                            <div className="px-6 py-4 border-b">
-                                <h2 className="text-xl font-semibold text-gray-900">Cambiar Contraseña</h2>
-                                <p className="text-sm text-gray-500 mt-1">Asegúrate de usar una contraseña segura</p>
+                                    {/* Email */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email" className="flex items-center gap-2">
+                                            <Mail className="w-4 h-4 text-gray-400" />
+                                            Correo Electrónico
+                                        </Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            placeholder="tu@email.com"
+                                            required
+                                        />
+                                        {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+                                    </div>
+
+                                    {/* Teléfono */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone" className="flex items-center gap-2">
+                                            <Phone className="w-4 h-4 text-gray-400" />
+                                            Teléfono
+                                        </Label>
+                                        <Input
+                                            id="phone"
+                                            type="tel"
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            placeholder="Ej: 3001234567"
+                                        />
+                                        {errors.phone && <p className="text-sm text-red-600">{errors.phone}</p>}
+                                    </div>
+
+                                    {/* Info de solo lectura */}
+                                    <div className="pt-4 border-t space-y-3">
+                                        <p className="text-xs text-gray-500 uppercase font-semibold">Información de la cuenta</p>
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span className="text-gray-500">Usuario:</span>
+                                                <span className="ml-2 font-medium">{user.username}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-500">Rol:</span>
+                                                <span className="ml-2 font-medium">{user.role}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Botón guardar */}
+                                    <div className="pt-4 flex justify-end">
+                                        <Button
+                                            type="submit"
+                                            disabled={processing}
+                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
+                                        >
+                                            {processing ? 'Guardando...' : 'Guardar Cambios'}
+                                        </Button>
+                                    </div>
+                                </form>
                             </div>
 
-                            {passwordSuccess && (
-                                <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
-                                    <p className="text-sm text-green-700">Contraseña actualizada correctamente</p>
+                            {/* Cambiar Contraseña */}
+                            <div className="bg-white shadow h-fit">
+                                <div className="px-6 py-4 border-b">
+                                    <h2 className="text-xl font-semibold text-gray-900">Cambiar Contraseña</h2>
+                                    <p className="text-sm text-gray-500 mt-1">Asegúrate de usar una contraseña segura</p>
                                 </div>
-                            )}
 
-                            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
-                                {/* Contraseña actual */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="current_password" className="flex items-center gap-2">
-                                        <Lock className="w-4 h-4 text-gray-400" />
-                                        Contraseña Actual
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            id="current_password"
-                                            type={showCurrentPassword ? 'text' : 'password'}
-                                            value={passwordData.current_password}
-                                            onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                                            placeholder="Ingresa tu contraseña actual"
-                                            required
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                        >
-                                            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                        </button>
+                                {passwordSuccess && (
+                                    <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
+                                        <p className="text-sm text-green-700">Contraseña actualizada correctamente</p>
                                     </div>
-                                    {passwordErrors.current_password && <p className="text-sm text-red-600">{passwordErrors.current_password}</p>}
-                                </div>
+                                )}
 
-                                {/* Nueva contraseña */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="password" className="flex items-center gap-2">
-                                        <Lock className="w-4 h-4 text-gray-400" />
-                                        Nueva Contraseña
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            id="password"
-                                            type={showNewPassword ? 'text' : 'password'}
-                                            value={passwordData.password}
-                                            onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
-                                            placeholder="Mínimo 8 caracteres"
-                                            required
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowNewPassword(!showNewPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                        >
-                                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                        </button>
+                                <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
+                                    {/* Contraseña actual */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="current_password" className="flex items-center gap-2">
+                                            <Lock className="w-4 h-4 text-gray-400" />
+                                            Contraseña Actual
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="current_password"
+                                                type={showCurrentPassword ? 'text' : 'password'}
+                                                value={passwordData.current_password}
+                                                onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                                                placeholder="Ingresa tu contraseña actual"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        {passwordErrors.current_password && <p className="text-sm text-red-600">{passwordErrors.current_password}</p>}
                                     </div>
-                                    {passwordErrors.password && <p className="text-sm text-red-600">{passwordErrors.password}</p>}
-                                </div>
 
-                                {/* Confirmar contraseña */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="password_confirmation" className="flex items-center gap-2">
-                                        <Lock className="w-4 h-4 text-gray-400" />
-                                        Confirmar Nueva Contraseña
-                                    </Label>
-                                    <div className="relative">
-                                        <Input
-                                            id="password_confirmation"
-                                            type={showConfirmPassword ? 'text' : 'password'}
-                                            value={passwordData.password_confirmation}
-                                            onChange={(e) => setPasswordData({ ...passwordData, password_confirmation: e.target.value })}
-                                            placeholder="Repite la nueva contraseña"
-                                            required
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                        >
-                                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                        </button>
+                                    {/* Nueva contraseña */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password" className="flex items-center gap-2">
+                                            <Lock className="w-4 h-4 text-gray-400" />
+                                            Nueva Contraseña
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="password"
+                                                type={showNewPassword ? 'text' : 'password'}
+                                                value={passwordData.password}
+                                                onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
+                                                placeholder="Mínimo 8 caracteres"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        {passwordErrors.password && <p className="text-sm text-red-600">{passwordErrors.password}</p>}
                                     </div>
-                                    {passwordErrors.password_confirmation && <p className="text-sm text-red-600">{passwordErrors.password_confirmation}</p>}
-                                </div>
 
-                                {/* Botón guardar */}
-                                <div className="pt-4 flex justify-end">
-                                    <Button
-                                        type="submit"
-                                        disabled={passwordProcessing}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
-                                    >
-                                        {passwordProcessing ? 'Actualizando...' : 'Cambiar Contraseña'}
-                                    </Button>
-                                </div>
-                            </form>
+                                    {/* Confirmar contraseña */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password_confirmation" className="flex items-center gap-2">
+                                            <Lock className="w-4 h-4 text-gray-400" />
+                                            Confirmar Nueva Contraseña
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="password_confirmation"
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                value={passwordData.password_confirmation}
+                                                onChange={(e) => setPasswordData({ ...passwordData, password_confirmation: e.target.value })}
+                                                placeholder="Repite la nueva contraseña"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        {passwordErrors.password_confirmation && <p className="text-sm text-red-600">{passwordErrors.password_confirmation}</p>}
+                                    </div>
+
+                                    {/* Botón guardar */}
+                                    <div className="pt-4 flex justify-end">
+                                        <Button
+                                            type="submit"
+                                            disabled={passwordProcessing}
+                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
+                                        >
+                                            {passwordProcessing ? 'Actualizando...' : 'Cambiar Contraseña'}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </main>
