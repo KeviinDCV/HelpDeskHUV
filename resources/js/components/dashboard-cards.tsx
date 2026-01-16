@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Pin, TicketIcon, UserCheck, CheckCircle2, Clock, Plus, Zap, MessageSquare } from 'lucide-react'
+import { TicketIcon, UserCheck, CheckCircle2, Clock, Plus, Zap, MessageSquare, BarChart3 } from 'lucide-react'
 import { Link } from '@inertiajs/react'
 
 interface Stats {
@@ -19,9 +19,12 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
       {/* Estadísticas rápidas - Horizontal scroll on mobile */}
       <Card className="bg-white border shadow-sm">
         <CardHeader className="pb-2 px-3 sm:px-6">
-          <CardTitle className="text-sm font-semibold text-[#2c5599]">
-            Resumen
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-[#2c5599]" />
+            <CardTitle className="text-sm font-semibold text-[#2c5599]">
+              Resumen
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
           {/* Grid on mobile, stack on desktop */}
