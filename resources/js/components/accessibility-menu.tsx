@@ -330,6 +330,7 @@ export function AccessibilityMenu() {
 
             {/* Botón flotante de accesibilidad */}
             <button
+                id="accessibility-button"
                 onClick={() => setIsOpen(!isOpen)}
                 className="fixed left-4 bottom-4 z-[9999] w-14 h-14 bg-[#2d3e5e] hover:bg-[#3d5583] text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300"
                 aria-label="Menú de accesibilidad"

@@ -126,6 +126,15 @@ export default function ReportarCaso() {
                         side: 'left',
                         align: 'center'
                     }
+                },
+                {
+                    element: '#accessibility-button',
+                    popover: {
+                        title: 'Opciones de Accesibilidad',
+                        description: 'Aquí puedes ajustar la visualización según tus necesidades:\n• Aumentar o reducir el tamaño del texto\n• Activar alto contraste\n• Espaciado de texto para mejor lectura\n• Cursor grande\n• Guía de lectura',
+                        side: 'right',
+                        align: 'center'
+                    }
                 }
             ],
             onDestroyed: () => {
