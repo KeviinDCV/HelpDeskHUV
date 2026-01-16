@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
+import { AccessibilityMenu } from '@/components/accessibility-menu';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -590,6 +591,8 @@ export default function ReportarCaso() {
                     </aside>
                 </main>
 
+                {/* Menú de Accesibilidad */}
+                <AccessibilityMenu />
             </div>
         </>
     );
