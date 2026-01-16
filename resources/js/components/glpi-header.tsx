@@ -1,4 +1,4 @@
-import { LogOut, Search, Menu, X, ChevronDown, Command } from 'lucide-react'
+import { LogOut, Search, Menu, X, ChevronDown, Command, Moon, Sun } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { router, usePage } from '@inertiajs/react'
 import { ReactNode, useState, useEffect } from 'react'
@@ -97,6 +97,31 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  
+  // Cargar preferencia de tema al iniciar
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('helpdesk_theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+    setDarkMode(isDark);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  // Toggle modo oscuro
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('helpdesk_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('helpdesk_theme', 'light');
+    }
+  };
   
   // Atajo CTRL+K para abrir buscador
   useEffect(() => {
@@ -273,6 +298,20 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-1 sm:gap-3">
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 hover:bg-[#3d5583] transition-colors rounded"
+            title={darkMode ? 'Modo claro' : 'Modo oscuro'}
+            aria-label={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {darkMode ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
+          </button>
+
           {/* Search Button - Opens Global Search */}
           <button
             onClick={() => setSearchOpen(true)}
@@ -385,6 +424,22 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
               )}
             </div>
           ))}
+          
+          {/* Dark Mode Toggle in Mobile Menu */}
+          <div className="border-t border-[#3d5583]/50 mt-2 pt-2">
+            <button
+              onClick={toggleDarkMode}
+              className="w-full flex items-center justify-between px-4 py-3 text-white hover:bg-[#3d5583] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                <span className="font-medium">{darkMode ? 'Modo claro' : 'Modo oscuro'}</span>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded ${darkMode ? 'bg-yellow-500/20 text-yellow-300' : 'bg-blue-500/20 text-blue-300'}`}>
+                {darkMode ? 'ON' : 'OFF'}
+              </span>
+            </button>
+          </div>
         </nav>
 
         {/* Mobile User Info - Compacto y siempre visible */}
