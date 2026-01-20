@@ -261,12 +261,12 @@ class DashboardController extends Controller
      */
     private function getMyTickets($user)
     {
-        // Buscar el usuario en GLPI
-        $glpiUser = DB::table('glpi_users')
-            ->where('name', $user->username ?? $user->name)
-            ->first();
+        // Usar el campo glpi_user_id del usuario de Laravel
+        $glpiUserId = $user->glpi_user_id;
         
-        $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+        if (!$glpiUserId) {
+            return collect([]); // Retornar colección vacía si no tiene glpi_user_id
+        }
 
         return DB::table('glpi_tickets as t')
             ->select(
@@ -340,15 +340,12 @@ class DashboardController extends Controller
             return redirect()->back()->with('error', 'Este ticket ya fue tomado por otro técnico.');
         }
 
-        // Obtener el ID del usuario en GLPI (buscar por email o username)
-        $glpiUser = DB::table('glpi_users')
-            ->where('name', $user->username)
-            ->orWhere(function($q) use ($user) {
-                $q->where('firstname', 'LIKE', '%' . explode(' ', $user->name)[0] . '%');
-            })
-            ->first();
-
-        $glpiUserId = $glpiUser ? $glpiUser->id : $user->id;
+        // Obtener el ID del usuario en GLPI usando el campo glpi_user_id
+        $glpiUserId = $user->glpi_user_id;
+        
+        if (!$glpiUserId) {
+            return redirect()->back()->with('error', 'Tu usuario no está vinculado con GLPI. Contacta al administrador.');
+        }
 
         DB::beginTransaction();
         try {
@@ -408,15 +405,16 @@ class DashboardController extends Controller
             return redirect()->back()->with('error', 'Ticket no encontrado.');
         }
 
-        // Verificar que el usuario esté asignado al ticket
-        $glpiUser = DB::table('glpi_users')
-            ->where('name', $user->username)
-            ->first();
+        // Usar el campo glpi_user_id del usuario de Laravel
+        $glpiUserId = $user->glpi_user_id;
         
-        $glpiUserId = $glpiUser ? $glpiUser->id : $user->id;
+        if (!$glpiUserId) {
+            return redirect()->back()->with('error', 'Tu usuario no está vinculado con GLPI. Contacta al administrador.');
+        }
         
-        \Log::info('solveTicket: glpi user', ['glpiUser' => $glpiUser ? $glpiUser->id : null, 'glpiUserId' => $glpiUserId]);
+        \Log::info('solveTicket: glpi user', ['glpiUserId' => $glpiUserId]);
 
+        // Verificar que el usuario esté asignado al ticket
         $isAssigned = DB::table('glpi_tickets_users')
             ->where('tickets_id', $id)
             ->where('users_id', $glpiUserId)
@@ -505,11 +503,11 @@ class DashboardController extends Controller
      */
     private function getMyTicketsCount($user): int
     {
-        $glpiUser = DB::table('glpi_users')
-            ->where('name', $user->username ?? $user->name)
-            ->first();
+        $glpiUserId = $user->glpi_user_id;
         
-        $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+        if (!$glpiUserId) {
+            return 0;
+        }
         
         return DB::table('glpi_tickets as t')
             ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
@@ -525,11 +523,11 @@ class DashboardController extends Controller
      */
     private function getMyResolvedCount($user): int
     {
-        $glpiUser = DB::table('glpi_users')
-            ->where('name', $user->username ?? $user->name)
-            ->first();
+        $glpiUserId = $user->glpi_user_id;
         
-        $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+        if (!$glpiUserId) {
+            return 0;
+        }
         
         return DB::table('glpi_tickets as t')
             ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
