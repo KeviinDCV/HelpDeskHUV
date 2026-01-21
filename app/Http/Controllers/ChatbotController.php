@@ -9,6 +9,117 @@ use Illuminate\Support\Facades\DB;
 class ChatbotController extends Controller
 {
     /**
+     * Obtener datos del sistema para el chatbot (ECOMs y categorías)
+     */
+    public function getSystemData()
+    {
+        return response()->json([
+            'ecomList' => $this->getEcomList(),
+            'categories' => $this->getCategoryList(),
+        ]);
+    }
+
+    /**
+     * Procesar mensaje del chatbot usando Puter.js
+     */
+    public function chatPuter(Request $request)
+    {
+        $request->validate([
+            'message' => 'required|string|max:1000',
+            'context' => 'nullable|array',
+            'currentFormData' => 'nullable|array',
+            'filledFields' => 'nullable|array',
+        ]);
+
+        $userMessage = $request->input('message');
+        $context = $request->input('context', []);
+        $currentFormData = $request->input('currentFormData', []);
+        $filledFields = $request->input('filledFields', []);
+        
+        // Obtener lista de ECOMs si el problema es con computador
+        $ecomList = $this->getEcomList();
+        
+        // Obtener categorías disponibles
+        $categories = $this->getCategoryList();
+
+        $systemPrompt = $this->getSystemPrompt($currentFormData, $filledFields, $ecomList, $categories);
+        
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+        ];
+
+        // Agregar solo los últimos 4 mensajes del contexto para reducir tokens
+        $recentContext = array_slice($context, -4);
+        foreach ($recentContext as $msg) {
+            $messages[] = $msg;
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $userMessage];
+
+        try {
+            // Usar Puter AI API
+            $response = Http::timeout(30)->connectTimeout(10)->withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post('https://api.puter.com/drivers/call', [
+                'interface' => 'puter-chat-completion',
+                'driver' => 'openai-completion',
+                'method' => 'complete',
+                'args' => [
+                    'messages' => $messages,
+                    'model' => 'gpt-4o-mini', // Modelo rápido y eficiente
+                    'temperature' => 0.1,
+                    'max_tokens' => 500,
+                ]
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                // Puter devuelve la respuesta en data.message.content
+                $assistantResponse = $data['message']['content'] ?? '';
+                
+                // Log para debug
+                \Log::info('Chatbot Puter Response', [
+                    'raw_response' => $assistantResponse,
+                ]);
+                
+                // Parsear la respuesta para extraer campos y mensaje
+                $parsed = $this->parseResponse($assistantResponse);
+                
+                // Log del parsing
+                \Log::info('Chatbot Parsed', [
+                    'fields' => $parsed['fields'],
+                    'message' => $parsed['message'],
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => $parsed['message'],
+                    'fields' => $parsed['fields'],
+                ]);
+            }
+
+            // Log del error para depuración
+            \Log::error('Puter API Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al comunicarse con el asistente.',
+            ], 500);
+
+        } catch (\Exception $e) {
+            \Log::error('Chatbot Puter Exception', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de conexión. Por favor intenta de nuevo.',
+            ], 500);
+        }
+    }
+
+    /**
      * Procesar mensaje del chatbot
      */
     public function chat(Request $request)

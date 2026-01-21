@@ -182,7 +182,7 @@ export function Evarisbot({ onFillField, formData }: EvarisbotProps) {
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             
-            const response = await fetch('/chatbot', {
+            const response = await fetch('/chatbot-puter', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

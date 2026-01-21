@@ -24,6 +24,8 @@ Route::get('/salir', function () {
 Route::get('/reportar', [App\Http\Controllers\PublicTicketController::class, 'create'])->name('reportar');
 Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 'store'])->name('reportar.store');
 Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->name('chatbot');
+Route::post('/chatbot-puter', [App\Http\Controllers\ChatbotController::class, 'chatPuter'])->name('chatbot.puter');
+Route::get('/chatbot-system-data', [App\Http\Controllers\ChatbotController::class, 'getSystemData'])->name('chatbot.system-data');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Búsqueda global

@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { AccessibilityMenu } from '@/components/accessibility-menu';
+import { sendPuterChat, isPuterAvailable } from '@/lib/puter';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -204,101 +205,269 @@ export default function ReportarCaso() {
         animateSendButton();
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            // Verificar que Puter.js esté disponible
+            if (!isPuterAvailable()) {
+                throw new Error('Puter.js no está disponible');
+            }
 
-            const response = await fetch('/chatbot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
+            // Obtener lista de ECOMs y categorías para el prompt
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            // Obtener datos del sistema (ECOMs y categorías) desde el backend
+            const systemDataResponse = await fetch('/chatbot-system-data', {
+                method: 'GET',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
                 credentials: 'include',
-                body: JSON.stringify({
-                    message: userMessage,
-                    context: messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
-                    currentFormData: formData,
-                    filledFields: filledFields,
-                }),
+            });
+            
+            const systemData = await systemDataResponse.json();
+            
+            // Construir el system prompt
+            const systemPrompt = buildSystemPrompt(formData, filledFields, systemData.ecomList || [], systemData.categories || []);
+            
+            // Preparar mensajes para Puter.js
+            const puterMessages = [
+                { role: 'system' as const, content: systemPrompt },
+                ...messages.slice(-4).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+                { role: 'user' as const, content: userMessage }
+            ];
+
+            // Llamar a Puter.js
+            const assistantResponse = await sendPuterChat(puterMessages, {
+                model: 'gpt-4o-mini',
+                temperature: 0.1,
+                max_tokens: 500,
             });
 
-            const data = await response.json();
-
             // Debug: ver qué devuelve la IA
-            console.log('Chatbot response:', data);
+            console.log('Puter.js response:', assistantResponse);
 
-            if (data.success) {
-                if (data.fields && typeof data.fields === 'object' && Object.keys(data.fields).length > 0) {
-                    console.log('Fields received:', data.fields);
-                    
-                    const newFilledFields: string[] = [...filledFields];
-                    const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
+            // Parsear la respuesta para extraer campos y mensaje
+            const parsed = parseResponse(assistantResponse);
+            
+            console.log('Parsed response:', parsed);
 
-                    // Procesar campos - crear objeto con los nuevos valores
-                    const fieldsToProcess = { ...data.fields };
+            if (parsed.fields && typeof parsed.fields === 'object' && Object.keys(parsed.fields).length > 0) {
+                console.log('Fields received:', parsed.fields);
+                
+                const newFilledFields: string[] = [...filledFields];
+                const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
 
-                    // Detectar si hay ECOM en extensión y corregirlo
-                    if (fieldsToProcess.reporter_extension &&
-                        typeof fieldsToProcess.reporter_extension === 'string' &&
-                        fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
-                        if (!fieldsToProcess.equipment_ecom) {
-                            fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
-                        }
-                        fieldsToProcess.reporter_extension = '';
+                // Procesar campos - crear objeto con los nuevos valores
+                const fieldsToProcess = { ...parsed.fields };
+
+                // Detectar si hay ECOM en extensión y corregirlo
+                if (fieldsToProcess.reporter_extension &&
+                    typeof fieldsToProcess.reporter_extension === 'string' &&
+                    fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
+                    if (!fieldsToProcess.equipment_ecom) {
+                        fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
                     }
+                    fieldsToProcess.reporter_extension = '';
+                }
 
-                    // Si device_type es 'software', convertir a 'computer' (software corre en PC)
-                    if (fieldsToProcess.device_type === 'software') {
-                        fieldsToProcess.device_type = 'computer';
-                    }
+                // Si device_type es 'software', convertir a 'computer' (software corre en PC)
+                if (fieldsToProcess.device_type === 'software') {
+                    fieldsToProcess.device_type = 'computer';
+                }
 
-                    // Construir el nuevo formData directamente
-                    const newFormData = { ...formData };
+                // Construir el nuevo formData directamente
+                const newFormData = { ...formData };
 
-                    Object.entries(fieldsToProcess).forEach(([field, value]) => {
-                        if (value && typeof value === 'string') {
-                            const trimmedValue = value.trim().toLowerCase();
-                            if (trimmedValue && !invalidValues.includes(trimmedValue)) {
-                                const currentValue = formData[field as keyof FormData] || '';
-                                if (!currentValue || value.trim().length > currentValue.length) {
-                                    newFormData[field as keyof FormData] = value.trim();
-                                    if (!newFilledFields.includes(field)) newFilledFields.push(field);
-                                }
+                Object.entries(fieldsToProcess).forEach(([field, value]) => {
+                    if (value && typeof value === 'string') {
+                        const trimmedValue = value.trim().toLowerCase();
+                        if (trimmedValue && !invalidValues.includes(trimmedValue)) {
+                            const currentValue = formData[field as keyof FormData] || '';
+                            if (!currentValue || value.trim().length > currentValue.length) {
+                                newFormData[field as keyof FormData] = value.trim();
+                                if (!newFilledFields.includes(field)) newFilledFields.push(field);
                             }
                         }
-                    });
+                    }
+                });
 
-                    // Actualizar estado de una sola vez
-                    setFormData(newFormData);
-                    setFilledFields(newFilledFields);
+                // Actualizar estado de una sola vez
+                setFormData(newFormData);
+                setFilledFields(newFilledFields);
 
-                    // Verificar si el formulario está completo usando newFormData
-                    const basicFieldsComplete = newFormData.reporter_name &&
-                        newFormData.reporter_position &&
-                        newFormData.reporter_service &&
-                        newFormData.name &&
-                        newFormData.content;
+                // Verificar si el formulario está completo usando newFormData
+                const basicFieldsComplete = newFormData.reporter_name &&
+                    newFormData.reporter_position &&
+                    newFormData.reporter_service &&
+                    newFormData.name &&
+                    newFormData.content;
 
-                    // computer, monitor, software y network requieren ECOM
-                    // Solo printer y phone NO requieren ECOM
+                // computer, monitor, software y network requieren ECOM
+                // Solo printer y phone NO requieren ECOM
                     const needsEcomDevice = ['computer', 'monitor', 'software', 'network'].includes(newFormData.device_type || '');
                     const needsEcom = needsEcomDevice && !newFormData.equipment_ecom;
                     const formIsComplete = basicFieldsComplete && !needsEcom;
 
                     if (formIsComplete) {
                         setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
-                    } else if (data.message && data.message.trim()) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+                    } else if (parsed.message && parsed.message.trim()) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
                     }
-                } else if (data.message && data.message.trim()) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+                } else if (parsed.message && parsed.message.trim()) {
+                    setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
                 }
-            } else {
-                setMessages(prev => [...prev, { role: 'assistant', content: 'Lo siento, tuve un problema. ¿Puedes intentar de nuevo?' }]);
-            }
-        } catch {
+        } catch (error) {
+            console.error('Error en Puter.js:', error);
             setMessages(prev => [...prev, { role: 'assistant', content: 'Error de conexión. Verifica tu internet.' }]);
         } finally {
             setIsLoading(false);
             // Restaurar foco después de que termine la carga
             requestAnimationFrame(() => inputRef.current?.focus());
         }
+    };
+
+    // Función para parsear la respuesta del modelo
+    const parseResponse = (response: string): { message: string; fields: Record<string, string> } => {
+        let fields: Record<string, string> = {};
+        let message = response;
+        const validFields = ['reporter_name', 'reporter_position', 'reporter_service', 
+                           'reporter_extension', 'name', 'content', 'device_type', 
+                           'equipment_ecom', 'priority', 'itilcategories_id'];
+
+        // 1. Buscar patrón {FIELDS}...{/FIELDS}
+        const fieldsMatch = response.match(/\{FIELDS\}(.*?)\{\/FIELDS\}/si);
+        if (fieldsMatch) {
+            try {
+                const jsonStr = fieldsMatch[1].trim();
+                const decoded = JSON.parse(jsonStr);
+                if (typeof decoded === 'object') {
+                    fields = Object.fromEntries(
+                        Object.entries(decoded).filter(([key]) => validFields.includes(key))
+                    );
+                }
+                message = response.replace(/\{FIELDS\}.*?\{\/FIELDS\}/si, '').trim();
+            } catch (e) {
+                console.error('Error parsing FIELDS:', e);
+            }
+        } 
+        // 2. Buscar JSON suelto con múltiples campos
+        else {
+            const jsonMatch = response.match(/\{[^{}]*"[a-z_]+"\s*:\s*"[^"]*"[^{}]*\}/si);
+            if (jsonMatch) {
+                try {
+                    const decoded = JSON.parse(jsonMatch[0]);
+                    if (typeof decoded === 'object') {
+                        const filtered = Object.fromEntries(
+                            Object.entries(decoded).filter(([key]) => validFields.includes(key))
+                        );
+                        if (Object.keys(filtered).length > 0) {
+                            fields = filtered;
+                            message = response.replace(jsonMatch[0], '').trim();
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing JSON:', e);
+                }
+            }
+        }
+
+        // Limpiar mensaje de artefactos
+        message = message.replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
+
+        // Si el mensaje quedó vacío, usar uno por defecto
+        if (!message) {
+            message = 'Entendido. ¿Algo más que necesites?';
+        }
+
+        return { message, fields };
+    };
+
+    // Función para construir el system prompt
+    const buildSystemPrompt = (formData: FormData, filledFields: string[], ecomList: string[], categories: Array<{id: number, name: string}>): string => {
+        const currentData = Object.entries(formData)
+            .filter(([_, value]) => value && value !== '')
+            .map(([key, value]) => `${key}: "${value}"`)
+            .join(", ");
+        
+        const currentDataStr = currentData || "Ninguno";
+        const ecomSample = ecomList.slice(0, 15).join(', ');
+        const categoryListStr = categories.map(c => `  - ${c.id} = ${c.name}`).join("\n");
+
+        return `Eres Evarisbot, asistente del Hospital Universitario del Valle para reportar problemas técnicos.
+
+DATOS YA CAPTURADOS: ${currentDataStr}
+
+=== INSTRUCCIÓN CRÍTICA ===
+1. EXTRAE TODOS los datos del mensaje del usuario EN UNA SOLA RESPUESTA
+2. NUNCA pidas un dato que ya está en "DATOS YA CAPTURADOS"
+3. NUNCA pidas un dato que el usuario acaba de dar en su mensaje
+4. Si el usuario da múltiples datos, captúralos TODOS en el JSON
+5. GUARDA TODA la información que el usuario mencione sobre el problema - será analizada después
+
+=== FORMATO OBLIGATORIO ===
+SIEMPRE que el usuario proporcione cualquier dato, debes responder con este formato EXACTO:
+{FIELDS}{"campo1": "valor1", "campo2": "valor2"}{/FIELDS}
+Mensaje breve aquí.
+
+IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye {FIELDS} con ese dato.
+
+=== CAMPOS A CAPTURAR (EN ORDEN) ===
+1. reporter_name: Nombre completo
+2. reporter_position: Cargo (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro)
+3. reporter_service: Área/Servicio (Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/etc)
+4. reporter_extension: Extensión telefónica (4 dígitos)
+5. name: Título corto del problema
+6. content: Descripción COMPLETA del problema
+7. device_type: computer|printer|monitor|phone|network
+8. equipment_ecom: Código ECOM (solo si device_type es computer/monitor/network)
+9. itilcategories_id: ID de categoría (ver lista abajo)
+10. priority: 3 (siempre)
+
+=== FLUJO OBLIGATORIO ===
+1. Si NO hay reporter_name → Pedir nombre
+2. Si hay nombre pero NO reporter_position → Pedir cargo
+3. Si hay cargo pero NO reporter_service → Pedir área/servicio
+4. Si hay servicio pero NO reporter_extension → Pedir extensión (4 dígitos)
+5. Si hay extensión pero NO name/content → Pedir "¿Cuál es el problema que tienes?"
+6. Si hay problema y device_type es computer/monitor/network → Pedir ECOM
+7. Si tiene todos los datos → Decir "¡Listo! Revisa los datos y envía el reporte."
+
+=== CATEGORÍAS DISPONIBLES (itilcategories_id) ===
+${categoryListStr}
+
+=== GUÍA DE CLASIFICACIÓN ===
+- "internet", "red", "wifi" → RED (11)
+- "programa", "SAP", "Excel", "sistema" → SOFTWARE (6)
+- "no enciende", "lento", "pantalla azul" → HARDWARE (2)
+- "impresora", "no imprime", "toner" → IMPRESIÓN (12)
+- "teléfono", "sin tono", "llamadas" → TELÉFONO (17)
+
+=== EJEMPLOS DE RESPUESTAS CORRECTAS ===
+
+Usuario: "Mi nombre es Juan Pérez"
+{FIELDS}{"reporter_name": "Juan Pérez"}{/FIELDS}
+Gracias Juan. ¿Cuál es tu cargo?
+
+Usuario: "Soy enfermero de UCI"
+{FIELDS}{"reporter_position": "Enfermero", "reporter_service": "UCI"}{/FIELDS}
+Perfecto. ¿Cuál es tu extensión telefónica?
+
+Usuario: "1234"
+{FIELDS}{"reporter_extension": "1234"}{/FIELDS}
+Gracias. ¿Cuál es el problema que tienes?
+
+Usuario: "No me abre SAP"
+{FIELDS}{"name": "SAP no abre", "content": "El sistema SAP no abre", "device_type": "computer", "itilcategories_id": "6"}{/FIELDS}
+Entendido. ¿Cuál es el código ECOM del computador? (Etiqueta en el CPU)
+
+Usuario: "ecom12345"
+{FIELDS}{"equipment_ecom": "ecom12345"}{/FIELDS}
+¡Listo! Revisa los datos y envía el reporte.
+
+=== REGLAS ESTRICTAS ===
+- SIEMPRE responde en español
+- SIEMPRE usa el formato {FIELDS}...{/FIELDS}
+- NUNCA digas "Mensaje registrado" - sé específico
+- NUNCA repitas preguntas sobre datos ya capturados
+- Mensajes CORTOS (máximo 2 oraciones)
+- NO uses emojis
+- SIGUE EL FLUJO OBLIGATORIO en orden`;
     };
 
     // Animación del botón enviar
