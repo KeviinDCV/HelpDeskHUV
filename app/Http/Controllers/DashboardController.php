@@ -170,6 +170,15 @@ class DashboardController extends Controller
             return redirect()->back()->with('error', 'Ticket no encontrado.');
         }
 
+        // Obtener el glpi_user_id del técnico seleccionado
+        $technician = \App\Models\User::find($technicianId);
+        
+        if (!$technician || !$technician->glpi_user_id) {
+            return redirect()->back()->with('error', 'El técnico seleccionado no está vinculado con GLPI.');
+        }
+        
+        $glpiUserId = $technician->glpi_user_id;
+
         DB::beginTransaction();
         try {
             // Eliminar asignaciones anteriores de técnicos
@@ -178,10 +187,10 @@ class DashboardController extends Controller
                 ->where('type', 2)
                 ->delete();
 
-            // Asignar el nuevo técnico
+            // Asignar el nuevo técnico usando su glpi_user_id
             DB::table('glpi_tickets_users')->insert([
                 'tickets_id' => $id,
-                'users_id' => $technicianId,
+                'users_id' => $glpiUserId,
                 'type' => 2,
                 'use_notification' => 1,
             ]);
@@ -196,9 +205,7 @@ class DashboardController extends Controller
 
             DB::commit();
 
-            $techName = DB::table('glpi_users')->where('id', $technicianId)->value(DB::raw("CONCAT(firstname, ' ', realname)"));
-
-            return redirect()->back()->with('success', "Ticket asignado exitosamente a {$techName}.");
+            return redirect()->back()->with('success', "Ticket asignado exitosamente a {$technician->name}.");
 
         } catch (\Exception $e) {
             DB::rollBack();

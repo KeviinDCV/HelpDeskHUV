@@ -1254,9 +1254,10 @@ class TicketController extends Controller
                 ->delete();
             
             if (!empty($validated['requester_id'])) {
+                // El frontend envía glpi_user_id directamente
                 DB::table('glpi_tickets_users')->insert([
                     'tickets_id' => $id,
-                    'users_id' => $validated['requester_id'],
+                    'users_id' => $validated['requester_id'], // Ya es glpi_user_id
                     'type' => 1, // Requester
                     'use_notification' => 1,
                 ]);
@@ -1270,9 +1271,10 @@ class TicketController extends Controller
             
             if (!empty($validated['observer_ids'])) {
                 foreach ($validated['observer_ids'] as $observerId) {
+                    // El frontend envía glpi_user_id directamente
                     DB::table('glpi_tickets_users')->insert([
                         'tickets_id' => $id,
-                        'users_id' => $observerId,
+                        'users_id' => $observerId, // Ya es glpi_user_id
                         'type' => 3, // Observer
                         'use_notification' => 1,
                     ]);
@@ -1289,9 +1291,10 @@ class TicketController extends Controller
             // Luego agregar los nuevos asignados si hay
             if (!empty($validated['assigned_ids'])) {
                 foreach ($validated['assigned_ids'] as $assignedId) {
+                    // El frontend envía glpi_user_id directamente, insertarlo tal cual
                     DB::table('glpi_tickets_users')->insert([
                         'tickets_id' => $id,
-                        'users_id' => $assignedId,
+                        'users_id' => $assignedId, // Ya es glpi_user_id del frontend
                         'type' => 2, // Assigned
                         'use_notification' => 1,
                     ]);
