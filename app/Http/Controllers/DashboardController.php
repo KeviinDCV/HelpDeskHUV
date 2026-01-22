@@ -527,6 +527,7 @@ class DashboardController extends Controller
 
     /**
      * Contar tickets resueltos del usuario
+     * Incluye tickets resueltos por el usuario aunque no estuvieran asignados formalmente
      */
     private function getMyResolvedCount($user): int
     {
@@ -536,12 +537,29 @@ class DashboardController extends Controller
             return 0;
         }
         
+        // Contar tickets donde el usuario dio la solución (glpi_itilsolutions)
+        // O donde el usuario estaba asignado y el ticket está resuelto/cerrado
         return DB::table('glpi_tickets as t')
-            ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
-            ->where('tu.type', 2) // Técnico asignado
-            ->where('tu.users_id', $glpiUserId)
             ->where('t.is_deleted', 0)
             ->whereIn('t.status', [5, 6]) // Resuelto o Cerrado
+            ->where(function($query) use ($glpiUserId) {
+                // Tickets donde el usuario dio la solución
+                $query->whereExists(function($sub) use ($glpiUserId) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_itilsolutions')
+                        ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                        ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                        ->where('glpi_itilsolutions.users_id', $glpiUserId);
+                })
+                // O tickets donde el usuario estaba asignado
+                ->orWhereExists(function($sub) use ($glpiUserId) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_tickets_users')
+                        ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                        ->where('glpi_tickets_users.type', 2)
+                        ->where('glpi_tickets_users.users_id', $glpiUserId);
+                });
+            })
             ->count();
     }
 }

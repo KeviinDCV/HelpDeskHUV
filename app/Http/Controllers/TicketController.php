@@ -250,48 +250,66 @@ class TicketController extends Controller
         } elseif ($specialFilter === 'my_cases') {
             // Mis casos (asignados a mí, no cerrados)
             $user = auth()->user();
-            $glpiUser = DB::table('glpi_users')
-                ->where('name', $user->username ?? $user->name)
-                ->first();
-            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            $glpiUserId = $user->glpi_user_id;
             
-            $query->whereExists(function ($q) use ($glpiUserId) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $glpiUserId);
-            })->where('t.status', '!=', 6);
+            if ($glpiUserId) {
+                $query->whereExists(function ($q) use ($glpiUserId) {
+                    $q->select(DB::raw(1))
+                      ->from('glpi_tickets_users')
+                      ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                      ->where('glpi_tickets_users.type', 2)
+                      ->where('glpi_tickets_users.users_id', $glpiUserId);
+                })->where('t.status', '!=', 6);
+            } else {
+                // Si no tiene glpi_user_id, no mostrar nada
+                $query->whereRaw('1 = 0');
+            }
         } elseif ($specialFilter === 'my_pending') {
             // Mis casos sin resolver (asignados a mí, pendientes)
             $user = auth()->user();
-            $glpiUser = DB::table('glpi_users')
-                ->where('name', $user->username ?? $user->name)
-                ->first();
-            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            $glpiUserId = $user->glpi_user_id;
             
-            $query->whereExists(function ($q) use ($glpiUserId) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $glpiUserId);
-            })->whereNotIn('t.status', [5, 6]); // Excluir resueltos y cerrados
+            if ($glpiUserId) {
+                $query->whereExists(function ($q) use ($glpiUserId) {
+                    $q->select(DB::raw(1))
+                      ->from('glpi_tickets_users')
+                      ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                      ->where('glpi_tickets_users.type', 2)
+                      ->where('glpi_tickets_users.users_id', $glpiUserId);
+                })->whereNotIn('t.status', [5, 6]); // Excluir resueltos y cerrados
+            } else {
+                // Si no tiene glpi_user_id, no mostrar nada
+                $query->whereRaw('1 = 0');
+            }
         } elseif ($specialFilter === 'my_resolved') {
-            // Mis casos resueltos (asignados a mí, resueltos o cerrados)
+            // Mis casos resueltos (donde di la solución O donde estaba asignado y están resueltos/cerrados)
             $user = auth()->user();
-            $glpiUser = DB::table('glpi_users')
-                ->where('name', $user->username ?? $user->name)
-                ->first();
-            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
+            $glpiUserId = $user->glpi_user_id;
             
-            $query->whereExists(function ($q) use ($glpiUserId) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $glpiUserId);
-            })->whereIn('t.status', [5, 6]); // Solo resueltos y cerrados
+            if ($glpiUserId) {
+                $query->whereIn('t.status', [5, 6]) // Solo resueltos y cerrados
+                      ->where(function($q) use ($glpiUserId) {
+                          // Tickets donde el usuario dio la solución
+                          $q->whereExists(function($sub) use ($glpiUserId) {
+                              $sub->select(DB::raw(1))
+                                  ->from('glpi_itilsolutions')
+                                  ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                                  ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                                  ->where('glpi_itilsolutions.users_id', $glpiUserId);
+                          })
+                          // O tickets donde el usuario estaba asignado
+                          ->orWhereExists(function($sub) use ($glpiUserId) {
+                              $sub->select(DB::raw(1))
+                                  ->from('glpi_tickets_users')
+                                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                                  ->where('glpi_tickets_users.type', 2)
+                                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+                          });
+                      });
+            } else {
+                // Si no tiene glpi_user_id, no mostrar nada
+                $query->whereRaw('1 = 0');
+            }
         }
         
         $tickets = $query->orderBy($orderByField, $sortDirection)
@@ -527,37 +545,59 @@ class TicketController extends Controller
                   });
         } elseif ($specialFilter === 'my_cases') {
             $user = auth()->user();
-            $glpiUser = DB::table('glpi_users')->where('name', $user->username ?? $user->name)->first();
-            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
-            $query->whereExists(function ($q) use ($glpiUserId) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $glpiUserId);
-            })->where('t.status', '!=', 6);
+            $glpiUserId = $user->glpi_user_id;
+            
+            if ($glpiUserId) {
+                $query->whereExists(function ($q) use ($glpiUserId) {
+                    $q->select(DB::raw(1))
+                      ->from('glpi_tickets_users')
+                      ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                      ->where('glpi_tickets_users.type', 2)
+                      ->where('glpi_tickets_users.users_id', $glpiUserId);
+                })->where('t.status', '!=', 6);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         } elseif ($specialFilter === 'my_pending') {
             $user = auth()->user();
-            $glpiUser = DB::table('glpi_users')->where('name', $user->username ?? $user->name)->first();
-            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
-            $query->whereExists(function ($q) use ($glpiUserId) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $glpiUserId);
-            })->whereNotIn('t.status', [5, 6]);
+            $glpiUserId = $user->glpi_user_id;
+            
+            if ($glpiUserId) {
+                $query->whereExists(function ($q) use ($glpiUserId) {
+                    $q->select(DB::raw(1))
+                      ->from('glpi_tickets_users')
+                      ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                      ->where('glpi_tickets_users.type', 2)
+                      ->where('glpi_tickets_users.users_id', $glpiUserId);
+                })->whereNotIn('t.status', [5, 6]);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         } elseif ($specialFilter === 'my_resolved') {
             $user = auth()->user();
-            $glpiUser = DB::table('glpi_users')->where('name', $user->username ?? $user->name)->first();
-            $glpiUserId = $glpiUser ? $glpiUser->id : 0;
-            $query->whereExists(function ($q) use ($glpiUserId) {
-                $q->select(DB::raw(1))
-                  ->from('glpi_tickets_users')
-                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                  ->where('glpi_tickets_users.type', 2)
-                  ->where('glpi_tickets_users.users_id', $glpiUserId);
-            })->whereIn('t.status', [5, 6]);
+            $glpiUserId = $user->glpi_user_id;
+            
+            if ($glpiUserId) {
+                $query->whereIn('t.status', [5, 6])
+                      ->where(function($q) use ($glpiUserId) {
+                          $q->whereExists(function($sub) use ($glpiUserId) {
+                              $sub->select(DB::raw(1))
+                                  ->from('glpi_itilsolutions')
+                                  ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                                  ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                                  ->where('glpi_itilsolutions.users_id', $glpiUserId);
+                          })
+                          ->orWhereExists(function($sub) use ($glpiUserId) {
+                              $sub->select(DB::raw(1))
+                                  ->from('glpi_tickets_users')
+                                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                                  ->where('glpi_tickets_users.type', 2)
+                                  ->where('glpi_tickets_users.users_id', $glpiUserId);
+                          });
+                      });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         $tickets = $query->orderBy($orderByField, $sortDirection)->get();
