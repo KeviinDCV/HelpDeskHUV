@@ -85,6 +85,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const [publicTickets, setPublicTickets] = useState(initialPublicTickets);
     const [myTickets, setMyTickets] = useState(initialMyTickets);
     const [stats, setStats] = useState(initialStats);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     
     // Modal de detalles
     const [detailModal, setDetailModal] = useState<{ open: boolean; ticket: TicketDetail | null; loading: boolean }>({ open: false, ticket: null, loading: false });
@@ -102,40 +103,33 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
 
     const isAdmin = auth?.user?.role === 'Administrador';
 
+    // Función para actualizar tickets (reutilizable)
+    const fetchTickets = async () => {
+        // No hacer fetch si la página no está visible
+        if (document.visibilityState !== 'visible') return;
+        
+        setIsRefreshing(true);
+        try {
+            const response = await fetch('/dashboard/tickets');
+            if (response.ok) {
+                const data = await response.json();
+                setPublicTickets(data.publicTickets);
+                setMyTickets(data.myTickets);
+                setStats(data.stats);
+            }
+        } catch (error) {
+            // Silenciar errores de conexión cuando la página está en segundo plano
+            if (document.visibilityState === 'visible' && import.meta.env.DEV) {
+                console.warn('Dashboard polling error:', error);
+            }
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     // Polling cada 30 segundos para actualizar tickets (solo cuando la pestaña está activa)
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
-        let abortController: AbortController | null = null;
-
-        const fetchTickets = async () => {
-            // No hacer fetch si la página no está visible
-            if (document.visibilityState !== 'visible') return;
-            
-            // Cancelar request anterior si existe
-            if (abortController) {
-                abortController.abort();
-            }
-            abortController = new AbortController();
-
-            try {
-                const response = await fetch('/dashboard/tickets', {
-                    signal: abortController.signal,
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setPublicTickets(data.publicTickets);
-                    setMyTickets(data.myTickets);
-                    setStats(data.stats);
-                }
-            } catch (error) {
-                // Silenciar errores de abort y conexión cuando la página está en segundo plano
-                if (error instanceof Error && error.name === 'AbortError') return;
-                // Solo loguear si estamos en desarrollo y la página está visible
-                if (document.visibilityState === 'visible' && import.meta.env.DEV) {
-                    console.warn('Dashboard polling error:', error);
-                }
-            }
-        };
 
         const startPolling = () => {
             if (!intervalId) {
@@ -147,10 +141,6 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             if (intervalId) {
                 clearInterval(intervalId);
                 intervalId = null;
-            }
-            if (abortController) {
-                abortController.abort();
-                abortController = null;
             }
         };
 
@@ -198,6 +188,8 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             onFinish: () => {
                 setAssigning(false);
                 setAssignModal({ open: false, ticketId: null, ticketName: '' });
+                // Actualizar tickets inmediatamente
+                fetchTickets();
             },
         });
     };
@@ -228,6 +220,8 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                 setSolveModal({ open: false, ticketId: null, ticketName: '' });
                 setSolution('');
                 setSolveDate('');
+                // Actualizar tickets inmediatamente
+                fetchTickets();
             },
         });
     };
@@ -235,7 +229,11 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const takeTicket = (id: number) => {
         setTaking(id);
         router.post(`/dashboard/take-ticket/${id}`, {}, {
-            onFinish: () => setTaking(null),
+            onFinish: () => {
+                setTaking(null);
+                // Actualizar tickets inmediatamente
+                fetchTickets();
+            },
         });
     };
 
