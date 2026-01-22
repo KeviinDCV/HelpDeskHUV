@@ -93,7 +93,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
                 </div>
               </div>
             </Link>
-            <Link href="/reportar" target="_blank" className="block">
+            <Link href="/reportar?from=dashboard" target="_blank" className="block">
               <div className="flex items-center gap-3 p-3 bg-green-50 hover:bg-green-100 transition-colors rounded-lg cursor-pointer group">
                 <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center group-hover:bg-green-700 transition-colors">
                   <MessageSquare className="w-4 h-4 text-white" />

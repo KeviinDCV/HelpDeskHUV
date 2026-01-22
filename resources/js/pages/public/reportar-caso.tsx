@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Send, Bot, FileText, Monitor, Cpu, HelpCircle } from 'lucide-react';
+import { CheckCircle, Send, Bot, FileText, Monitor, Cpu, HelpCircle, ArrowLeft } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { driver } from 'driver.js';
@@ -39,6 +39,9 @@ const deviceLabels: Record<string, string> = {
 export default function ReportarCaso() {
     const { props } = usePage<{ flash?: { success?: { message: string; ticket_id: number } } }>();
     const flash = props.flash;
+    
+    // Detectar si viene desde el dashboard
+    const fromDashboard = new URLSearchParams(window.location.search).get('from') === 'dashboard';
 
     const [processing, setProcessing] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
@@ -541,6 +544,18 @@ Usuario: "ecom12345"
             <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden">
                 {/* Header */}
                 <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
+                    {/* Botón de volver (solo si viene desde dashboard) */}
+                    {fromDashboard && (
+                        <div className="w-full mb-2 sm:mb-3">
+                            <a
+                                href="/dashboard"
+                                className="inline-flex items-center gap-2 text-sm text-[#2c4370] hover:text-[#3d5583] transition-colors"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Volver al Dashboard</span>
+                            </a>
+                        </div>
+                    )}
                     <img 
                         src="/images/huv-h.png" 
                         alt="Hospital Universitario del Valle" 
