@@ -39,7 +39,7 @@ const deviceLabels: Record<string, string> = {
 export default function ReportarCaso() {
     const { props } = usePage<{ flash?: { success?: { message: string; ticket_id: number } } }>();
     const flash = props.flash;
-    
+
     // Detectar si viene desde el dashboard
     const fromDashboard = new URLSearchParams(window.location.search).get('from') === 'dashboard';
 
@@ -215,19 +215,19 @@ export default function ReportarCaso() {
 
             // Obtener lista de ECOMs y categorías para el prompt
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            
+
             // Obtener datos del sistema (ECOMs y categorías) desde el backend
             const systemDataResponse = await fetch('/chatbot-system-data', {
                 method: 'GET',
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
                 credentials: 'include',
             });
-            
+
             const systemData = await systemDataResponse.json();
-            
+
             // Construir el system prompt
             const systemPrompt = buildSystemPrompt(formData, filledFields, systemData.ecomList || [], systemData.categories || []);
-            
+
             // Preparar mensajes para Puter.js
             const puterMessages = [
                 { role: 'system' as const, content: systemPrompt },
@@ -247,12 +247,12 @@ export default function ReportarCaso() {
 
             // Parsear la respuesta para extraer campos y mensaje
             const parsed = parseResponse(assistantResponse);
-            
+
             console.log('Parsed response:', parsed);
 
             if (parsed.fields && typeof parsed.fields === 'object' && Object.keys(parsed.fields).length > 0) {
                 console.log('Fields received:', parsed.fields);
-                
+
                 const newFilledFields: string[] = [...filledFields];
                 const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
 
@@ -309,14 +309,14 @@ export default function ReportarCaso() {
                 const needsEcom = devicesThatNeedEcom.includes(newFormData.device_type || '') && !hasEcomOrNotApplicable;
                 const formIsComplete = basicFieldsComplete && !needsEcom;
 
-                    if (formIsComplete) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
-                    } else if (parsed.message && parsed.message.trim()) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
-                    }
+                if (formIsComplete) {
+                    setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
                 } else if (parsed.message && parsed.message.trim()) {
                     setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
                 }
+            } else if (parsed.message && parsed.message.trim()) {
+                setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
+            }
         } catch (error) {
             console.error('Error en Puter.js:', error);
             setMessages(prev => [...prev, { role: 'assistant', content: 'Error de conexión. Verifica tu internet.' }]);
@@ -331,9 +331,9 @@ export default function ReportarCaso() {
     const parseResponse = (response: string): { message: string; fields: Record<string, string> } => {
         let fields: Record<string, string> = {};
         let message = response;
-        const validFields = ['reporter_name', 'reporter_position', 'reporter_service', 
-                           'reporter_extension', 'name', 'content', 'device_type', 
-                           'equipment_ecom', 'priority', 'itilcategories_id'];
+        const validFields = ['reporter_name', 'reporter_position', 'reporter_service',
+            'reporter_extension', 'name', 'content', 'device_type',
+            'equipment_ecom', 'priority', 'itilcategories_id'];
 
         // 1. Buscar patrón {FIELDS}...{/FIELDS}
         const fieldsMatch = response.match(/\{FIELDS\}(.*?)\{\/FIELDS\}/si);
@@ -350,7 +350,7 @@ export default function ReportarCaso() {
             } catch (e) {
                 console.error('Error parsing FIELDS:', e);
             }
-        } 
+        }
         // 2. Buscar JSON suelto con múltiples campos
         else {
             const jsonMatch = response.match(/\{[^{}]*"[a-z_]+"\s*:\s*"[^"]*"[^{}]*\}/si);
@@ -384,12 +384,12 @@ export default function ReportarCaso() {
     };
 
     // Función para construir el system prompt
-    const buildSystemPrompt = (formData: FormData, filledFields: string[], ecomList: string[], categories: Array<{id: number, name: string}>): string => {
+    const buildSystemPrompt = (formData: FormData, filledFields: string[], ecomList: string[], categories: Array<{ id: number, name: string }>): string => {
         const currentData = Object.entries(formData)
             .filter(([_, value]) => value && value !== '')
             .map(([key, value]) => `${key}: "${value}"`)
             .join(", ");
-        
+
         const currentDataStr = currentData || "Ninguno";
         const ecomSample = ecomList.slice(0, 15).join(', ');
         const categoryListStr = categories.map(c => `  - ${c.id} = ${c.name}`).join("\n");
@@ -575,8 +575,13 @@ CATEGORÍA 2 (Software):
 
 CATEGORÍA 14 (Redes):
 - Problemas de CONEXIÓN: sin internet, sin red, no conecta, WiFi no funciona
-- Problemas de RED FÍSICA: cable desconectado, puerto de red, switch
+- Problemas de RED FÍSICA: cable desconectado, puerto de red
 - Problemas de VELOCIDAD: internet lento, conexión intermitente
+- SUBCATEGORÍAS de configuración de dispositivos de red:
+  - "Configuración switch" → configuración o problemas de switch de red
+  - "Configuración plato de wifi" → configuración o problemas de access point / plato WiFi
+  - "Configuración router" → configuración o problemas de router
+  - "Configuración Telefonia IP" → configuración de telefonía IP en red
 
 CATEGORÍA 1 (Hardware):
 - Problemas FÍSICOS del equipo: no enciende, apagado, pantalla negra
@@ -595,8 +600,9 @@ CATEGORÍA 12 (Impresoras):
 - Problemas de IMPRESIÓN: no imprime, atasco de papel, toner
 - Problemas de IMPRESORA FÍSICA: dañada, desconectada
 
-CATEGORÍA 17 (Telefonía IP):
-- Problemas de TELÉFONO: sin tono, no suena, llamadas, extensión
+CATEGORÍA: Configuración Telefonia IP (subcategoría de Redes):
+- Problemas de TELÉFONO IP: sin tono, no suena, llamadas, extensión telefónica IP
+- Configuración de teléfonos IP en la red
 
 CATEGORÍA 18 (Servinte):
 - Problemas específicos del SISTEMA SERVINTE del hospital
@@ -608,7 +614,7 @@ EJEMPLOS DE CLASIFICACIÓN CORRECTA:
 - "SAP no abre" → CATEGORÍA 2 (Software) - problema de aplicación
 - "Computador no enciende" → CATEGORÍA 1 (Hardware) - problema físico
 - "Impresora no imprime" → CATEGORÍA 12 (Impresoras)
-- "Teléfono sin tono" → CATEGORÍA 17 (Telefonía IP)
+- "Teléfono sin tono" → Redes > Configuración Telefonia IP
 
 REGLA CRÍTICA: Si el problema es de una PÁGINA WEB, PORTAL ONLINE, o SISTEMA WEB → SIEMPRE usar CATEGORÍA 2 (Software)
 
@@ -796,9 +802,9 @@ Entendido. ¿Cuál es tu nombre completo?
                             </a>
                         </div>
                     )}
-                    <img 
-                        src="/images/huv-h.png" 
-                        alt="Hospital Universitario del Valle" 
+                    <img
+                        src="/images/huv-h.png"
+                        alt="Hospital Universitario del Valle"
                         className="h-12 sm:h-16 lg:h-20 object-contain mb-1 sm:mb-2"
                     />
                     <div className="text-center">
@@ -939,64 +945,64 @@ Entendido. ¿Cuál es tu nombre completo?
 
                                 {/* Desktop: Full timeline layout */}
                                 <div className="hidden lg:block space-y-8">
-                                {/* Quien Reporta */}
-                                <div>
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
-                                    <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
-                                        <TimelineItem 
-                                            label="Nombre" 
-                                            value={formData.reporter_name} 
-                                            placeholder="Pendiente..." 
-                                            isActive={!formData.reporter_name}
-                                        />
-                                        <TimelineItem 
-                                            label="Cargo" 
-                                            value={formData.reporter_position} 
-                                            placeholder="..." 
-                                            isActive={!!formData.reporter_name && !formData.reporter_position}
-                                        />
-                                        <TimelineItem 
-                                            label="Servicio" 
-                                            value={formData.reporter_service} 
-                                            placeholder="..." 
-                                            isActive={!!formData.reporter_position && !formData.reporter_service}
-                                        />
-                                        {formData.reporter_extension && (
-                                            <TimelineItem label="Extensión" value={formData.reporter_extension} />
-                                        )}
-                                    </ul>
-                                </div>
-
-                                {/* El Problema */}
-                                <div>
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">El Problema</h4>
-                                    <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <FileText className="w-4 h-4 text-slate-300 mt-0.5" />
-                                        <div className="flex-1">
-                                            <span className="block text-xs text-slate-400 mb-1">Descripción</span>
-                                            {formData.name ? (
-                                                <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
-                                            ) : (
-                                                <span className="block text-sm text-slate-300 italic">Título pendiente...</span>
+                                    {/* Quien Reporta */}
+                                    <div>
+                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
+                                        <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
+                                            <TimelineItem
+                                                label="Nombre"
+                                                value={formData.reporter_name}
+                                                placeholder="Pendiente..."
+                                                isActive={!formData.reporter_name}
+                                            />
+                                            <TimelineItem
+                                                label="Cargo"
+                                                value={formData.reporter_position}
+                                                placeholder="..."
+                                                isActive={!!formData.reporter_name && !formData.reporter_position}
+                                            />
+                                            <TimelineItem
+                                                label="Servicio"
+                                                value={formData.reporter_service}
+                                                placeholder="..."
+                                                isActive={!!formData.reporter_position && !formData.reporter_service}
+                                            />
+                                            {formData.reporter_extension && (
+                                                <TimelineItem label="Extensión" value={formData.reporter_extension} />
                                             )}
-                                            {formData.content && (
-                                                <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
-                                            )}
-                                        </div>
+                                        </ul>
                                     </div>
-                                    {formData.device_type && (
-                                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                                            <Monitor className="w-3.5 h-3.5" />
-                                            <span>{deviceLabels[formData.device_type] || formData.device_type}</span>
+
+                                    {/* El Problema */}
+                                    <div>
+                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">El Problema</h4>
+                                        <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                            <FileText className="w-4 h-4 text-slate-300 mt-0.5" />
+                                            <div className="flex-1">
+                                                <span className="block text-xs text-slate-400 mb-1">Descripción</span>
+                                                {formData.name ? (
+                                                    <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
+                                                ) : (
+                                                    <span className="block text-sm text-slate-300 italic">Título pendiente...</span>
+                                                )}
+                                                {formData.content && (
+                                                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
+                                                )}
+                                            </div>
                                         </div>
-                                    )}
-                                    {formData.equipment_ecom && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                                            <Cpu className="w-3.5 h-3.5" />
-                                            <span>ECOM: {formData.equipment_ecom}</span>
-                                        </div>
-                                    )}
-                                </div>
+                                        {formData.device_type && (
+                                            <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                                                <Monitor className="w-3.5 h-3.5" />
+                                                <span>{deviceLabels[formData.device_type] || formData.device_type}</span>
+                                            </div>
+                                        )}
+                                        {formData.equipment_ecom && (
+                                            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                                                <Cpu className="w-3.5 h-3.5" />
+                                                <span>ECOM: {formData.equipment_ecom}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -1005,16 +1011,15 @@ Entendido. ¿Cuál es tu nombre completo?
                                 <Button
                                     onClick={handleSubmit}
                                     disabled={!isFormComplete() || processing}
-                                    className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
-                                        isFormComplete() && !processing
-                                            ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
-                                            : 'bg-white border border-slate-200 text-slate-300 cursor-not-allowed opacity-80'
-                                    }`}
+                                    className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${isFormComplete() && !processing
+                                        ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
+                                        : 'bg-white border border-slate-200 text-slate-300 cursor-not-allowed opacity-80'
+                                        }`}
                                 >
                                     {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
                                 </Button>
                                 <p className="text-center text-[10px] text-slate-400 mt-2 lg:mt-3 px-2 lg:px-4 leading-relaxed hidden sm:block">
-                                    {isFormComplete() 
+                                    {isFormComplete()
                                         ? 'Revisa los datos y envía tu reporte.'
                                         : 'Interactúa con el asistente para habilitar el envío del reporte.'
                                     }
@@ -1090,14 +1095,12 @@ function TimelineItem({ label, value, placeholder, isActive }: { label: string; 
     const filled = !!value;
     return (
         <li className="relative">
-            <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
-                filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
-            }`}></span>
+            <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
+                }`}></span>
             <div className="flex flex-col">
                 <span className="text-xs text-slate-400 font-medium mb-1">{label}</span>
-                <span className={`text-sm font-medium ${
-                    filled ? 'text-slate-800' : 'text-slate-300 italic'
-                }`}>
+                <span className={`text-sm font-medium ${filled ? 'text-slate-800' : 'text-slate-300 italic'
+                    }`}>
                     {value || placeholder}
                 </span>
             </div>
