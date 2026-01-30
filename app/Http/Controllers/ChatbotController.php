@@ -393,15 +393,23 @@ IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye 
 
 === CAMPOS A CAPTURAR ===
 - reporter_name: Nombre (busca: "soy X", "me llamo X", "mi nombre es X", o cualquier nombre propio)
-- reporter_position: Cargo (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro)
-- reporter_service: Área/Servicio (Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/etc)
-- reporter_extension: Extensión (4 dígitos, busca: "ext", "extensión", números de 4 dígitos)
-- device_type: computer|printer|monitor|phone|network
-- equipment_ecom: Código ECOM (busca: "ecom" + números)
+- reporter_position: Cargo (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro). Si dice "usuario", "usuaria", "paciente", "ciudadano" o "externo", pon "Otro".
+- reporter_service: Área/Servicio (Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/CIAU/etc). "CIAU" es Centro de Información y Atención al Usuario, es un área VÁLIDA.
+- reporter_extension: Extensión (4 dígitos). Si dice que NO TIENE o es usuario externo, pon "0000".
+- device_type: computer|printer|monitor|phone|network|software. Para problemas de páginas web/citas, usa "software".
+- equipment_ecom: Código ECOM (busca: "ecom" + números). Si es usuario externo o problema de web/citas, NO lo pidas y pon "N/A".
 - name: Título corto del problema (IMPORTANTE: captura la esencia del problema)
 - content: Descripción COMPLETA del problema (IMPORTANTE: incluye TODOS los detalles que mencione el usuario)
 - itilcategories_id: Ver sección CATEGORÍAS abajo
 - priority: 3 (siempre)
+
+=== REGLA USUARIOS EXTERNOS / PACIENTES ===
+Si el usuario dice "soy usuario/usuaria del hospital", "paciente", "ciudadano" o no trabaja en el hospital:
+1. Cargo = "Otro"
+2. Extensión = "0000" (NO la pidas)
+3. ECOM = "N/A" (NO lo pidas)
+4. Área = Si dice "CIAU" es válido. Si no tiene área, pon "Externo".
+5. Continúa directo al problema sin hacer preguntas innecesarias.
 
 === CATEGORÍAS DISPONIBLES (itilcategories_id) ===
 {$categoryListStr}
@@ -451,6 +459,10 @@ Gracias. ¿Cuál es el problema que tienes?
 EJEMPLO: "ecom12345"
 {FIELDS}{"equipment_ecom": "ecom12345"}{/FIELDS}
 ¡Listo! Ya tengo todos los datos. ¿Confirmas que quieres enviar el reporte?
+
+EJEMPLO USUARIO EXTERNO: "Soy usuaria del hospital" o "No trabajo aquí" o "Soy paciente"
+{FIELDS}{"reporter_position": "Otro", "reporter_extension": "0000", "equipment_ecom": "N/A", "reporter_service": "Externo"}{/FIELDS}
+Entendido. ¿Cuál es el problema que estás experimentando?
 
 === CLASIFICACIÓN DE DISPOSITIVO ===
 SOFTWARE/SISTEMA (SAP, Excel, correo, navegador, etc.) → device_type="computer" → PEDIR ECOM
