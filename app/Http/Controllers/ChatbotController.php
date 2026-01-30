@@ -57,36 +57,45 @@ class ChatbotController extends Controller
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
-            // Usar Puter AI API
-            $response = Http::timeout(30)->connectTimeout(10)->withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post('https://api.puter.com/drivers/call', [
-                'interface' => 'puter-chat-completion',
-                'driver' => 'openai-completion',
-                'method' => 'complete',
-                'args' => [
-                    'messages' => $messages,
-                    'model' => 'gpt-4o-mini', // Modelo rápido y eficiente
-                    'temperature' => 0.1,
-                    'max_tokens' => 500,
-                ]
-            ]);
+            // Usar OpenRouter en lugar de Puter API directa para evitar problemas de autenticación
+            // Reutilizamos la lógica del método chat() pero manteniendo este endpoint
+            
+            $maxRetries = 2;
+            $response = null;
+            
+            for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+                try {
+                    $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
+                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                        'HTTP-Referer' => config('app.url'),
+                        'X-Title' => config('app.name'),
+                        'Content-Type' => 'application/json',
+                    ])->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => 'gpt-4o-mini', // Modelo eficiente
+                        // 'model' => 'z-ai/glm-4.5-air:free', // Alternativa gratuita si se prefiere
+                        'messages' => $messages,
+                        'temperature' => 0.1,
+                        'max_tokens' => 500,
+                    ]);
+
+                    if ($response->successful() || $response->status() !== 429) {
+                        break;
+                    }
+                    if ($attempt < $maxRetries) sleep(2);
+                } catch (\Exception $e) {
+                    if ($attempt >= $maxRetries) throw $e;
+                    sleep(1);
+                }
+            }
 
             if ($response->successful()) {
                 $data = $response->json();
+                $assistantResponse = $data['choices'][0]['message']['content'] ?? '';
                 
-                // Puter devuelve la respuesta en data.message.content
-                $assistantResponse = $data['message']['content'] ?? '';
+                \Log::info('Chatbot AI Response', ['raw' => $assistantResponse]);
                 
-                // Log para debug
-                \Log::info('Chatbot Puter Response', [
-                    'raw_response' => $assistantResponse,
-                ]);
-                
-                // Parsear la respuesta para extraer campos y mensaje
                 $parsed = $this->parseResponse($assistantResponse);
                 
-                // Log del parsing
                 \Log::info('Chatbot Parsed', [
                     'fields' => $parsed['fields'],
                     'message' => $parsed['message'],
@@ -99,11 +108,7 @@ class ChatbotController extends Controller
                 ]);
             }
 
-            // Log del error para depuración
-            \Log::error('Puter API Error', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
+            \Log::error('AI API Error', ['status' => $response->status(), 'body' => $response->body()]);
 
             return response()->json([
                 'success' => false,
@@ -111,7 +116,7 @@ class ChatbotController extends Controller
             ], 500);
 
         } catch (\Exception $e) {
-            \Log::error('Chatbot Puter Exception', ['error' => $e->getMessage()]);
+            \Log::error('Chatbot Exception', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error de conexión. Por favor intenta de nuevo.',
@@ -303,12 +308,19 @@ class ChatbotController extends Controller
     private function getCategoryList(): array
     {
         return DB::table('glpi_itilcategories')
-            ->select('id', 'name')
+            ->select('id', 'name', 'completename')
             ->where('is_incident', 1)
-            ->whereIn('id', [1, 2, 6, 11, 12, 14, 17, 18]) // Categorías principales útiles
-            ->orderBy('id')
+            ->where(function ($query) {
+                // Categorías principales por ID
+                $query->whereIn('id', [1, 2, 6, 11, 12, 14, 18])
+                    // O subcategorías de Redes (que empiezan con "Redes >")
+                    ->orWhere('completename', 'like', 'Redes > %')
+                    // O si Configuración Telefonia IP quedó suelta (por si acaso)
+                    ->orWhere('name', 'like', 'Configuración Telefonia IP');
+            })
+            ->orderBy('completename')
             ->get()
-            ->map(fn($c) => ['id' => $c->id, 'name' => $c->name])
+            ->map(fn($c) => ['id' => $c->id, 'name' => $c->completename]) // Usar nombre completo para mayor contexto
             ->toArray();
     }
 
@@ -407,12 +419,34 @@ IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye 
 {$categoryListStr}
 
 === GUÍA DE CLASIFICACIÓN DE CATEGORÍAS ===
-PALABRAS CLAVE → CATEGORÍA:
-- "internet", "red", "wifi", "conexión", "no conecta", "sin red", "IP", "cable de red" → Busca categoría de RED (probablemente 11)
-- "programa", "SAP", "Excel", "Word", "Servinte", "sistema", "aplicación", "no abre", "error" → Busca categoría de SOFTWARE (probablemente 6)
-- "no enciende", "apagado", "lento", "pantalla azul", "reinicia", "teclado", "mouse", "físico" → Busca categoría de HARDWARE (probablemente 2)
-- "impresora", "no imprime", "toner", "atasco", "papel", "cola de impresión" → Busca categoría de IMPRESIÓN (probablemente 12)
-- "teléfono", "extensión", "sin tono", "llamadas", "no suena" → Busca categoría de TELÉFONO (probablemente 17)
+PALABRAS CLAVE → CATEGORÍA CORRECTA (Busca el ID en la lista de arriba):
+
+CATEGORÍA REDES (Busca "Redes" o ID 14):
+- Problemas de CONEXIÓN: sin internet, sin red, no conecta, WiFi no funciona
+- Problemas de RED FÍSICA: cable desconectado, puerto de red
+- Problemas de VELOCIDAD: internet lento, conexión intermitente
+- SUBCATEGORÍAS (Busca en la lista por nombre exacto):
+  - "Configuración switch" → para problemas de switch
+  - "Configuración plato de wifi" → para problemas de wifi/access point
+  - "Configuración router" → para problemas de router
+  - "Configuración Telefonia IP" → para teléfonos IP (sin tono, no suena)
+
+CATEGORÍA SOFTWARE (Busca "Software" o ID 2):
+- Problemas con PROGRAMAS: SAP, Excel, Word, Outlook, navegador
+- Problemas con SISTEMAS WEB: páginas web, portales, sistemas online
+- Problemas de ACCESO: no puede ingresar, clave incorrecta
+
+CATEGORÍA HARDWARE (Busca "Hardware" o ID 1):
+- Problemas FÍSICOS: no enciende, apagado, pantalla negra, humo, ruido extraño
+- Problemas de RENDIMIENTO: lento, se congela
+
+CATEGORÍA IMPRESORAS (Busca "Impresoras" o ID 12):
+- Problemas de IMPRESIÓN: no imprime, atasco, toner
+
+CATEGORÍA SERVINTE (Busca "Servinte" o ID 18):
+- Problemas específicos del sistema Servinte
+
+NOTA IMPORTANTE: Si es un problema de "Teléfono" o "Telefonía", busca la subcategoría "Configuración Telefonia IP" dentro de Redes.
 
 === CAPTURA DE INFORMACIÓN DEL PROBLEMA ===
 CRÍTICO: Cuando el usuario describa su problema, captura TODA la información en "content":
