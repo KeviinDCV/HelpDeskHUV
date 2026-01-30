@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,9 +12,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import React from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, CheckCircle } from 'lucide-react';
 
 interface User {
     id: number;
@@ -58,13 +66,22 @@ interface CreateTicketProps {
 }
 
 export default function CrearCaso({ users, locations, categories, itemTypes, auth }: CreateTicketProps) {
+    const { flash } = usePage<any>().props;
     const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
     const [observerIds, setObserverIds] = React.useState<number[]>([]);
     const [assignedIds, setAssignedIds] = React.useState<number[]>([]);
     const [selectedItemType, setSelectedItemType] = React.useState<string>('');
     const [availableItems, setAvailableItems] = React.useState<Item[]>([]);
-    const [selectedItems, setSelectedItems] = React.useState<{type: string, id: number, name: string}[]>([]);
+    const [selectedItems, setSelectedItems] = React.useState<{ type: string, id: number, name: string }[]>([]);
     const [loadingItems, setLoadingItems] = React.useState(false);
+    const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+
+    React.useEffect(() => {
+        if (flash.success) {
+            setShowSuccessModal(true);
+            // Auto cerrar después de 3 segundos si se prefiere, pero dejaremos que el usuario lo cierre
+        }
+    }, [flash.success]);
 
     // Función para obtener fecha/hora local en formato datetime-local
     const getLocalDateTime = () => {
@@ -74,7 +91,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
         return local.toISOString().slice(0, 16);
     };
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         content: '',
         date: getLocalDateTime(),
@@ -103,7 +120,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
     const handleItemTypeChange = async (type: string) => {
         setSelectedItemType(type);
         setAvailableItems([]);
-        
+
         if (type) {
             setLoadingItems(true);
             try {
@@ -126,7 +143,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
     const addSelectedItem = (itemId: string) => {
         const item = availableItems.find(i => i.id === parseInt(itemId));
         const typeLabel = itemTypes.find(t => t.value === selectedItemType)?.label || selectedItemType;
-        
+
         if (item && !selectedItems.some(s => s.type === selectedItemType && s.id === item.id)) {
             setSelectedItems([...selectedItems, { type: selectedItemType, id: item.id, name: `${typeLabel}: ${item.name}` }]);
         }
@@ -138,7 +155,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Preparar datos para enviar (Inertia maneja automáticamente FormData cuando hay archivos)
         const submitData = {
             ...data,
@@ -151,10 +168,10 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
         router.post('/soporte/casos', submitData, {
             forceFormData: true,
             onSuccess: () => {
-                // Reset form
+                // Reset form manual
+                reset('name', 'content'); // Solo reseteamos campos básicos para permitir entrada rápida
+                // No reseteamos fecha, ubicación ni asignados porque suelen ser los mismos
                 setSelectedFiles([]);
-                setObserverIds([]);
-                setAssignedIds([]);
                 setSelectedItems([]);
                 setSelectedItemType('');
                 setAvailableItems([]);
@@ -507,7 +524,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                             </label>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Lista de archivos adjuntos (Full width) */}
                                     {selectedFiles.length > 0 && (
                                         <div className="md:col-span-4 flex flex-wrap gap-2">
@@ -555,6 +572,34 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                 </main>
 
                 <GLPIFooter />
+
+                {/* Modal de éxito */}
+                <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-green-600">
+                                <CheckCircle className="h-6 w-6" />
+                                Caso Creado Exitosamente
+                            </DialogTitle>
+                            <DialogDescription>
+                                {flash.success || 'El caso ha sido registrado correctamente.'}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex justify-center py-4 bg-gray-50 rounded-md border border-gray-100">
+                            <p className="text-sm text-gray-600 text-center px-4">
+                                El formulario se ha limpiado parcialmente para que pueda registrar otro caso inmediatamente.
+                            </p>
+                        </div>
+                        <DialogFooter className="sm:justify-center">
+                            <Button
+                                onClick={() => setShowSuccessModal(false)}
+                                className="bg-[#2c4370] text-white hover:bg-[#1e2e4f] min-w-[100px]"
+                            >
+                                Aceptar
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     );

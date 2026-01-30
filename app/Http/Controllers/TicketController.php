@@ -918,7 +918,7 @@ class TicketController extends Controller
 
             DB::commit();
 
-            return redirect()->route('soporte.casos')->with('success', 'Caso creado exitosamente');
+            return redirect()->route('soporte.crear-caso')->with('success', 'Caso creado exitosamente');
 
         } catch (\Exception $e) {
             DB::rollBack();
