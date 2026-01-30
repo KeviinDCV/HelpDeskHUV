@@ -406,14 +406,23 @@ IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye 
 === CAMPOS A CAPTURAR ===
 - reporter_name: Nombre (busca: "soy X", "me llamo X", "mi nombre es X", o cualquier nombre propio)
 - reporter_position: Cargo (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro)
-- reporter_service: Área/Servicio (Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/etc)
-- reporter_extension: Extensión (4 dígitos, busca: "ext", "extensión", números de 4 dígitos)
-- device_type: computer|printer|monitor|phone|network
-- equipment_ecom: Código ECOM (busca: "ecom" + números)
-- name: Título corto del problema (IMPORTANTE: captura la esencia del problema)
-- content: Descripción COMPLETA del problema (IMPORTANTE: incluye TODOS los detalles que mencione el usuario)
-- itilcategories_id: Ver sección CATEGORÍAS abajo
-- priority: 3 (siempre)
+- reporter_service: Área/Servicio (IMPORTANTE: "CIAU" es Centro de Información y Atención al Usuario, NO es una despedida. Otras áreas: Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/etc).
+- reporter_extension: Extensión (Si es usuario externo/paciente, poner "0000").
+- device_type: computer|printer|monitor|phone|network (Si es problema de citas/web externo, usar "software").
+- equipment_ecom: Código ECOM (Si es usuario externo, paciente o problema web externo, NO LO PIDAS, pon "N/A").
+- name: Título corto del problema.
+- content: Descripción COMPLETA.
+- itilcategories_id: Ver sección CATEGORÍAS.
+- priority: 3.
+
+=== REGLA DE USUARIOS EXTERNOS / PACIENTES ===
+Si el reporte es sobre un "Usuario", "Paciente" o "Ciudadano" (alguien que no trabaja en el hospital) o para el área "CIAU":
+1. El "reporter_name" es el FUNCIONARIO que está escribiendo.
+2. Si el cargo es "usuario del huv" o ambiguo, asume "Administrativo" o "Otro".
+3. NO PIDAS extensión ni ECOM. Asume "0000" y "N/A" respectivamente.
+4. "CIAU" es un área válida. NO te despidas.
+
+
 
 === CATEGORÍAS DISPONIBLES (itilcategories_id) ===
 {$categoryListStr}
