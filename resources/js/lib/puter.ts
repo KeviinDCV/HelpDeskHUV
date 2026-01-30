@@ -18,6 +18,10 @@ declare global {
                     }
                 ) => Promise<any>;
             };
+            auth: {
+                signIn: (options?: { attempt_temp_user_creation?: boolean }) => Promise<any>;
+                isSignedIn: () => Promise<boolean>;
+            };
         };
     }
 }
@@ -35,6 +39,31 @@ interface PuterChatOptions {
 }
 
 /**
+ * Asegurar que el usuario esté autenticado en Puter
+ * Si no está autenticado, intenta crear un usuario temporal automáticamente
+ */
+async function ensureAuthenticated(): Promise<void> {
+    if (typeof window === 'undefined' || !window.puter) {
+        throw new Error('Puter.js no está cargado');
+    }
+
+    try {
+        // Verificar si ya está autenticado
+        const isSignedIn = await window.puter.auth.isSignedIn();
+
+        if (!isSignedIn) {
+            console.log('Puter: Usuario no autenticado, creando sesión temporal...');
+            // Intentar crear usuario temporal automáticamente
+            await window.puter.auth.signIn({ attempt_temp_user_creation: true });
+            console.log('Puter: Sesión temporal creada exitosamente');
+        }
+    } catch (error) {
+        console.warn('Puter: Error en autenticación automática:', error);
+        // Continuar de todos modos, el chat puede manejar esto
+    }
+}
+
+/**
  * Enviar mensaje al chatbot usando Puter.js
  */
 export async function sendPuterChat(
@@ -45,6 +74,9 @@ export async function sendPuterChat(
     if (typeof window === 'undefined' || !window.puter) {
         throw new Error('Puter.js no está cargado');
     }
+
+    // Asegurar autenticación antes de hacer el chat
+    await ensureAuthenticated();
 
     const defaultOptions: PuterChatOptions = {
         model: 'gpt-5-nano', // Modelo por defecto de Puter
