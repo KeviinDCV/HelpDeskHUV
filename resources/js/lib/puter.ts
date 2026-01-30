@@ -47,7 +47,7 @@ export async function sendPuterChat(
     }
 
     const defaultOptions: PuterChatOptions = {
-        model: 'gpt-4o-mini', // Modelo rápido y eficiente
+        model: 'gpt-5-nano', // Modelo por defecto de Puter
         stream: false,
         max_tokens: 500,
         temperature: 0.1,
@@ -57,17 +57,17 @@ export async function sendPuterChat(
 
     try {
         const response = await window.puter.ai.chat(messages, finalOptions);
-        
+
         // Puter devuelve un objeto con message.content
         if (response && response.message && response.message.content) {
             return response.message.content;
         }
-        
+
         // Si es un string directo
         if (typeof response === 'string') {
             return response;
         }
-        
+
         throw new Error('Respuesta inválida de Puter.js');
     } catch (error) {
         console.error('Error en Puter.js:', error);
