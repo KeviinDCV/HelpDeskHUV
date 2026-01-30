@@ -20,7 +20,7 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Procesar mensaje del chatbot usando Puter.js
+     * Procesar mensaje del chatbot usando OpenRouter (Backend)
      */
     public function chatPuter(Request $request)
     {
@@ -57,36 +57,42 @@ class ChatbotController extends Controller
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
-            // Usar Puter AI API
-            $response = Http::timeout(30)->connectTimeout(10)->withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post('https://api.puter.com/drivers/call', [
-                'interface' => 'puter-chat-completion',
-                'driver' => 'openai-completion',
-                'method' => 'complete',
-                'args' => [
-                    'messages' => $messages,
-                    'model' => 'gpt-4o-mini', // Modelo rápido y eficiente
-                    'temperature' => 0.1,
-                    'max_tokens' => 500,
-                ]
-            ]);
+            // Usar OpenRouter API (funciona sin autenticación del usuario)
+            $maxRetries = 2;
+            $response = null;
+            
+            for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+                try {
+                    $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
+                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                        'HTTP-Referer' => config('app.url'),
+                        'X-Title' => config('app.name'),
+                        'Content-Type' => 'application/json',
+                    ])->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => 'openai/gpt-4o-mini', // Modelo rápido y eficiente
+                        'messages' => $messages,
+                        'temperature' => 0.1,
+                        'max_tokens' => 500,
+                    ]);
+
+                    if ($response->successful() || $response->status() !== 429) {
+                        break;
+                    }
+                    if ($attempt < $maxRetries) sleep(2);
+                } catch (\Exception $e) {
+                    if ($attempt >= $maxRetries) throw $e;
+                    sleep(1);
+                }
+            }
 
             if ($response->successful()) {
                 $data = $response->json();
+                $assistantResponse = $data['choices'][0]['message']['content'] ?? '';
                 
-                // Puter devuelve la respuesta en data.message.content
-                $assistantResponse = $data['message']['content'] ?? '';
+                \Log::info('Chatbot AI Response', ['raw' => $assistantResponse]);
                 
-                // Log para debug
-                \Log::info('Chatbot Puter Response', [
-                    'raw_response' => $assistantResponse,
-                ]);
-                
-                // Parsear la respuesta para extraer campos y mensaje
                 $parsed = $this->parseResponse($assistantResponse);
                 
-                // Log del parsing
                 \Log::info('Chatbot Parsed', [
                     'fields' => $parsed['fields'],
                     'message' => $parsed['message'],
@@ -99,11 +105,7 @@ class ChatbotController extends Controller
                 ]);
             }
 
-            // Log del error para depuración
-            \Log::error('Puter API Error', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
+            \Log::error('AI API Error', ['status' => $response->status(), 'body' => $response->body()]);
 
             return response()->json([
                 'success' => false,
@@ -111,7 +113,7 @@ class ChatbotController extends Controller
             ], 500);
 
         } catch (\Exception $e) {
-            \Log::error('Chatbot Puter Exception', ['error' => $e->getMessage()]);
+            \Log::error('Chatbot Exception', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error de conexión. Por favor intenta de nuevo.',

@@ -1,12 +1,11 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Send, Bot, FileText, Monitor, Cpu, HelpCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Send, Bot, FileText, Monitor, Cpu, HelpCircle } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { AccessibilityMenu } from '@/components/accessibility-menu';
-import { sendPuterChat, isPuterAvailable } from '@/lib/puter';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -40,12 +39,9 @@ export default function ReportarCaso() {
     const { props } = usePage<{ flash?: { success?: { message: string; ticket_id: number } } }>();
     const flash = props.flash;
 
-    // Detectar si viene desde el dashboard
-    const fromDashboard = new URLSearchParams(window.location.search).get('from') === 'dashboard';
-
     const [processing, setProcessing] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot, tu asistente para reportar problemas técnicos en el Hospital.\n\nPuedes empezar diciéndome tu nombre o directamente contándome el problema que tienes. ¿Cómo te puedo ayudar?' },
+        { role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot, tu asistente para reportar problemas técnicos en el Hospital. Vamos a crear tu reporte juntos.\n\n¿Me podrías decir tu nombre completo?' },
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -184,7 +180,7 @@ export default function ReportarCaso() {
                     reporter_email: '', name: '', content: '', priority: '3', device_type: '', equipment_ecom: '', itilcategories_id: '',
                 });
                 setFilledFields([]);
-                setMessages([{ role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot. Puedes empezar diciéndome tu nombre o contándome el problema. ¿Cómo te puedo ayudar?' }]);
+                setMessages([{ role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot. ¿Me podrías decir tu nombre completo?' }]);
                 setProcessing(false);
             },
             onError: () => {
@@ -208,515 +204,101 @@ export default function ReportarCaso() {
         animateSendButton();
 
         try {
-            // Verificar que Puter.js esté disponible
-            if (!isPuterAvailable()) {
-                throw new Error('Puter.js no está disponible');
-            }
-
-            // Obtener lista de ECOMs y categorías para el prompt
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-            // Obtener datos del sistema (ECOMs y categorías) desde el backend
-            const systemDataResponse = await fetch('/chatbot-system-data', {
-                method: 'GET',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
+            const response = await fetch('/chatbot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
                 credentials: 'include',
+                body: JSON.stringify({
+                    message: userMessage,
+                    context: messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+                    currentFormData: formData,
+                    filledFields: filledFields,
+                }),
             });
 
-            const systemData = await systemDataResponse.json();
-
-            // Construir el system prompt
-            const systemPrompt = buildSystemPrompt(formData, filledFields, systemData.ecomList || [], systemData.categories || []);
-
-            // Preparar mensajes para Puter.js
-            const puterMessages = [
-                { role: 'system' as const, content: systemPrompt },
-                ...messages.slice(-4).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-                { role: 'user' as const, content: userMessage }
-            ];
-
-            // Llamar a Puter.js
-            const assistantResponse = await sendPuterChat(puterMessages, {
-                model: 'gpt-4o-mini',
-                temperature: 0.01,
-                max_tokens: 500,
-            });
+            const data = await response.json();
 
             // Debug: ver qué devuelve la IA
-            console.log('Puter.js response:', assistantResponse);
+            console.log('Chatbot response:', data);
 
-            // Parsear la respuesta para extraer campos y mensaje
-            const parsed = parseResponse(assistantResponse);
+            if (data.success) {
+                if (data.fields && typeof data.fields === 'object' && Object.keys(data.fields).length > 0) {
+                    console.log('Fields received:', data.fields);
+                    
+                    const newFilledFields: string[] = [...filledFields];
+                    const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
 
-            console.log('Parsed response:', parsed);
+                    // Procesar campos - crear objeto con los nuevos valores
+                    const fieldsToProcess = { ...data.fields };
 
-            if (parsed.fields && typeof parsed.fields === 'object' && Object.keys(parsed.fields).length > 0) {
-                console.log('Fields received:', parsed.fields);
-
-                const newFilledFields: string[] = [...filledFields];
-                const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
-
-                // Procesar campos - crear objeto con los nuevos valores
-                const fieldsToProcess = { ...parsed.fields };
-
-                // Detectar si hay ECOM en extensión y corregirlo
-                if (fieldsToProcess.reporter_extension &&
-                    typeof fieldsToProcess.reporter_extension === 'string' &&
-                    fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
-                    if (!fieldsToProcess.equipment_ecom) {
-                        fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
+                    // Detectar si hay ECOM en extensión y corregirlo
+                    if (fieldsToProcess.reporter_extension &&
+                        typeof fieldsToProcess.reporter_extension === 'string' &&
+                        fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
+                        if (!fieldsToProcess.equipment_ecom) {
+                            fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
+                        }
+                        fieldsToProcess.reporter_extension = '';
                     }
-                    fieldsToProcess.reporter_extension = '';
-                }
 
-                // Si device_type es 'software', convertir a 'computer' (software corre en PC)
-                if (fieldsToProcess.device_type === 'software') {
-                    fieldsToProcess.device_type = 'computer';
-                }
+                    // Si device_type es 'software', convertir a 'computer' (software corre en PC)
+                    if (fieldsToProcess.device_type === 'software') {
+                        fieldsToProcess.device_type = 'computer';
+                    }
 
-                // Construir el nuevo formData directamente
-                const newFormData = { ...formData };
+                    // Construir el nuevo formData directamente
+                    const newFormData = { ...formData };
 
-                Object.entries(fieldsToProcess).forEach(([field, value]) => {
-                    if (value && typeof value === 'string') {
-                        const trimmedValue = value.trim().toLowerCase();
-                        if (trimmedValue && !invalidValues.includes(trimmedValue)) {
-                            const currentValue = formData[field as keyof FormData] || '';
-                            if (!currentValue || value.trim().length > currentValue.length) {
-                                newFormData[field as keyof FormData] = value.trim();
-                                if (!newFilledFields.includes(field)) newFilledFields.push(field);
+                    Object.entries(fieldsToProcess).forEach(([field, value]) => {
+                        if (value && typeof value === 'string') {
+                            const trimmedValue = value.trim().toLowerCase();
+                            if (trimmedValue && !invalidValues.includes(trimmedValue)) {
+                                const currentValue = formData[field as keyof FormData] || '';
+                                if (!currentValue || value.trim().length > currentValue.length) {
+                                    newFormData[field as keyof FormData] = value.trim();
+                                    if (!newFilledFields.includes(field)) newFilledFields.push(field);
+                                }
                             }
                         }
+                    });
+
+                    // Actualizar estado de una sola vez
+                    setFormData(newFormData);
+                    setFilledFields(newFilledFields);
+
+                    // Verificar si el formulario está completo usando newFormData
+                    const basicFieldsComplete = newFormData.reporter_name &&
+                        newFormData.reporter_position &&
+                        newFormData.reporter_service &&
+                        newFormData.name &&
+                        newFormData.content;
+
+                    // computer, monitor, software y network requieren ECOM
+                    // Solo printer y phone NO requieren ECOM
+                    const needsEcomDevice = ['computer', 'monitor', 'software', 'network'].includes(newFormData.device_type || '');
+                    const needsEcom = needsEcomDevice && !newFormData.equipment_ecom;
+                    const formIsComplete = basicFieldsComplete && !needsEcom;
+
+                    if (formIsComplete) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
+                    } else if (data.message && data.message.trim()) {
+                        setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
                     }
-                });
-
-                // Actualizar estado de una sola vez
-                setFormData(newFormData);
-                setFilledFields(newFilledFields);
-
-                // Verificar si el formulario está completo usando newFormData
-                const basicFieldsComplete = newFormData.reporter_name &&
-                    newFormData.reporter_position &&
-                    newFormData.reporter_service &&
-                    newFormData.name &&
-                    newFormData.content;
-
-                // LÓGICA MEJORADA: Solo computer y monitor requieren ECOM (y solo si están EN el hospital)
-                // printer, phone, network, other NO requieren ECOM
-                // Si equipment_ecom es "N/A", se considera válido (no tiene ECOM)
-                const devicesThatNeedEcom = ['computer', 'monitor'];
-                const hasEcomOrNotApplicable = newFormData.equipment_ecom && newFormData.equipment_ecom.trim() !== '';
-                const needsEcom = devicesThatNeedEcom.includes(newFormData.device_type || '') && !hasEcomOrNotApplicable;
-                const formIsComplete = basicFieldsComplete && !needsEcom;
-
-                if (formIsComplete) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
-                } else if (parsed.message && parsed.message.trim()) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
+                } else if (data.message && data.message.trim()) {
+                    setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
                 }
-            } else if (parsed.message && parsed.message.trim()) {
-                setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }]);
+            } else {
+                setMessages(prev => [...prev, { role: 'assistant', content: 'Lo siento, tuve un problema. ¿Puedes intentar de nuevo?' }]);
             }
-        } catch (error) {
-            console.error('Error en Puter.js:', error);
+        } catch {
             setMessages(prev => [...prev, { role: 'assistant', content: 'Error de conexión. Verifica tu internet.' }]);
         } finally {
             setIsLoading(false);
             // Restaurar foco después de que termine la carga
             requestAnimationFrame(() => inputRef.current?.focus());
         }
-    };
-
-    // Función para parsear la respuesta del modelo
-    const parseResponse = (response: string): { message: string; fields: Record<string, string> } => {
-        let fields: Record<string, string> = {};
-        let message = response;
-        const validFields = ['reporter_name', 'reporter_position', 'reporter_service',
-            'reporter_extension', 'name', 'content', 'device_type',
-            'equipment_ecom', 'priority', 'itilcategories_id'];
-
-        // 1. Buscar patrón {FIELDS}...{/FIELDS}
-        const fieldsMatch = response.match(/\{FIELDS\}(.*?)\{\/FIELDS\}/si);
-        if (fieldsMatch) {
-            try {
-                const jsonStr = fieldsMatch[1].trim();
-                const decoded = JSON.parse(jsonStr);
-                if (typeof decoded === 'object') {
-                    fields = Object.fromEntries(
-                        Object.entries(decoded).filter(([key]) => validFields.includes(key))
-                    );
-                }
-                message = response.replace(/\{FIELDS\}.*?\{\/FIELDS\}/si, '').trim();
-            } catch (e) {
-                console.error('Error parsing FIELDS:', e);
-            }
-        }
-        // 2. Buscar JSON suelto con múltiples campos
-        else {
-            const jsonMatch = response.match(/\{[^{}]*"[a-z_]+"\s*:\s*"[^"]*"[^{}]*\}/si);
-            if (jsonMatch) {
-                try {
-                    const decoded = JSON.parse(jsonMatch[0]);
-                    if (typeof decoded === 'object') {
-                        const filtered = Object.fromEntries(
-                            Object.entries(decoded).filter(([key]) => validFields.includes(key))
-                        );
-                        if (Object.keys(filtered).length > 0) {
-                            fields = filtered;
-                            message = response.replace(jsonMatch[0], '').trim();
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error parsing JSON:', e);
-                }
-            }
-        }
-
-        // Limpiar mensaje de artefactos
-        message = message.replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
-
-        // Si el mensaje quedó vacío, usar uno por defecto
-        if (!message) {
-            message = 'Entendido. ¿Algo más que necesites?';
-        }
-
-        return { message, fields };
-    };
-
-    // Función para construir el system prompt
-    const buildSystemPrompt = (formData: FormData, filledFields: string[], ecomList: string[], categories: Array<{ id: number, name: string }>): string => {
-        const currentData = Object.entries(formData)
-            .filter(([_, value]) => value && value !== '')
-            .map(([key, value]) => `${key}: "${value}"`)
-            .join(", ");
-
-        const currentDataStr = currentData || "Ninguno";
-        const ecomSample = ecomList.slice(0, 15).join(', ');
-        const categoryListStr = categories.map(c => `  - ${c.id} = ${c.name}`).join("\n");
-
-        return `Eres Evarisbot, asistente del Hospital Universitario del Valle para reportar problemas técnicos.
-
-DATOS YA CAPTURADOS: ${currentDataStr}
-
-=== REGLA #1 - LA MÁS IMPORTANTE ===
-CADA VEZ que el usuario te diga algo (nombre, cargo, área, extensión, problema), tu respuesta DEBE empezar con:
-{FIELDS}{"campo": "valor"}{/FIELDS}
-
-NO EXISTE NINGUNA EXCEPCIÓN A ESTA REGLA. Si el usuario te da información, SIEMPRE usa {FIELDS}.
-
-=== INSTRUCCIÓN CRÍTICA - LEE ESTO PRIMERO ===
-1. ANTES de pedir cualquier dato, VERIFICA si ya está en "DATOS YA CAPTURADOS"
-2. Si "reporter_name" ya tiene valor → NO pidas el nombre de nuevo
-3. Si "reporter_position" ya tiene valor → NO pidas el cargo de nuevo
-4. Si "reporter_service" ya tiene valor → NO pidas el área de nuevo
-5. Si "reporter_extension" ya tiene valor → NO pidas la extensión de nuevo
-6. Si "name" y "content" ya tienen valor → NO pidas el problema de nuevo
-7. EXTRAE TODOS los datos del mensaje del usuario EN UNA SOLA RESPUESTA
-8. Si el usuario da múltiples datos, captúralos TODOS en el JSON
-
-=== FORMATO OBLIGATORIO - MUY IMPORTANTE ===
-SIEMPRE que el usuario proporcione CUALQUIER dato, debes responder con este formato EXACTO:
-{FIELDS}{"campo1": "valor1", "campo2": "valor2"}{/FIELDS}
-Mensaje breve aquí.
-
-CRÍTICO - EJEMPLOS DE LO QUE DEBES HACER:
-Usuario: "Administrativo"
-✅ CORRECTO: {FIELDS}{"reporter_position": "Administrativo"}{/FIELDS} Perfecto. ¿Cuál es tu área o servicio?
-❌ INCORRECTO: Perfecto. ¿Cuál es tu área o servicio?
-
-Usuario: "Gestión de la información"
-✅ CORRECTO: {FIELDS}{"reporter_service": "Gestión de la información"}{/FIELDS} Entendido. ¿Cuál es tu extensión telefónica?
-❌ INCORRECTO: Entendido. ¿Cuál es tu extensión telefónica?
-
-Usuario: "1319"
-✅ CORRECTO: {FIELDS}{"reporter_extension": "1319"}{/FIELDS} Gracias. ¿Cuál es el problema que tienes?
-❌ INCORRECTO: Gracias. ¿Cuál es el problema que tienes?
-
-REGLA ABSOLUTA: Si el usuario te da información, SIEMPRE empieza tu respuesta con {FIELDS}...{/FIELDS}
-
-=== CAMPOS A CAPTURAR ===
-1. reporter_name: Nombre completo del REPORTANTE (quien reporta el problema)
-2. reporter_position: Cargo del reportante (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro)
-3. reporter_service: Área/Servicio del reportante (Urgencias/UCI/Laboratorio/Farmacia/etc)
-4. reporter_extension: Extensión telefónica del reportante (4 dígitos)
-5. name: Título corto del problema
-6. content: Descripción COMPLETA del problema (incluye si es de usuario externo/paciente)
-7. device_type: computer|printer|monitor|phone|network|other
-8. equipment_ecom: Código ECOM (SOLO si es computer/monitor Y el equipo está EN el hospital)
-9. itilcategories_id: ID de categoría (ver lista abajo)
-10. priority: 3 (siempre)
-
-=== VERIFICACIÓN DE DATOS ANTES DE PREGUNTAR ===
-ANTES de hacer cualquier pregunta, verifica qué datos YA TIENES en "DATOS YA CAPTURADOS":
-
-SI YA TIENES:
-- reporter_name, reporter_position, reporter_service, reporter_extension, name, content
-- Y device_type NO es "computer" ni "monitor"
-→ {FIELDS}{}{/FIELDS} ¡Listo! Revisa los datos y envía el reporte.
-
-SI YA TIENES:
-- reporter_name, reporter_position="Usuario externo", reporter_service="N/A", name, content
-- Y NO tienes reporter_extension
-→ {FIELDS}{"reporter_extension": "N/A"}{/FIELDS} ¡Listo! Revisa los datos y envía el reporte.
-
-SI YA TIENES:
-- reporter_name, reporter_position, reporter_service, reporter_extension, name, content
-- Y device_type es "computer" o "monitor" pero NO tienes equipment_ecom
-→ Pide ECOM: "¿Cuál es el código ECOM del equipo? (Etiqueta en el CPU)"
-
-SI YA TIENES:
-- reporter_name, reporter_position="Usuario externo", reporter_service="N/A"
-- Pero NO tienes name ni content
-→ Pide problema: "¿Cuál es el problema que tienes?"
-
-SI YA TIENES:
-- reporter_name, reporter_position, reporter_service, reporter_extension
-- Pero NO tienes name ni content
-→ Pide problema: "¿Cuál es el problema que tienes?"
-
-SI YA TIENES:
-- reporter_name, reporter_position, reporter_service
-- Pero NO tienes reporter_extension
-- Y reporter_position NO es "Usuario externo"
-→ Pide extensión: "¿Cuál es tu extensión telefónica?"
-
-SI YA TIENES:
-- reporter_name, reporter_position
-- Pero NO tienes reporter_service
-- Y reporter_position NO es "Usuario externo"
-→ Pide área: "¿Cuál es tu área o servicio?"
-
-SI YA TIENES:
-- reporter_name
-- Pero NO tienes reporter_position
-→ Pide cargo: "¿Cuál es tu cargo?"
-
-SI NO TIENES reporter_name:
-→ Pide nombre: "¿Cuál es tu nombre completo?"
-
-=== FLUJO FLEXIBLE (NO RÍGIDO) ===
-OPCIÓN A - Usuario empieza con su nombre:
-1. Captura nombre → Pide cargo
-2. Captura cargo → Pide área/servicio
-3. Captura servicio → Pide extensión
-4. Captura extensión → Pide problema
-
-OPCIÓN B - Usuario empieza describiendo el problema:
-1. Captura el problema (name, content, device_type, category)
-2. Luego pide: "Entendido. ¿Cuál es tu nombre completo?"
-3. Continúa con cargo, servicio, extensión
-
-OPCIÓN C - Usuario da todo junto:
-1. Extrae TODO lo que diga en un solo JSON
-2. Pide solo lo que falte según la VERIFICACIÓN DE DATOS
-
-=== DETECCIÓN DE USUARIOS EXTERNOS ===
-Si el usuario dice que es:
-- "Usuario del HUV", "Paciente", "Usuario externo", "No trabajo aquí", "Soy paciente"
-→ Es un USUARIO EXTERNO (no es empleado del hospital)
-
-CUANDO DETECTES UN USUARIO EXTERNO:
-1. Captura: {FIELDS}{"reporter_position": "Usuario externo", "reporter_service": "N/A"}{/FIELDS}
-2. NO pidas cargo ni área (ya los llenaste)
-3. Continúa pidiendo el problema
-4. NO pidas extensión (usuarios externos no tienen)
-5. Cuando pidas extensión y diga "no tengo", captura: {FIELDS}{"reporter_extension": "N/A"}{/FIELDS}
-
-EJEMPLO CORRECTO - Usuario externo:
-Usuario: "Soy paciente del HUV"
-{FIELDS}{"reporter_position": "Usuario externo", "reporter_service": "N/A"}{/FIELDS}
-Entendido. ¿Cuál es el problema que tienes?
-
-Usuario: "No puedo ingresar a la página de citas"
-{FIELDS}{"name": "...", "content": "...", "device_type": "other", "itilcategories_id": "2", "reporter_extension": "N/A"}{/FIELDS}
-¡Listo! Revisa los datos y envía el reporte.
-
-=== DETECCIÓN DE CONTEXTO ===
-Si el usuario menciona:
-- "usuario del HUV", "paciente", "persona externa", "alguien de afuera", "usuario no puede ingresar"
-→ El problema es de alguien EXTERNO al hospital
-→ En content agrega: "Problema reportado por usuario externo/paciente"
-→ NO pidas ECOM (no aplica para usuarios externos)
-→ device_type = "other"
-
-Si el problema es:
-- Página web, portal, sistema online, citas online, registro online
-→ NO pidas ECOM (problemas web no requieren ECOM del equipo del usuario)
-→ device_type = "other"
-
-=== CUÁNDO PEDIR ECOM ===
-SOLO pide ECOM si:
-1. device_type es "computer" o "monitor"
-2. Y el problema es en un equipo DENTRO del hospital
-3. Y el usuario NO dice "no tiene ECOM" o "sin ECOM"
-
-NO pidas ECOM si:
-- device_type es "printer", "phone", "network", "other"
-- El problema es de un usuario externo/paciente
-- El problema es en página web/portal online
-- El usuario dice "no tiene ECOM" o "sin ECOM"
-
-Si el usuario dice "no tiene ECOM":
-{FIELDS}{"equipment_ecom": "N/A"}{/FIELDS}
-¡Listo! Revisa los datos y envía el reporte.
-
-=== CATEGORÍAS DISPONIBLES (itilcategories_id) ===
-${categoryListStr}
-
-=== GUÍA DE CLASIFICACIÓN - MUY IMPORTANTE ===
-ANALIZA las palabras clave del problema y selecciona la categoría correcta:
-
-CATEGORÍA 2 (Software):
-- Problemas con PROGRAMAS: SAP, Excel, Word, Outlook, navegador
-- Problemas con SISTEMAS WEB: páginas web, portales, sistemas online, citas online
-- Problemas de ACCESO: no puede ingresar, clave incorrecta, usuario bloqueado
-- Problemas de DATOS: actualizar datos, cambiar información, registros
-- Errores de APLICACIONES: no abre, se cierra, error al guardar
-
-CATEGORÍA 14 (Redes):
-- Problemas de CONEXIÓN: sin internet, sin red, no conecta, WiFi no funciona
-- Problemas de RED FÍSICA: cable desconectado, puerto de red
-- Problemas de VELOCIDAD: internet lento, conexión intermitente
-- SUBCATEGORÍAS de configuración de dispositivos de red:
-  - "Configuración switch" → configuración o problemas de switch de red
-  - "Configuración plato de wifi" → configuración o problemas de access point / plato WiFi
-  - "Configuración router" → configuración o problemas de router
-  - "Configuración Telefonia IP" → configuración de telefonía IP en red
-
-CATEGORÍA 1 (Hardware):
-- Problemas FÍSICOS del equipo: no enciende, apagado, pantalla negra
-- Problemas de RENDIMIENTO: computador lento, se congela, pantalla azul
-- Problemas de COMPONENTES: teclado, mouse, monitor físico dañado
-
-CATEGORÍA 6 (Equipos de Escritorio):
-- Problemas específicos de COMPUTADORES DE ESCRITORIO (torres/desktop)
-- Solo usar si el problema es claramente de un PC de escritorio específico
-
-CATEGORÍA 11 (Portátiles):
-- Problemas específicos de LAPTOPS/PORTÁTILES
-- Solo usar si el usuario menciona explícitamente "portátil" o "laptop"
-
-CATEGORÍA 12 (Impresoras):
-- Problemas de IMPRESIÓN: no imprime, atasco de papel, toner
-- Problemas de IMPRESORA FÍSICA: dañada, desconectada
-
-CATEGORÍA: Configuración Telefonia IP (subcategoría de Redes):
-- Problemas de TELÉFONO IP: sin tono, no suena, llamadas, extensión telefónica IP
-- Configuración de teléfonos IP en la red
-
-CATEGORÍA 18 (Servinte):
-- Problemas específicos del SISTEMA SERVINTE del hospital
-
-EJEMPLOS DE CLASIFICACIÓN CORRECTA:
-- "Actualización de datos en página de citas" → CATEGORÍA 2 (Software) - es un sistema web
-- "Usuario no puede ingresar al portal" → CATEGORÍA 2 (Software) - problema de acceso web
-- "Sin internet" → CATEGORÍA 14 (Redes) - problema de conexión
-- "SAP no abre" → CATEGORÍA 2 (Software) - problema de aplicación
-- "Computador no enciende" → CATEGORÍA 1 (Hardware) - problema físico
-- "Impresora no imprime" → CATEGORÍA 12 (Impresoras)
-- "Teléfono sin tono" → Redes > Configuración Telefonia IP
-
-REGLA CRÍTICA: Si el problema es de una PÁGINA WEB, PORTAL ONLINE, o SISTEMA WEB → SIEMPRE usar CATEGORÍA 2 (Software)
-
-=== EJEMPLOS DE RESPUESTAS CORRECTAS ===
-
-Ejemplo 1 - Usuario empieza con nombre:
-Usuario: "Mi nombre es Juan Pérez"
-{FIELDS}{"reporter_name": "Juan Pérez"}{/FIELDS}
-Gracias Juan. ¿Cuál es tu cargo?
-
-Usuario: "Administrativo"
-{FIELDS}{"reporter_position": "Administrativo"}{/FIELDS}
-Perfecto. ¿Cuál es tu área o servicio?
-
-Usuario: "Gestión de la información"
-{FIELDS}{"reporter_service": "Gestión de la información"}{/FIELDS}
-Entendido. ¿Cuál es tu extensión telefónica?
-
-Usuario: "No tengo"
-{FIELDS}{"reporter_extension": "N/A"}{/FIELDS}
-Gracias. ¿Cuál es el problema que tienes?
-
-Ejemplo 2 - Usuario empieza con problema:
-Usuario: "Un paciente no puede ingresar a la página de citas"
-{FIELDS}{"name": "Paciente no puede ingresar a página de citas", "content": "Usuario externo reporta que no puede ingresar a la página de citas del hospital", "device_type": "other", "itilcategories_id": "2"}{/FIELDS}
-Entendido. ¿Cuál es tu nombre completo?
-
-Usuario: "Kevin David"
-{FIELDS}{"reporter_name": "Kevin David"}{/FIELDS}
-Gracias Kevin. ¿Cuál es tu cargo?
-
-Usuario: "Administrativo"
-{FIELDS}{"reporter_position": "Administrativo"}{/FIELDS}
-Perfecto. ¿Cuál es tu área o servicio?
-
-Usuario: "De gestión de la información"
-{FIELDS}{"reporter_service": "Gestión de la información"}{/FIELDS}
-Entendido. ¿Cuál es tu extensión telefónica?
-
-Usuario: "No tengo"
-{FIELDS}{"reporter_extension": "N/A"}{/FIELDS}
-¡Listo! Revisa los datos y envía el reporte.
-
-Ejemplo 2B - Usuario da nombre primero, luego problema:
-Usuario: "Kevin David Chavarro"
-{FIELDS}{"reporter_name": "Kevin David Chavarro"}{/FIELDS}
-Gracias Kevin. ¿Cuál es tu cargo?
-
-Usuario: "Administrativo"
-{FIELDS}{"reporter_position": "Administrativo"}{/FIELDS}
-Perfecto. ¿Cuál es tu área o servicio?
-
-Usuario: "Gestión de la información"
-{FIELDS}{"reporter_service": "Gestión de la información"}{/FIELDS}
-Entendido. ¿Cuál es tu extensión telefónica?
-
-Usuario: "Es 1313"
-{FIELDS}{"reporter_extension": "1313"}{/FIELDS}
-Gracias. ¿Cuál es el problema que tienes?
-
-Usuario: "La impresora del CIAU está marcando error"
-{FIELDS}{"name": "Impresora del CIAU con error", "content": "La impresora del CIAU está marcando error", "device_type": "printer", "itilcategories_id": "12"}{/FIELDS}
-¡Listo! Revisa los datos y envía el reporte.
-
-Ejemplo 3 - Problema de impresora:
-Usuario: "La impresora no imprime"
-{FIELDS}{"name": "Impresora no imprime", "content": "La impresora no está imprimiendo", "device_type": "printer", "itilcategories_id": "12"}{/FIELDS}
-Entendido. ¿Cuál es tu nombre completo?
-
-Ejemplo 4 - Usuario externo/paciente:
-Usuario: "Jesus David Ruiz Ospina"
-{FIELDS}{"reporter_name": "Jesus David Ruiz Ospina"}{/FIELDS}
-Gracias Jesús. ¿Cuál es tu cargo?
-
-Usuario: "Usuario o paciente del HUV"
-{FIELDS}{"reporter_position": "Usuario externo", "reporter_service": "N/A"}{/FIELDS}
-Entendido. ¿Cuál es el problema que tienes?
-
-Usuario: "Actualización de datos en la página de citas"
-{FIELDS}{"name": "Actualización de datos en la página de citas", "content": "Problema reportado por usuario externo/paciente sobre la actualización de datos en la página de citas", "device_type": "other", "itilcategories_id": "2", "reporter_extension": "N/A"}{/FIELDS}
-¡Listo! Revisa los datos y envía el reporte.
-
-Ejemplo 5 - Usuario dice "no tiene ECOM":
-Usuario: "No tiene ECOM"
-{FIELDS}{"equipment_ecom": "N/A"}{/FIELDS}
-¡Listo! Revisa los datos y envía el reporte.
-
-Ejemplo 6 - Problema web:
-Usuario: "Cambio de datos en plataforma de resultados"
-{FIELDS}{"name": "Cambio de datos en plataforma de resultados", "content": "Se requiere cambio de datos en la plataforma de resultados", "device_type": "other", "itilcategories_id": "2"}{/FIELDS}
-Entendido. ¿Cuál es tu nombre completo?
-
-=== REGLAS ESTRICTAS ===
-- SIEMPRE responde en español
-- SIEMPRE usa el formato {FIELDS}...{/FIELDS} cuando el usuario te da información
-- NUNCA respondas solo con texto sin {FIELDS} cuando capturas datos
-- SÉ FLEXIBLE: No sigas un orden rígido, adapta según lo que el usuario diga
-- NUNCA pidas ECOM si no aplica (impresoras, teléfonos, problemas web, usuarios externos)
-- Si el usuario dice "no tiene ECOM" o "no tengo extensión", acepta "N/A" como valor válido
-- NUNCA repitas preguntas sobre datos ya capturados
-- Mensajes CORTOS (máximo 2 oraciones)
-- NO uses emojis`;
     };
 
     // Animación del botón enviar
@@ -790,21 +372,9 @@ Entendido. ¿Cuál es tu nombre completo?
             <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden">
                 {/* Header */}
                 <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
-                    {/* Botón de volver (solo si viene desde dashboard) */}
-                    {fromDashboard && (
-                        <div className="w-full mb-2 sm:mb-3">
-                            <a
-                                href="/dashboard"
-                                className="inline-flex items-center gap-2 text-sm text-[#2c4370] hover:text-[#3d5583] transition-colors"
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                <span>Volver al Dashboard</span>
-                            </a>
-                        </div>
-                    )}
-                    <img
-                        src="/images/huv-h.png"
-                        alt="Hospital Universitario del Valle"
+                    <img 
+                        src="/images/huv-h.png" 
+                        alt="Hospital Universitario del Valle" 
                         className="h-12 sm:h-16 lg:h-20 object-contain mb-1 sm:mb-2"
                     />
                     <div className="text-center">
@@ -945,64 +515,64 @@ Entendido. ¿Cuál es tu nombre completo?
 
                                 {/* Desktop: Full timeline layout */}
                                 <div className="hidden lg:block space-y-8">
-                                    {/* Quien Reporta */}
-                                    <div>
-                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
-                                        <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
-                                            <TimelineItem
-                                                label="Nombre"
-                                                value={formData.reporter_name}
-                                                placeholder="Pendiente..."
-                                                isActive={!formData.reporter_name}
-                                            />
-                                            <TimelineItem
-                                                label="Cargo"
-                                                value={formData.reporter_position}
-                                                placeholder="..."
-                                                isActive={!!formData.reporter_name && !formData.reporter_position}
-                                            />
-                                            <TimelineItem
-                                                label="Servicio"
-                                                value={formData.reporter_service}
-                                                placeholder="..."
-                                                isActive={!!formData.reporter_position && !formData.reporter_service}
-                                            />
-                                            {formData.reporter_extension && (
-                                                <TimelineItem label="Extensión" value={formData.reporter_extension} />
-                                            )}
-                                        </ul>
-                                    </div>
+                                {/* Quien Reporta */}
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
+                                    <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
+                                        <TimelineItem 
+                                            label="Nombre" 
+                                            value={formData.reporter_name} 
+                                            placeholder="Pendiente..." 
+                                            isActive={!formData.reporter_name}
+                                        />
+                                        <TimelineItem 
+                                            label="Cargo" 
+                                            value={formData.reporter_position} 
+                                            placeholder="..." 
+                                            isActive={!!formData.reporter_name && !formData.reporter_position}
+                                        />
+                                        <TimelineItem 
+                                            label="Servicio" 
+                                            value={formData.reporter_service} 
+                                            placeholder="..." 
+                                            isActive={!!formData.reporter_position && !formData.reporter_service}
+                                        />
+                                        {formData.reporter_extension && (
+                                            <TimelineItem label="Extensión" value={formData.reporter_extension} />
+                                        )}
+                                    </ul>
+                                </div>
 
-                                    {/* El Problema */}
-                                    <div>
-                                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">El Problema</h4>
-                                        <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                            <FileText className="w-4 h-4 text-slate-300 mt-0.5" />
-                                            <div className="flex-1">
-                                                <span className="block text-xs text-slate-400 mb-1">Descripción</span>
-                                                {formData.name ? (
-                                                    <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
-                                                ) : (
-                                                    <span className="block text-sm text-slate-300 italic">Título pendiente...</span>
-                                                )}
-                                                {formData.content && (
-                                                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
-                                                )}
-                                            </div>
+                                {/* El Problema */}
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">El Problema</h4>
+                                    <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <FileText className="w-4 h-4 text-slate-300 mt-0.5" />
+                                        <div className="flex-1">
+                                            <span className="block text-xs text-slate-400 mb-1">Descripción</span>
+                                            {formData.name ? (
+                                                <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
+                                            ) : (
+                                                <span className="block text-sm text-slate-300 italic">Título pendiente...</span>
+                                            )}
+                                            {formData.content && (
+                                                <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
+                                            )}
                                         </div>
-                                        {formData.device_type && (
-                                            <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                                                <Monitor className="w-3.5 h-3.5" />
-                                                <span>{deviceLabels[formData.device_type] || formData.device_type}</span>
-                                            </div>
-                                        )}
-                                        {formData.equipment_ecom && (
-                                            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                                                <Cpu className="w-3.5 h-3.5" />
-                                                <span>ECOM: {formData.equipment_ecom}</span>
-                                            </div>
-                                        )}
                                     </div>
+                                    {formData.device_type && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                                            <Monitor className="w-3.5 h-3.5" />
+                                            <span>{deviceLabels[formData.device_type] || formData.device_type}</span>
+                                        </div>
+                                    )}
+                                    {formData.equipment_ecom && (
+                                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                                            <Cpu className="w-3.5 h-3.5" />
+                                            <span>ECOM: {formData.equipment_ecom}</span>
+                                        </div>
+                                    )}
+                                </div>
                                 </div>
                             </div>
 
@@ -1011,15 +581,16 @@ Entendido. ¿Cuál es tu nombre completo?
                                 <Button
                                     onClick={handleSubmit}
                                     disabled={!isFormComplete() || processing}
-                                    className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${isFormComplete() && !processing
-                                        ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
-                                        : 'bg-white border border-slate-200 text-slate-300 cursor-not-allowed opacity-80'
-                                        }`}
+                                    className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
+                                        isFormComplete() && !processing
+                                            ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-300 cursor-not-allowed opacity-80'
+                                    }`}
                                 >
                                     {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
                                 </Button>
                                 <p className="text-center text-[10px] text-slate-400 mt-2 lg:mt-3 px-2 lg:px-4 leading-relaxed hidden sm:block">
-                                    {isFormComplete()
+                                    {isFormComplete() 
                                         ? 'Revisa los datos y envía tu reporte.'
                                         : 'Interactúa con el asistente para habilitar el envío del reporte.'
                                     }
@@ -1095,12 +666,14 @@ function TimelineItem({ label, value, placeholder, isActive }: { label: string; 
     const filled = !!value;
     return (
         <li className="relative">
-            <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
-                }`}></span>
+            <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
+                filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
+            }`}></span>
             <div className="flex flex-col">
                 <span className="text-xs text-slate-400 font-medium mb-1">{label}</span>
-                <span className={`text-sm font-medium ${filled ? 'text-slate-800' : 'text-slate-300 italic'
-                    }`}>
+                <span className={`text-sm font-medium ${
+                    filled ? 'text-slate-800' : 'text-slate-300 italic'
+                }`}>
                     {value || placeholder}
                 </span>
             </div>
