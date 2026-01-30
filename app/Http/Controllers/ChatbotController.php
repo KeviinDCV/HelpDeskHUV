@@ -57,45 +57,36 @@ class ChatbotController extends Controller
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
-            // Usar OpenRouter en lugar de Puter API directa para evitar problemas de autenticación
-            // Reutilizamos la lógica del método chat() pero manteniendo este endpoint
-            
-            $maxRetries = 2;
-            $response = null;
-            
-            for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-                try {
-                    $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
-                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
-                        'HTTP-Referer' => config('app.url'),
-                        'X-Title' => config('app.name'),
-                        'Content-Type' => 'application/json',
-                    ])->post('https://openrouter.ai/api/v1/chat/completions', [
-                        'model' => 'gpt-4o-mini', // Modelo eficiente
-                        // 'model' => 'z-ai/glm-4.5-air:free', // Alternativa gratuita si se prefiere
-                        'messages' => $messages,
-                        'temperature' => 0.1,
-                        'max_tokens' => 500,
-                    ]);
-
-                    if ($response->successful() || $response->status() !== 429) {
-                        break;
-                    }
-                    if ($attempt < $maxRetries) sleep(2);
-                } catch (\Exception $e) {
-                    if ($attempt >= $maxRetries) throw $e;
-                    sleep(1);
-                }
-            }
+            // Usar Puter AI API
+            $response = Http::timeout(30)->connectTimeout(10)->withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post('https://api.puter.com/drivers/call', [
+                'interface' => 'puter-chat-completion',
+                'driver' => 'openai-completion',
+                'method' => 'complete',
+                'args' => [
+                    'messages' => $messages,
+                    'model' => 'gpt-4o-mini', // Modelo rápido y eficiente
+                    'temperature' => 0.1,
+                    'max_tokens' => 500,
+                ]
+            ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                $assistantResponse = $data['choices'][0]['message']['content'] ?? '';
                 
-                \Log::info('Chatbot AI Response', ['raw' => $assistantResponse]);
+                // Puter devuelve la respuesta en data.message.content
+                $assistantResponse = $data['message']['content'] ?? '';
                 
+                // Log para debug
+                \Log::info('Chatbot Puter Response', [
+                    'raw_response' => $assistantResponse,
+                ]);
+                
+                // Parsear la respuesta para extraer campos y mensaje
                 $parsed = $this->parseResponse($assistantResponse);
                 
+                // Log del parsing
                 \Log::info('Chatbot Parsed', [
                     'fields' => $parsed['fields'],
                     'message' => $parsed['message'],
@@ -108,7 +99,11 @@ class ChatbotController extends Controller
                 ]);
             }
 
-            \Log::error('AI API Error', ['status' => $response->status(), 'body' => $response->body()]);
+            // Log del error para depuración
+            \Log::error('Puter API Error', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -116,7 +111,7 @@ class ChatbotController extends Controller
             ], 500);
 
         } catch (\Exception $e) {
-            \Log::error('Chatbot Exception', ['error' => $e->getMessage()]);
+            \Log::error('Chatbot Puter Exception', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error de conexión. Por favor intenta de nuevo.',
@@ -308,19 +303,12 @@ class ChatbotController extends Controller
     private function getCategoryList(): array
     {
         return DB::table('glpi_itilcategories')
-            ->select('id', 'name', 'completename')
+            ->select('id', 'name')
             ->where('is_incident', 1)
-            ->where(function ($query) {
-                // Categorías principales por ID
-                $query->whereIn('id', [1, 2, 6, 11, 12, 14, 18])
-                    // O subcategorías de Redes (que empiezan con "Redes >")
-                    ->orWhere('completename', 'like', 'Redes > %')
-                    // O si Configuración Telefonia IP quedó suelta (por si acaso)
-                    ->orWhere('name', 'like', 'Configuración Telefonia IP');
-            })
-            ->orderBy('completename')
+            ->whereIn('id', [1, 2, 6, 11, 12, 14, 17, 18]) // Categorías principales útiles
+            ->orderBy('id')
             ->get()
-            ->map(fn($c) => ['id' => $c->id, 'name' => $c->completename]) // Usar nombre completo para mayor contexto
+            ->map(fn($c) => ['id' => $c->id, 'name' => $c->name])
             ->toArray();
     }
 
@@ -385,45 +373,110 @@ class ChatbotController extends Controller
         $categoryListStr = implode("\n", array_map(fn($c) => "  - {$c['id']} = {$c['name']}", $categories));
 
         return <<<PROMPT
-Eres Evarisbot, asistente técnico del Hospital Universitario del Valle.
-Tu trabajo es recolectar información para crear un reporte de soporte técnico.
+Eres Evarisbot, asistente del Hospital Universitario del Valle para reportar problemas técnicos.
 
-DATOS QUE YA TIENES: {$currentDataStr}
+DATOS YA CAPTURADOS: {$currentDataStr}
 
-OBJETIVO: Obtener los siguientes datos si faltan:
-1. Nombre del reportante (reporter_name) -> Si no lo tienes, pídelo.
-2. Cargo (reporter_position) -> Si dice "usuario", "paciente" o "externo", acepta el cargo como "Otro".
-3. Área/Servicio (reporter_service) -> "CIAU" es un área válida.
-4. Extensión telefónica (reporter_extension) -> Si no tiene o es externo, pon "0000".
-5. Tipo de dispositivo (device_type: computer, printer, software, network)
-6. Código ECOM (equipment_ecom) -> Solo para equipos físicos (PC, Pantalla) del hospital. Si es externo/software/impresora, NO lo pidas (pon "N/A" si es necesario).
-7. Detalles del problema (name: título corto, content: detalle completo).
+=== INSTRUCCIÓN CRÍTICA ===
+1. EXTRAE TODOS los datos del mensaje del usuario EN UNA SOLA RESPUESTA
+2. NUNCA pidas un dato que ya está en "DATOS YA CAPTURADOS"
+3. NUNCA pidas un dato que el usuario acaba de dar en su mensaje
+4. Si el usuario da múltiples datos, captúralos TODOS en el JSON
+5. GUARDA TODA la información que el usuario mencione sobre el problema - será analizada después
 
-REGLAS DE ORO:
-- Si el usuario dice "usuario del huv" o "externo", entiende que es un reporte de un tercero y NO pidas extensión ni ECOM.
-- Si el usuario ya describió el problema al inicio, GUARDA "name" y "content" de inmediato. Revisa el historial.
-- NO vuelvas a pedir datos que ya tienes en "DATOS QUE YA TIENES".
-- Mensajes breves y directos. No uses emojis.
-- Responde SIEMPRE en Español.
+=== FORMATO OBLIGATORIO ===
+SIEMPRE que el usuario proporcione cualquier dato, debes responder con este formato EXACTO:
+{FIELDS}{"campo1": "valor1", "campo2": "valor2"}{/FIELDS}
+Mensaje breve aquí.
 
-FORMATO JSON OBLIGATORIO AL INICIO:
-{FIELDS}{"campo": "valor"}{/FIELDS}
-Tu mensaje aquí...
+IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye {FIELDS} con ese dato.
 
-EJEMPLOS DE INTERACCIÓN:
+=== CAMPOS A CAPTURAR ===
+- reporter_name: Nombre (busca: "soy X", "me llamo X", "mi nombre es X", o cualquier nombre propio)
+- reporter_position: Cargo (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro)
+- reporter_service: Área/Servicio (Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/etc)
+- reporter_extension: Extensión (4 dígitos, busca: "ext", "extensión", números de 4 dígitos)
+- device_type: computer|printer|monitor|phone|network
+- equipment_ecom: Código ECOM (busca: "ecom" + números)
+- name: Título corto del problema (IMPORTANTE: captura la esencia del problema)
+- content: Descripción COMPLETA del problema (IMPORTANTE: incluye TODOS los detalles que mencione el usuario)
+- itilcategories_id: Ver sección CATEGORÍAS abajo
+- priority: 3 (siempre)
 
-Usuario: "Soy Pedro, usuario externo, no puedo pedir citas"
-Bot: {FIELDS}{"reporter_name": "Pedro", "reporter_position": "Otro", "name": "Fallo citas web", "content": "No puede pedir citas (externo)", "device_type": "software", "reporter_extension": "0000", "equipment_ecom": "N/A"}{/FIELDS}
-Entendido Pedro. ¿De qué área me escribes o es un reporte desde casa?
-
-Usuario: "Ciau"
-Bot: {FIELDS}{"reporter_service": "CIAU"}{/FIELDS}
-Perfecto. ¿Cuál es el problema?
-
-CATEGORÍAS DISPONIBLES (itilcategories_id):
+=== CATEGORÍAS DISPONIBLES (itilcategories_id) ===
 {$categoryListStr}
 
-Si detectas un problema de REDES y mencionan "switch" o "wifi", usa la subcategoría correcta (ej. ID 14).
+=== GUÍA DE CLASIFICACIÓN DE CATEGORÍAS ===
+PALABRAS CLAVE → CATEGORÍA:
+- "internet", "red", "wifi", "conexión", "no conecta", "sin red", "IP", "cable de red" → Busca categoría de RED (probablemente 11)
+- "programa", "SAP", "Excel", "Word", "Servinte", "sistema", "aplicación", "no abre", "error" → Busca categoría de SOFTWARE (probablemente 6)
+- "no enciende", "apagado", "lento", "pantalla azul", "reinicia", "teclado", "mouse", "físico" → Busca categoría de HARDWARE (probablemente 2)
+- "impresora", "no imprime", "toner", "atasco", "papel", "cola de impresión" → Busca categoría de IMPRESIÓN (probablemente 12)
+- "teléfono", "extensión", "sin tono", "llamadas", "no suena" → Busca categoría de TELÉFONO (probablemente 17)
+
+=== CAPTURA DE INFORMACIÓN DEL PROBLEMA ===
+CRÍTICO: Cuando el usuario describa su problema, captura TODA la información en "content":
+- Qué está fallando exactamente
+- Cuándo empezó el problema
+- Qué mensajes de error aparecen
+- Qué intentó hacer el usuario
+- Cualquier detalle adicional
+
+EJEMPLO CORRECTO:
+Usuario: "No me abre SAP, me sale un error de conexión desde ayer, ya reinicié el computador pero sigue igual"
+{FIELDS}{"name": "SAP no abre - error de conexión", "content": "El sistema SAP no abre, muestra error de conexión. El problema comenzó desde ayer. El usuario ya reinició el computador pero el problema persiste.", "device_type": "computer", "itilcategories_id": "6"}{/FIELDS}
+Entendido, problema con SAP. ¿Me dices tu nombre para crear el reporte?
+
+=== EXTRACCIÓN DE DATOS - EJEMPLOS ===
+EJEMPLO: "No tengo internet" o "sin red" o "no conecta a la red"
+{FIELDS}{"name": "Sin conexión a internet", "content": "El equipo no tiene conexión a internet/red", "device_type": "network", "itilcategories_id": "11"}{/FIELDS}
+Entendido, problema de red. ¿Me dices tu nombre para crear el reporte?
+
+EJEMPLO: "Soy María García, administrativa de Urgencias, extensión 1234, no me abre SAP"
+{FIELDS}{"reporter_name": "María García", "reporter_position": "Administrativo", "reporter_service": "Urgencias", "reporter_extension": "1234", "name": "SAP no abre", "content": "El sistema SAP no abre", "device_type": "computer", "itilcategories_id": "6"}{/FIELDS}
+Perfecto María, necesito el código ECOM del computador. Es una etiqueta en el CPU que dice "ecom" seguido de números.
+
+EJEMPLO: "Juan Pérez" (solo nombre)
+{FIELDS}{"reporter_name": "Juan Pérez"}{/FIELDS}
+Gracias Juan. ¿Cuál es tu cargo?
+
+EJEMPLO: "enfermera de UCI"
+{FIELDS}{"reporter_position": "Enfermero", "reporter_service": "UCI"}{/FIELDS}
+Perfecto. ¿Cuál es tu extensión telefónica?
+
+EJEMPLO: "1234" (solo extensión)
+{FIELDS}{"reporter_extension": "1234"}{/FIELDS}
+Gracias. ¿Cuál es el problema que tienes?
+
+EJEMPLO: "ecom12345"
+{FIELDS}{"equipment_ecom": "ecom12345"}{/FIELDS}
+¡Listo! Ya tengo todos los datos. ¿Confirmas que quieres enviar el reporte?
+
+=== CLASIFICACIÓN DE DISPOSITIVO ===
+SOFTWARE/SISTEMA (SAP, Excel, correo, navegador, etc.) → device_type="computer" → PEDIR ECOM
+HARDWARE PC (lento, no enciende, pantalla azul) → device_type="computer" → PEDIR ECOM
+RED/INTERNET → device_type="network" → PEDIR ECOM del equipo afectado
+IMPRESORA FÍSICA (atasco, toner, dañada) → device_type="printer" → NO ECOM
+TELÉFONO → device_type="phone" → NO ECOM
+MONITOR → device_type="monitor" → PEDIR ECOM del PC
+
+=== FLUJO SIMPLE ===
+1. Si NO hay nombre → pedir nombre
+2. Si hay nombre pero NO cargo → pedir cargo  
+3. Si hay cargo pero NO área → pedir área
+4. Si hay área pero NO extensión → pedir extensión
+5. Si hay extensión pero NO problema → pedir problema
+6. Si hay problema y es computer/network → pedir ECOM
+7. Si hay todos los datos → confirmar envío
+
+=== REGLAS ESTRICTAS ===
+- SIEMPRE responde en español
+- SIEMPRE usa el formato {FIELDS}...{/FIELDS} primero
+- SIEMPRE extrae TODOS los datos posibles del mensaje
+- SIEMPRE captura la descripción COMPLETA del problema en "content"
+- NUNCA repitas preguntas sobre datos ya capturados
+- Mensajes CORTOS y directos (máximo 2 oraciones)
+- NO uses emojis ni decoraciones
 PROMPT;
     }
 }
