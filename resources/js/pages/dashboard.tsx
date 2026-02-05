@@ -341,7 +341,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="divide-y">
+                                    <div className="divide-y max-h-[500px] overflow-y-auto">
                                         {currentTickets.map((ticket) => (
                                             <div key={ticket.id} className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
                                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
