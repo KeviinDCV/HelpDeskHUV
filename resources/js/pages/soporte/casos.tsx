@@ -99,6 +99,7 @@ interface TicketsProps {
         date_from: string;
         date_to: string;
         filter: string;
+        exclude_maintenance: string;
     };
     auth: {
         user: User;
@@ -114,7 +115,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [ticketSolution, setTicketSolution] = React.useState<{ content: string; solved_by: string | null; date_creation: string } | null>(null);
     const [loadingSolution, setLoadingSolution] = React.useState(false);
     const [showFilters, setShowFilters] = React.useState(false);
-    
+
     // Estados para resolver caso
     const [solveDialogOpen, setSolveDialogOpen] = React.useState(false);
     const [ticketToSolve, setTicketToSolve] = React.useState<Ticket | null>(null);
@@ -122,7 +123,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [solveDate, setSolveDate] = React.useState('');
     const [solving, setSolving] = React.useState(false);
     const [solveError, setSolveError] = React.useState<string | null>(null);
-    
+
     // Estados de filtros
     const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
     const [priorityFilter, setPriorityFilter] = React.useState(filters.priority || 'all');
@@ -130,12 +131,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [assignedFilter, setAssignedFilter] = React.useState(filters.assigned || 'all');
     const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
     const [dateTo, setDateTo] = React.useState(filters.date_to || '');
-    
-    const hasActiveFilters = (statusFilter && statusFilter !== 'all') || 
-                            (priorityFilter && priorityFilter !== 'all') || 
-                            (categoryFilter && categoryFilter !== 'all') || 
-                            (assignedFilter && assignedFilter !== 'all') ||
-                            dateFrom || dateTo || filters.filter;
+    const [excludeMaintenance, setExcludeMaintenance] = React.useState(filters.exclude_maintenance === '1');
+
+    const hasActiveFilters = (statusFilter && statusFilter !== 'all') ||
+        (priorityFilter && priorityFilter !== 'all') ||
+        (categoryFilter && categoryFilter !== 'all') ||
+        (assignedFilter && assignedFilter !== 'all') ||
+        dateFrom || dateTo || filters.filter || excludeMaintenance;
 
     const getSpecialFilterLabel = () => {
         switch (filters.filter) {
@@ -148,11 +150,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const clearSpecialFilter = () => {
-        router.get('/soporte/casos', {
+        const params: Record<string, any> = {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-        }, { preserveState: false });
+        };
+        if (excludeMaintenance) params.exclude_maintenance = '1';
+        router.get('/soporte/casos', params, { preserveState: false });
     };
 
     // Verificar si el usuario puede eliminar un ticket
@@ -197,12 +201,12 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     // Confirmar resolución
     const confirmSolve = () => {
         console.log('confirmSolve called', { ticketToSolve, solution, solveDate });
-        
+
         if (!ticketToSolve || !solution.trim()) {
             alert('Debe ingresar una solución');
             return;
         }
-        
+
         // Validar fecha antes de enviar
         if (solveDate && ticketToSolve.date) {
             const solveDateObj = new Date(solveDate);
@@ -212,15 +216,15 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 return;
             }
         }
-        
+
         setSolving(true);
         setSolveError(null);
-        
+
         // Formatear fecha para el backend
         const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
-        
+
         console.log('Sending POST to:', `/dashboard/solve-ticket/${ticketToSolve.id}`, { solution: solution.trim(), solve_date: formattedDate });
-        
+
         // Usar router.post de Inertia
         router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
             solution: solution.trim(),
@@ -230,13 +234,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             onSuccess: (page: any) => {
                 console.log('onSuccess called', page.props?.flash);
                 setSolving(false);
-                
+
                 // Verificar si hay mensaje de error en flash
                 if (page.props?.flash?.error) {
                     setSolveError(page.props.flash.error);
                     return;
                 }
-                
+
                 // Si no hay error, cerrar el modal
                 setSolveDialogOpen(false);
                 setTicketToSolve(null);
@@ -275,14 +279,14 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        
+
         // Construir parámetros solo con valores no vacíos
         const params: Record<string, any> = {
             per_page: filters.per_page,
             sort: field,
             direction: newDirection,
         };
-        
+
         // Solo agregar filtros que tengan valor
         if (filters.search) params.search = filters.search;
         if (filters.status) params.status = filters.status;
@@ -292,16 +296,17 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (filters.date_from) params.date_from = filters.date_from;
         if (filters.date_to) params.date_to = filters.date_to;
         if (filters.filter) params.filter = filters.filter;
-        
-        router.get('/soporte/casos', params, { 
+        if (filters.exclude_maintenance === '1') params.exclude_maintenance = '1';
+
+        router.get('/soporte/casos', params, {
             preserveState: false,
-            preserveScroll: true 
+            preserveScroll: true
         });
     };
 
     const handlePageChange = (url: string | null) => {
         if (url) {
-            router.visit(url, { 
+            router.visit(url, {
                 preserveScroll: true
             });
         }
@@ -323,6 +328,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (excludeMaintenance) params.exclude_maintenance = '1';
 
         router.get('/soporte/casos', params, {
             preserveState: false,
@@ -339,7 +345,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             direction: filters.direction,
             page: 1
         };
-        
+
         // Agregar solo filtros con valores no vacíos
         if (filters.search) params.search = filters.search;
         if (filters.status) params.status = filters.status;
@@ -349,10 +355,11 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (filters.date_from) params.date_from = filters.date_from;
         if (filters.date_to) params.date_to = filters.date_to;
         if (filters.filter) params.filter = filters.filter;
-        
-        router.get('/soporte/casos', params, { 
+        if (filters.exclude_maintenance === '1') params.exclude_maintenance = '1';
+
+        router.get('/soporte/casos', params, {
             preserveState: false,
-            preserveScroll: true 
+            preserveScroll: true
         });
     };
 
@@ -372,6 +379,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (excludeMaintenance) params.exclude_maintenance = '1';
 
         console.log('Applying filters:', params);
         router.get('/soporte/casos', params, {
@@ -389,6 +397,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         setDateFrom('');
         setDateTo('');
         setSearchValue('');
+        setExcludeMaintenance(false);
 
         router.get('/soporte/casos', {
             per_page: filters.per_page,
@@ -414,12 +423,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (filters.date_from) params.append('date_from', filters.date_from);
         if (filters.date_to) params.append('date_to', filters.date_to);
         if (filters.filter) params.append('filter', filters.filter);
+        if (filters.exclude_maintenance === '1') params.append('exclude_maintenance', '1');
         window.location.href = `/soporte/casos/export?${params}`;
     };
 
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
-        return filters.direction === 'asc' 
+        return filters.direction === 'asc'
             ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
             : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
     };
@@ -441,7 +451,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         <>
             <Head title="HelpDesk HUV - Casos" />
             <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader 
+                <GLPIHeader
                     breadcrumb={
                         <div className="flex items-center gap-2 text-sm">
                             <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
@@ -452,7 +462,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                         </div>
                     }
                 />
-                
+
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     {/* Banner de filtro especial */}
                     {filters.filter && (
@@ -468,7 +478,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             </button>
                         </div>
                     )}
-                    
+
                     <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
@@ -500,7 +510,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Button>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Button 
+                                        <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setShowFilters(!showFilters)}
@@ -510,7 +520,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             <span className="hidden sm:inline">Filtros</span>
                                             {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
                                         </Button>
-                                        <Button 
+                                        <Button
                                             size="sm"
                                             className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
                                             onClick={handleExport}
@@ -519,7 +529,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             <span className="sm:hidden">Excel</span>
                                         </Button>
                                         <Link href="/soporte/crear-caso">
-                                            <Button 
+                                            <Button
                                                 size="sm"
                                                 className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
                                             >
@@ -620,6 +630,18 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             className="h-8 text-xs"
                                         />
                                     </div>
+                                    <div className="col-span-2 sm:col-span-3 md:col-span-6 flex items-center gap-2 pt-1">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={excludeMaintenance}
+                                                onChange={(e) => setExcludeMaintenance(e.target.checked)}
+                                                className="w-4 h-4 rounded border-gray-300 text-[#2c4370] focus:ring-[#2c4370] cursor-pointer"
+                                            />
+                                            <span className="text-xs text-gray-700 font-medium">Excluir Mantenimientos</span>
+                                        </label>
+                                        <span className="text-[10px] text-gray-400">(Oculta casos de mantenimiento preventivo y correctivo)</span>
+                                    </div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
                                     {hasActiveFilters && (
@@ -648,8 +670,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                         <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2 sm:gap-3">
                                 <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
-                                <Select 
-                                    value={filters.per_page.toString()} 
+                                <Select
+                                    value={filters.per_page.toString()}
                                     onValueChange={handlePerPageChange}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
@@ -674,7 +696,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100 w-16"
                                             onClick={() => handleSort('id')}
                                         >
@@ -683,7 +705,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 {getSortIcon('id')}
                                             </div>
                                         </TableHead>
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('name')}
                                         >
@@ -692,7 +714,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 {getSortIcon('name')}
                                             </div>
                                         </TableHead>
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('status')}
                                         >
@@ -701,7 +723,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 {getSortIcon('status')}
                                             </div>
                                         </TableHead>
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('priority')}
                                         >
@@ -710,7 +732,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 {getSortIcon('priority')}
                                             </div>
                                         </TableHead>
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('entity_name')}
                                         >
@@ -719,7 +741,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 {getSortIcon('entity_name')}
                                             </div>
                                         </TableHead>
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('date')}
                                         >
@@ -728,7 +750,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 {getSortIcon('date')}
                                             </div>
                                         </TableHead>
-                                        <TableHead 
+                                        <TableHead
                                             className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
                                             onClick={() => handleSort('date_mod')}
                                         >
@@ -761,7 +783,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         <TableRow key={ticket.id} className="hover:bg-gray-50">
                                             <TableCell className="text-xs font-medium">{ticket.id}</TableCell>
                                             <TableCell className="font-medium text-xs">
-                                                <button 
+                                                <button
                                                     onClick={async () => {
                                                         setTicketToView(ticket);
                                                         setTicketSolution(null);
@@ -896,8 +918,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                     }
                                     return (
                                         <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url}
-                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active 
-                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" 
+                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active
+                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]"
                                                 : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
                                             onClick={() => link.url && handlePageChange(link.url)}>
                                             <span dangerouslySetInnerHTML={{ __html: link.label }}></span>
@@ -951,7 +973,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             </span>
                         </DialogTitle>
                     </DialogHeader>
-                    
+
                     {ticketToView && (
                         <div className="space-y-4">
                             {/* Título */}
@@ -1086,14 +1108,14 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             Resolver el caso <strong>#{ticketToSolve?.id}</strong>: {ticketToSolve?.name}
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     {/* Mensaje de error */}
                     {solveError && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm rounded">
                             {solveError}
                         </div>
                     )}
-                    
+
                     <div className="space-y-4 py-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">

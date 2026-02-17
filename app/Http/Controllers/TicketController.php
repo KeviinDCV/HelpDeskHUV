@@ -26,6 +26,7 @@ class TicketController extends Controller
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', ''); // unassigned, my_cases, resolved_today
+        $excludeMaintenance = $request->input('exclude_maintenance', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -155,6 +156,27 @@ class TicketController extends Controller
             ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
             ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
             ->where('t.is_deleted', 0);
+
+        // Excluir mantenimientos si el filtro está activo
+        if ($excludeMaintenance === '1') {
+            $maintenanceCategoryIds = DB::table('glpi_itilcategories')
+                ->where(function($q) {
+                    $q->where('name', 'LIKE', '%mantenimiento%')
+                      ->orWhere('completename', 'LIKE', '%mantenimiento%');
+                })
+                ->pluck('id')
+                ->toArray();
+            
+            if (!empty($maintenanceCategoryIds)) {
+                $query->whereNotIn('t.itilcategories_id', $maintenanceCategoryIds);
+            }
+            
+            // También excluir tickets cuyo título contenga "mantenimiento preventivo" o "mantenimiento"
+            $query->where(function($q) {
+                $q->where('t.name', 'NOT LIKE', '%mantenimiento preventivo%')
+                  ->where('t.name', 'NOT LIKE', '%mantenimiento correctivo%');
+            });
+        }
 
         // Aplicar búsqueda si existe
         if ($search) {
@@ -326,6 +348,7 @@ class TicketController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
+                'exclude_maintenance' => $excludeMaintenance,
             ], fn($value) => $value !== '' && $value !== null));
         
         // Obtener categorías para el filtro (agrupadas por name para unificar duplicados de GLPI)
@@ -370,6 +393,7 @@ class TicketController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
+                'exclude_maintenance' => $excludeMaintenance,
             ],
             'auth' => [
                 'user' => auth()->user()
@@ -392,6 +416,7 @@ class TicketController extends Controller
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', '');
+        $excludeMaintenance = $request->input('exclude_maintenance', '');
 
         $sortableFields = [
             'id' => 't.id',
@@ -462,6 +487,27 @@ class TicketController extends Controller
             ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
             ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
             ->where('t.is_deleted', 0);
+
+        // Excluir mantenimientos si el filtro está activo
+        if ($excludeMaintenance === '1') {
+            $maintenanceCategoryIds = DB::table('glpi_itilcategories')
+                ->where(function($q) {
+                    $q->where('name', 'LIKE', '%mantenimiento%')
+                      ->orWhere('completename', 'LIKE', '%mantenimiento%');
+                })
+                ->pluck('id')
+                ->toArray();
+            
+            if (!empty($maintenanceCategoryIds)) {
+                $query->whereNotIn('t.itilcategories_id', $maintenanceCategoryIds);
+            }
+            
+            // También excluir tickets cuyo título contenga "mantenimiento preventivo" o "mantenimiento"
+            $query->where(function($q) {
+                $q->where('t.name', 'NOT LIKE', '%mantenimiento preventivo%')
+                  ->where('t.name', 'NOT LIKE', '%mantenimiento correctivo%');
+            });
+        }
 
         if ($search) {
             $query->where(function($q) use ($search) {
