@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use App\Models\User;
 use App\Models\Notification;
@@ -27,6 +28,7 @@ class TicketController extends Controller
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', ''); // unassigned, my_cases, resolved_today
         $excludeMaintenance = $request->input('exclude_maintenance', '');
+        $advancedFilters = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -333,6 +335,14 @@ class TicketController extends Controller
                 $query->whereRaw('1 = 0');
             }
         }
+
+        // ─── Filtros avanzados GLPI-style ───────────────────────────────────
+        if ($advancedFilters) {
+            $parsedFilters = json_decode($advancedFilters, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters);
+            }
+        }
         
         $tickets = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -349,6 +359,7 @@ class TicketController extends Controller
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
                 'exclude_maintenance' => $excludeMaintenance,
+                'advanced_filters' => $advancedFilters,
             ], fn($value) => $value !== '' && $value !== null));
         
         // Obtener categorías para el filtro (agrupadas por name para unificar duplicados de GLPI)
@@ -394,6 +405,7 @@ class TicketController extends Controller
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
                 'exclude_maintenance' => $excludeMaintenance,
+                'advanced_filters' => $advancedFilters,
             ],
             'auth' => [
                 'user' => auth()->user()
@@ -1655,5 +1667,747 @@ class TicketController extends Controller
         }
 
         abort(404, 'Archivo no encontrado');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Filtros Avanzados GLPI-style
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Aplica un conjunto de filtros avanzados a la query.
+     * Los filtros se agrupan por conector OR: (F1 AND F2) OR (F3 AND F4)
+     */
+    private function applyAdvancedFilters($query, array $filters): void
+    {
+        // Agrupar filtros: cada vez que aparece un conector OR, se crea un nuevo grupo
+        $groups = [[]];
+        $currentGroup = 0;
+
+        foreach ($filters as $i => $filter) {
+            if ($i > 0 && ($filter['connector'] ?? 'AND') === 'OR') {
+                $currentGroup++;
+                $groups[$currentGroup] = [];
+            }
+            $groups[$currentGroup][] = $filter;
+        }
+
+        $query->where(function ($outerQuery) use ($groups) {
+            foreach ($groups as $i => $group) {
+                $method = $i === 0 ? 'where' : 'orWhere';
+                $outerQuery->$method(function ($q) use ($group) {
+                    foreach ($group as $filter) {
+                        $this->applyAdvancedFilter($q, $filter);
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Aplica un filtro individual a la query.
+     */
+    private function applyAdvancedFilter($query, array $filter): void
+    {
+        $field = $filter['field'] ?? '';
+        $operator = $filter['operator'] ?? 'contiene';
+        $value = $filter['value'] ?? '';
+
+        switch ($field) {
+            case 'id':
+                $this->applyNumberFilter($query, 't.id', $operator, $value);
+                break;
+
+            case 'titulo':
+                $this->applyTextFilter($query, 't.name', $operator, $value);
+                break;
+
+            case 'descripcion':
+                $this->applyTextFilter($query, 't.content', $operator, $value);
+                break;
+
+            case 'estado':
+                // Valores especiales compuestos
+                if ($value === 'not_resolved') {
+                    if ($operator === 'es') {
+                        $query->whereNotIn('t.status', [5, 6]);
+                    } else {
+                        $query->whereIn('t.status', [5, 6]);
+                    }
+                } elseif ($value === 'not_closed') {
+                    if ($operator === 'es') {
+                        $query->where('t.status', '!=', 6);
+                    } else {
+                        $query->where('t.status', '=', 6);
+                    }
+                } else {
+                    $this->applyNumberFilter($query, 't.status', $operator, $value);
+                }
+                break;
+
+            case 'urgencia':
+                $this->applyNumberFilter($query, 't.urgency', $operator, $value);
+                break;
+
+            case 'impacto':
+                $this->applyNumberFilter($query, 't.impact', $operator, $value);
+                break;
+
+            case 'prioridad':
+                $this->applyNumberFilter($query, 't.priority', $operator, $value);
+                break;
+
+            case 'fecha_apertura':
+                $this->applyDateFilter($query, 't.date', $operator, $value);
+                break;
+
+            case 'fecha_cierre':
+                $this->applyDateFilter($query, 't.closedate', $operator, $value);
+                break;
+
+            case 'fecha_solucion':
+                $this->applyDateFilter($query, 't.solvedate', $operator, $value);
+                break;
+
+            case 'ultima_actualizacion':
+                $this->applyDateFilter($query, 't.date_mod', $operator, $value);
+                break;
+
+            case 'categoria':
+                $this->applyTextFilter($query, 'cat.completename', $operator, $value);
+                break;
+
+            case 'entidad':
+                $this->applyTextFilter($query, 'e.name', $operator, $value);
+                break;
+
+            case 'tipo':
+                $this->applyNumberFilter($query, 't.type', $operator, $value);
+                break;
+
+            case 'solicitante':
+                $this->applySubqueryTextFilter($query, 'requester', $operator, $value);
+                break;
+
+            case 'tecnico':
+                $this->applySubqueryTextFilter($query, 'assigned', $operator, $value);
+                break;
+
+            case 'autor':
+                // El autor/creador del ticket
+                $this->applySubqueryTextFilter($query, 'author', $operator, $value);
+                break;
+
+            case 'grupo_tecnicos':
+                $this->applySubqueryTextFilter($query, 'assigned_group', $operator, $value);
+                break;
+
+            case 'elementos_mostrados':
+                $this->applyMultiColumnFilter($query, $operator, $value);
+                break;
+
+            case 'fuente_solicitante':
+                $this->applyTextFilter($query, 'rt.name', $operator, $value);
+                // Si no hay join de requesttypes, lo agregamos
+                break;
+
+            case 'solucion':
+                $this->applySolutionFilter($query, $operator, $value);
+                break;
+
+            // Campos de fecha adicionales
+            case 'fecha_creacion':
+                $this->applyDateFilter($query, 't.date_creation', $operator, $value);
+                break;
+
+            // Campos que no están directamente implementados se ignoran silenciosamente
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Filtro de texto: contiene, no contiene, es, no es, empieza con, termina con, vacío, no vacío
+     */
+    private function applyTextFilter($query, string $column, string $operator, string $value): void
+    {
+        switch ($operator) {
+            case 'contiene':
+                $query->where($column, 'LIKE', "%{$value}%");
+                break;
+            case 'no_contiene':
+                $query->where(function($q) use ($column, $value) {
+                    $q->where($column, 'NOT LIKE', "%{$value}%")
+                      ->orWhereNull($column);
+                });
+                break;
+            case 'es':
+                $query->where($column, '=', $value);
+                break;
+            case 'no_es':
+                $query->where($column, '!=', $value);
+                break;
+            case 'empieza_con':
+                $query->where($column, 'LIKE', "{$value}%");
+                break;
+            case 'termina_con':
+                $query->where($column, 'LIKE', "%{$value}");
+                break;
+            case 'vacio':
+                $query->where(function($q) use ($column) {
+                    $q->whereNull($column)->orWhere($column, '=', '');
+                });
+                break;
+            case 'no_vacio':
+                $query->whereNotNull($column)->where($column, '!=', '');
+                break;
+        }
+    }
+
+    /**
+     * Filtro numérico: es, no es, contiene, mayor que, menor que
+     */
+    private function applyNumberFilter($query, string $column, string $operator, string $value): void
+    {
+        switch ($operator) {
+            case 'es':
+                $query->where($column, '=', $value);
+                break;
+            case 'no_es':
+                $query->where($column, '!=', $value);
+                break;
+            case 'contiene':
+                $query->where(DB::raw("CAST({$column} AS CHAR)"), 'LIKE', "%{$value}%");
+                break;
+            case 'mayor_que':
+                $query->where($column, '>', $value);
+                break;
+            case 'menor_que':
+                $query->where($column, '<', $value);
+                break;
+        }
+    }
+
+    /**
+     * Filtro de fecha: es, no es, antes, después, contiene
+     * Resuelve presets de fecha como 'now', 'today', '-1h', '-3d', etc.
+     */
+    private function applyDateFilter($query, string $column, string $operator, string $value): void
+    {
+        // Para "contiene", buscar como texto
+        if ($operator === 'contiene') {
+            $query->where(DB::raw("CAST({$column} AS CHAR)"), 'LIKE', "%{$value}%");
+            return;
+        }
+
+        $resolvedDate = $this->resolveDateValue($value);
+        if (!$resolvedDate) return;
+
+        // Determinar si es solo fecha (sin hora) para comparar por día
+        $isDateOnly = strlen($resolvedDate) === 10;
+
+        switch ($operator) {
+            case 'es':
+                if ($isDateOnly) {
+                    $query->whereDate($column, '=', $resolvedDate);
+                } else {
+                    // Para fechas con hora, comparar en un rango de ±30 segundos
+                    $query->where($column, '>=', Carbon::parse($resolvedDate)->subSeconds(30))
+                          ->where($column, '<=', Carbon::parse($resolvedDate)->addSeconds(30));
+                }
+                break;
+            case 'no_es':
+                if ($isDateOnly) {
+                    $query->whereDate($column, '!=', $resolvedDate);
+                } else {
+                    $query->where(function($q) use ($column, $resolvedDate) {
+                        $q->where($column, '<', Carbon::parse($resolvedDate)->subSeconds(30))
+                          ->orWhere($column, '>', Carbon::parse($resolvedDate)->addSeconds(30));
+                    });
+                }
+                break;
+            case 'antes':
+                if ($isDateOnly) {
+                    $query->whereDate($column, '<', $resolvedDate);
+                } else {
+                    $query->where($column, '<', $resolvedDate);
+                }
+                break;
+            case 'despues':
+                if ($isDateOnly) {
+                    $query->whereDate($column, '>', $resolvedDate);
+                } else {
+                    $query->where($column, '>', $resolvedDate);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Resuelve un preset de fecha a un valor datetime string.
+     */
+    private function resolveDateValue(string $preset): ?string
+    {
+        $now = Carbon::now();
+
+        // Fecha específica: "specific:2024-01-15T10:30"
+        if (str_starts_with($preset, 'specific:')) {
+            $dateStr = substr($preset, 9);
+            try {
+                return Carbon::parse($dateStr)->format('Y-m-d H:i:s');
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+
+        switch ($preset) {
+            case 'now':
+                return $now->format('Y-m-d H:i:s');
+            case 'today':
+                return $now->format('Y-m-d');
+        }
+
+        // Horas: -1h a -24h
+        if (preg_match('/^-(\d+)h$/', $preset, $m)) {
+            return $now->subHours((int)$m[1])->format('Y-m-d H:i:s');
+        }
+
+        // Días: -1d a -7d
+        if (preg_match('/^-(\d+)d$/', $preset, $m)) {
+            return $now->subDays((int)$m[1])->format('Y-m-d');
+        }
+
+        // Nombres de días: day_lunes, day_martes, etc.
+        if (str_starts_with($preset, 'day_')) {
+            $dayName = substr($preset, 4);
+            $dayMap = [
+                'domingo' => Carbon::SUNDAY,
+                'lunes' => Carbon::MONDAY,
+                'martes' => Carbon::TUESDAY,
+                'miércoles' => Carbon::WEDNESDAY,
+                'jueves' => Carbon::THURSDAY,
+                'viernes' => Carbon::FRIDAY,
+                'sábado' => Carbon::SATURDAY,
+            ];
+            $dayNum = $dayMap[$dayName] ?? null;
+            if ($dayNum !== null) {
+                // Último día de la semana con ese nombre
+                $date = $now->copy();
+                while ($date->dayOfWeek !== $dayNum) {
+                    $date->subDay();
+                }
+                return $date->format('Y-m-d');
+            }
+        }
+
+        // Semanas: -1w a -10w
+        if (preg_match('/^-(\d+)w$/', $preset, $m)) {
+            return $now->subWeeks((int)$m[1])->format('Y-m-d');
+        }
+
+        // Inicio del mes
+        if ($preset === 'start_of_month') {
+            return $now->startOfMonth()->format('Y-m-d');
+        }
+
+        // Meses: -1m a -12m
+        if (preg_match('/^-(\d+)m$/', $preset, $m)) {
+            return $now->subMonths((int)$m[1])->format('Y-m-d');
+        }
+
+        // Inicio de año
+        if ($preset === 'start_of_year') {
+            return $now->startOfYear()->format('Y-m-d');
+        }
+
+        // Años: -1y a -10y
+        if (preg_match('/^-(\d+)y$/', $preset, $m)) {
+            return $now->subYears((int)$m[1])->format('Y-m-d');
+        }
+
+        return null;
+    }
+
+    /**
+     * Filtro de subconsulta para campos de personas (solicitante, técnico, autor, grupo).
+     */
+    private function applySubqueryTextFilter($query, string $personType, string $operator, string $value): void
+    {
+        switch ($personType) {
+            case 'requester':
+                // Buscar en glpi_tickets_users type=1 → glpi_users
+                $this->applyPersonSubquery($query, 1, $operator, $value);
+                break;
+            case 'assigned':
+                // Buscar en glpi_tickets_users type=2 → glpi_users O en glpi_itilsolutions
+                $this->applyAssignedSubquery($query, $operator, $value);
+                break;
+            case 'author':
+                // El creador del ticket: users_id_recipient → glpi_users
+                $this->applyAuthorSubquery($query, $operator, $value);
+                break;
+            case 'assigned_group':
+                $this->applyGroupSubquery($query, $operator, $value);
+                break;
+        }
+    }
+
+    private function applyPersonSubquery($query, int $type, string $operator, string $value): void
+    {
+        $likeValue = "%{$value}%";
+
+        $condition = function ($sub) use ($type, $operator, $value, $likeValue) {
+            $sub->select(DB::raw(1))
+                ->from('glpi_tickets_users as tu_filter')
+                ->join('glpi_users as gu_filter', 'tu_filter.users_id', '=', 'gu_filter.id')
+                ->whereColumn('tu_filter.tickets_id', 't.id')
+                ->where('tu_filter.type', $type);
+
+            switch ($operator) {
+                case 'contiene':
+                    $sub->where(DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)"), 'LIKE', $likeValue);
+                    break;
+                case 'no_contiene':
+                    $sub->where(DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)"), 'NOT LIKE', $likeValue);
+                    break;
+                case 'es':
+                    $sub->where(DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)"), '=', $value);
+                    break;
+                case 'no_es':
+                    $sub->where(DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)"), '!=', $value);
+                    break;
+                case 'empieza_con':
+                    $sub->where(DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)"), 'LIKE', "{$value}%");
+                    break;
+                case 'termina_con':
+                    $sub->where(DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)"), 'LIKE', "%{$value}");
+                    break;
+            }
+        };
+
+        if ($operator === 'vacio') {
+            $query->whereNotExists(function ($sub) use ($type) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_tickets_users as tu_filter')
+                    ->whereColumn('tu_filter.tickets_id', 't.id')
+                    ->where('tu_filter.type', $type);
+            });
+        } elseif ($operator === 'no_vacio') {
+            $query->whereExists(function ($sub) use ($type) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_tickets_users as tu_filter')
+                    ->whereColumn('tu_filter.tickets_id', 't.id')
+                    ->where('tu_filter.type', $type);
+            });
+        } elseif ($operator === 'no_contiene' || $operator === 'no_es') {
+            $query->whereNotExists($condition);
+        } else {
+            $query->whereExists($condition);
+        }
+    }
+
+    private function applyAssignedSubquery($query, string $operator, string $value): void
+    {
+        $likeValue = "%{$value}%";
+
+        if ($operator === 'vacio') {
+            // Sin técnico asignado ni solución
+            $query->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_tickets_users as tu_filter')
+                    ->whereColumn('tu_filter.tickets_id', 't.id')
+                    ->where('tu_filter.type', 2);
+            })->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_itilsolutions as sol_filter')
+                    ->whereColumn('sol_filter.items_id', 't.id')
+                    ->where('sol_filter.itemtype', 'Ticket');
+            });
+            return;
+        }
+
+        if ($operator === 'no_vacio') {
+            $query->where(function ($q) {
+                $q->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_tickets_users as tu_filter')
+                        ->whereColumn('tu_filter.tickets_id', 't.id')
+                        ->where('tu_filter.type', 2);
+                })->orWhereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_itilsolutions as sol_filter')
+                        ->whereColumn('sol_filter.items_id', 't.id')
+                        ->where('sol_filter.itemtype', 'Ticket');
+                });
+            });
+            return;
+        }
+
+        // Buscar en asignado O en quien dio la solución
+        $isNegative = in_array($operator, ['no_contiene', 'no_es']);
+
+        if ($isNegative) {
+            // NOT EXISTS para ambas fuentes
+            $query->whereNotExists(function ($sub) use ($value, $operator, $likeValue) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_tickets_users as tu_filter')
+                    ->join('glpi_users as gu_filter', 'tu_filter.users_id', '=', 'gu_filter.id')
+                    ->whereColumn('tu_filter.tickets_id', 't.id')
+                    ->where('tu_filter.type', 2);
+                $this->applyNameCondition($sub, $operator === 'no_contiene' ? 'contiene' : 'es', $value, $likeValue);
+            })->whereNotExists(function ($sub) use ($value, $operator, $likeValue) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_itilsolutions as sol_filter')
+                    ->join('glpi_users as gu_filter', 'sol_filter.users_id', '=', 'gu_filter.id')
+                    ->whereColumn('sol_filter.items_id', 't.id')
+                    ->where('sol_filter.itemtype', 'Ticket');
+                $this->applyNameCondition($sub, $operator === 'no_contiene' ? 'contiene' : 'es', $value, $likeValue);
+            });
+        } else {
+            $query->where(function ($q) use ($value, $operator, $likeValue) {
+                $q->whereExists(function ($sub) use ($value, $operator, $likeValue) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_tickets_users as tu_filter')
+                        ->join('glpi_users as gu_filter', 'tu_filter.users_id', '=', 'gu_filter.id')
+                        ->whereColumn('tu_filter.tickets_id', 't.id')
+                        ->where('tu_filter.type', 2);
+                    $this->applyNameCondition($sub, $operator, $value, $likeValue);
+                })->orWhereExists(function ($sub) use ($value, $operator, $likeValue) {
+                    $sub->select(DB::raw(1))
+                        ->from('glpi_itilsolutions as sol_filter')
+                        ->join('glpi_users as gu_filter', 'sol_filter.users_id', '=', 'gu_filter.id')
+                        ->whereColumn('sol_filter.items_id', 't.id')
+                        ->where('sol_filter.itemtype', 'Ticket');
+                    $this->applyNameCondition($sub, $operator, $value, $likeValue);
+                });
+            });
+        }
+    }
+
+    private function applyNameCondition($sub, string $operator, string $value, string $likeValue): void
+    {
+        $fullName = DB::raw("CONCAT(gu_filter.firstname, ' ', gu_filter.realname)");
+        switch ($operator) {
+            case 'contiene':
+                $sub->where($fullName, 'LIKE', $likeValue);
+                break;
+            case 'es':
+                $sub->where($fullName, '=', $value);
+                break;
+            case 'empieza_con':
+                $sub->where($fullName, 'LIKE', "{$value}%");
+                break;
+            case 'termina_con':
+                $sub->where($fullName, 'LIKE', "%{$value}");
+                break;
+        }
+    }
+
+    private function applyAuthorSubquery($query, string $operator, string $value): void
+    {
+        $likeValue = "%{$value}%";
+        $fullName = DB::raw("CONCAT(gu_author.firstname, ' ', gu_author.realname)");
+
+        if ($operator === 'vacio') {
+            $query->whereNull('t.users_id_recipient');
+            return;
+        }
+        if ($operator === 'no_vacio') {
+            $query->whereNotNull('t.users_id_recipient')->where('t.users_id_recipient', '>', 0);
+            return;
+        }
+
+        // Join con glpi_users para buscar por nombre del autor
+        $isNegative = in_array($operator, ['no_contiene', 'no_es']);
+        $subCondition = function ($sub) use ($operator, $value, $likeValue, $fullName) {
+            $sub->select(DB::raw(1))
+                ->from('glpi_users as gu_author')
+                ->whereColumn('gu_author.id', 't.users_id_recipient');
+            switch ($operator) {
+                case 'contiene': case 'no_contiene':
+                    $sub->where($fullName, 'LIKE', $likeValue);
+                    break;
+                case 'es': case 'no_es':
+                    $sub->where($fullName, '=', $value);
+                    break;
+                case 'empieza_con':
+                    $sub->where($fullName, 'LIKE', "{$value}%");
+                    break;
+                case 'termina_con':
+                    $sub->where($fullName, 'LIKE', "%{$value}");
+                    break;
+            }
+        };
+
+        if ($isNegative) {
+            $query->whereNotExists($subCondition);
+        } else {
+            $query->whereExists($subCondition);
+        }
+    }
+
+    private function applyGroupSubquery($query, string $operator, string $value): void
+    {
+        $likeValue = "%{$value}%";
+
+        if ($operator === 'vacio') {
+            $query->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_groups_tickets as gt_filter')
+                    ->whereColumn('gt_filter.tickets_id', 't.id')
+                    ->where('gt_filter.type', 2);
+            });
+            return;
+        }
+        if ($operator === 'no_vacio') {
+            $query->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_groups_tickets as gt_filter')
+                    ->whereColumn('gt_filter.tickets_id', 't.id')
+                    ->where('gt_filter.type', 2);
+            });
+            return;
+        }
+
+        $isNegative = in_array($operator, ['no_contiene', 'no_es']);
+        $condition = function ($sub) use ($operator, $value, $likeValue) {
+            $sub->select(DB::raw(1))
+                ->from('glpi_groups_tickets as gt_filter')
+                ->join('glpi_groups as grp_filter', 'gt_filter.groups_id', '=', 'grp_filter.id')
+                ->whereColumn('gt_filter.tickets_id', 't.id')
+                ->where('gt_filter.type', 2);
+            switch ($operator) {
+                case 'contiene': case 'no_contiene':
+                    $sub->where('grp_filter.completename', 'LIKE', $likeValue);
+                    break;
+                case 'es': case 'no_es':
+                    $sub->where('grp_filter.completename', '=', $value);
+                    break;
+                case 'empieza_con':
+                    $sub->where('grp_filter.completename', 'LIKE', "{$value}%");
+                    break;
+                case 'termina_con':
+                    $sub->where('grp_filter.completename', 'LIKE', "%{$value}");
+                    break;
+            }
+        };
+
+        if ($isNegative) {
+            $query->whereNotExists($condition);
+        } else {
+            $query->whereExists($condition);
+        }
+    }
+
+    /**
+     * Filtro multi-columna: busca en todas las columnas visibles de la tabla.
+     */
+    private function applyMultiColumnFilter($query, string $operator, string $value): void
+    {
+        if (in_array($operator, ['vacio', 'no_vacio'])) return;
+
+        $columns = ['t.id', 't.name', 'e.name', 'cat.completename'];
+        $statusCase = "CASE 
+            WHEN t.status = 1 THEN 'Nuevo'
+            WHEN t.status = 2 THEN 'En curso (asignado)'
+            WHEN t.status = 3 THEN 'En curso (planificado)'
+            WHEN t.status = 4 THEN 'En espera'
+            WHEN t.status = 5 THEN 'Resuelto'
+            WHEN t.status = 6 THEN 'Cerrado'
+            ELSE 'Desconocido'
+        END";
+        $priorityCase = "CASE 
+            WHEN t.priority = 1 THEN 'Muy baja'
+            WHEN t.priority = 2 THEN 'Baja'
+            WHEN t.priority = 3 THEN 'Media'
+            WHEN t.priority = 4 THEN 'Alta'
+            WHEN t.priority = 5 THEN 'Muy alta'
+            WHEN t.priority = 6 THEN 'Urgente'
+            ELSE 'Media'
+        END";
+
+        switch ($operator) {
+            case 'contiene':
+                $query->where(function ($q) use ($columns, $statusCase, $priorityCase, $value) {
+                    foreach ($columns as $col) {
+                        $q->orWhere(DB::raw("CAST({$col} AS CHAR)"), 'LIKE', "%{$value}%");
+                    }
+                    $q->orWhere(DB::raw($statusCase), 'LIKE', "%{$value}%");
+                    $q->orWhere(DB::raw($priorityCase), 'LIKE', "%{$value}%");
+                    $q->orWhere(DB::raw("CAST(t.date AS CHAR)"), 'LIKE', "%{$value}%");
+                    $q->orWhere(DB::raw("CAST(t.date_mod AS CHAR)"), 'LIKE', "%{$value}%");
+                });
+                break;
+            case 'no_contiene':
+                $query->where(function ($q) use ($columns, $statusCase, $priorityCase, $value) {
+                    foreach ($columns as $col) {
+                        $q->where(function($inner) use ($col, $value) {
+                            $inner->where(DB::raw("CAST({$col} AS CHAR)"), 'NOT LIKE', "%{$value}%")
+                                  ->orWhereNull($col);
+                        });
+                    }
+                    $q->where(DB::raw($statusCase), 'NOT LIKE', "%{$value}%");
+                    $q->where(DB::raw($priorityCase), 'NOT LIKE', "%{$value}%");
+                });
+                break;
+            default:
+                // Para otros operadores, buscar solo en nombre
+                $this->applyTextFilter($query, 't.name', $operator, $value);
+                break;
+        }
+    }
+
+    /**
+     * Filtro de solución: busca en la tabla glpi_itilsolutions
+     */
+    private function applySolutionFilter($query, string $operator, string $value): void
+    {
+        if ($operator === 'vacio') {
+            $query->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_itilsolutions as sol_filter')
+                    ->whereColumn('sol_filter.items_id', 't.id')
+                    ->where('sol_filter.itemtype', 'Ticket');
+            });
+            return;
+        }
+        if ($operator === 'no_vacio') {
+            $query->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_itilsolutions as sol_filter')
+                    ->whereColumn('sol_filter.items_id', 't.id')
+                    ->where('sol_filter.itemtype', 'Ticket');
+            });
+            return;
+        }
+
+        $likeValue = "%{$value}%";
+        $isNegative = in_array($operator, ['no_contiene', 'no_es']);
+
+        $condition = function ($sub) use ($operator, $value, $likeValue) {
+            $sub->select(DB::raw(1))
+                ->from('glpi_itilsolutions as sol_filter')
+                ->whereColumn('sol_filter.items_id', 't.id')
+                ->where('sol_filter.itemtype', 'Ticket');
+            switch ($operator) {
+                case 'contiene': case 'no_contiene':
+                    $sub->where('sol_filter.content', 'LIKE', $likeValue);
+                    break;
+                case 'es': case 'no_es':
+                    $sub->where('sol_filter.content', '=', $value);
+                    break;
+                case 'empieza_con':
+                    $sub->where('sol_filter.content', 'LIKE', "{$value}%");
+                    break;
+                case 'termina_con':
+                    $sub->where('sol_filter.content', 'LIKE', "%{$value}");
+                    break;
+            }
+        };
+
+        if ($isNegative) {
+            $query->whereNotExists($condition);
+        } else {
+            $query->whereExists($condition);
+        }
     }
 }
