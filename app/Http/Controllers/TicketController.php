@@ -27,6 +27,7 @@ class TicketController extends Controller
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', ''); // unassigned, my_cases, resolved_today
         $excludeMaintenance = $request->input('exclude_maintenance', '');
+        $criteriaJson = $request->input('criteria', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -187,76 +188,72 @@ class TicketController extends Controller
             });
         }
 
-        // Aplicar filtros selectivos
-        if ($statusFilter !== '') {
-            $query->where('t.status', $statusFilter);
-        }
-        
-        if ($priorityFilter !== '') {
-            $query->where('t.priority', $priorityFilter);
-        }
-        
-        if ($categoryFilter !== '') {
-            // Obtener el name de la categoría seleccionada
-            $selectedCategoryName = DB::table('glpi_itilcategories')
-                ->where('id', $categoryFilter)
-                ->value('name');
-            
-            if ($selectedCategoryName) {
-                // Buscar TODOS los IDs que contengan TODAS las palabras del nombre en el completename
-                // Esto unifica "Mantenimiento Preventivo" con "Hardware > Mantenimiento > Preventivo"
-                $words = preg_split('/\s+/', trim($selectedCategoryName));
-                
-                $categoryQuery = DB::table('glpi_itilcategories');
-                foreach ($words as $word) {
-                    if (strlen($word) > 2) { // Ignorar palabras muy cortas
-                        $categoryQuery->where('completename', 'LIKE', '%' . $word . '%');
+        // ============= Apply GLPI-style criteria filtering =============
+        if ($criteriaJson) {
+            $criteria = json_decode($criteriaJson, true);
+            if (is_array($criteria) && count($criteria) > 0) {
+                $this->applyCriteriaFilters($query, $criteria);
+            }
+        } else {
+            // Fallback: apply old-style individual filters for backward compatibility
+            if ($statusFilter !== '') {
+                $query->where('t.status', $statusFilter);
+            }
+            if ($priorityFilter !== '') {
+                $query->where('t.priority', $priorityFilter);
+            }
+            if ($categoryFilter !== '') {
+                $selectedCategoryName = DB::table('glpi_itilcategories')
+                    ->where('id', $categoryFilter)
+                    ->value('name');
+                if ($selectedCategoryName) {
+                    $words = preg_split('/\s+/', trim($selectedCategoryName));
+                    $categoryQuery = DB::table('glpi_itilcategories');
+                    foreach ($words as $word) {
+                        if (strlen($word) > 2) {
+                            $categoryQuery->where('completename', 'LIKE', '%' . $word . '%');
+                        }
                     }
-                }
-                $categoryIds = $categoryQuery->pluck('id')->toArray();
-                
-                if (!empty($categoryIds)) {
-                    $query->whereIn('t.itilcategories_id', $categoryIds);
+                    $categoryIds = $categoryQuery->pluck('id')->toArray();
+                    if (!empty($categoryIds)) {
+                        $query->whereIn('t.itilcategories_id', $categoryIds);
+                    } else {
+                        $query->where('t.itilcategories_id', $categoryFilter);
+                    }
                 } else {
                     $query->where('t.itilcategories_id', $categoryFilter);
                 }
-            } else {
-                $query->where('t.itilcategories_id', $categoryFilter);
             }
-        }
-        
-        if ($assignedFilter !== '') {
-            // Buscar por técnico que dio la solución (glpi_itilsolutions) O por técnico asignado (glpi_tickets_users)
-            $query->where(function ($q) use ($assignedFilter) {
-                $q->whereExists(function ($sub) use ($assignedFilter) {
-                    $sub->select(DB::raw(1))
-                        ->from('glpi_itilsolutions')
-                        ->whereColumn('glpi_itilsolutions.items_id', 't.id')
-                        ->where('glpi_itilsolutions.itemtype', 'Ticket')
-                        ->where('glpi_itilsolutions.users_id', $assignedFilter);
-                })->orWhere(function ($sub) use ($assignedFilter) {
-                    $sub->whereExists(function ($inner) use ($assignedFilter) {
-                        $inner->select(DB::raw(1))
-                              ->from('glpi_tickets_users')
-                              ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                              ->where('glpi_tickets_users.type', 2)
-                              ->where('glpi_tickets_users.users_id', $assignedFilter);
-                    })->whereNotExists(function ($inner) {
-                        $inner->select(DB::raw(1))
-                              ->from('glpi_itilsolutions')
-                              ->whereColumn('glpi_itilsolutions.items_id', 't.id')
-                              ->where('glpi_itilsolutions.itemtype', 'Ticket');
+            if ($assignedFilter !== '') {
+                $query->where(function ($q) use ($assignedFilter) {
+                    $q->whereExists(function ($sub) use ($assignedFilter) {
+                        $sub->select(DB::raw(1))
+                            ->from('glpi_itilsolutions')
+                            ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                            ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                            ->where('glpi_itilsolutions.users_id', $assignedFilter);
+                    })->orWhere(function ($sub) use ($assignedFilter) {
+                        $sub->whereExists(function ($inner) use ($assignedFilter) {
+                            $inner->select(DB::raw(1))
+                                  ->from('glpi_tickets_users')
+                                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                                  ->where('glpi_tickets_users.type', 2)
+                                  ->where('glpi_tickets_users.users_id', $assignedFilter);
+                        })->whereNotExists(function ($inner) {
+                            $inner->select(DB::raw(1))
+                                  ->from('glpi_itilsolutions')
+                                  ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                                  ->where('glpi_itilsolutions.itemtype', 'Ticket');
+                        });
                     });
                 });
-            });
-        }
-        
-        if ($dateFrom && $dateFrom !== '') {
-            $query->where('t.date', '>=', $dateFrom . ' 00:00:00');
-        }
-        
-        if ($dateTo && $dateTo !== '') {
-            $query->where('t.date', '<=', $dateTo . ' 23:59:59');
+            }
+            if ($dateFrom && $dateFrom !== '') {
+                $query->where('t.date', '>=', $dateFrom . ' 00:00:00');
+            }
+            if ($dateTo && $dateTo !== '') {
+                $query->where('t.date', '<=', $dateTo . ' 23:59:59');
+            }
         }
 
         // Filtros especiales del dashboard
@@ -349,6 +346,7 @@ class TicketController extends Controller
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
                 'exclude_maintenance' => $excludeMaintenance,
+                'criteria' => $criteriaJson,
             ], fn($value) => $value !== '' && $value !== null));
         
         // Obtener categorías para el filtro (agrupadas por name para unificar duplicados de GLPI)
@@ -394,6 +392,7 @@ class TicketController extends Controller
                 'date_to' => $dateTo,
                 'filter' => $specialFilter,
                 'exclude_maintenance' => $excludeMaintenance,
+                'criteria' => $criteriaJson,
             ],
             'auth' => [
                 'user' => auth()->user()
@@ -417,6 +416,7 @@ class TicketController extends Controller
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', '');
         $excludeMaintenance = $request->input('exclude_maintenance', '');
+        $criteriaJson = $request->input('criteria', '');
 
         $sortableFields = [
             'id' => 't.id',
@@ -517,67 +517,72 @@ class TicketController extends Controller
             });
         }
 
-        if ($statusFilter !== '') {
-            $query->where('t.status', $statusFilter);
-        }
-        if ($priorityFilter !== '') {
-            $query->where('t.priority', $priorityFilter);
-        }
-        if ($categoryFilter !== '') {
-            // Usar la misma lógica de búsqueda por palabras que en index()
-            $selectedCategoryName = DB::table('glpi_itilcategories')
-                ->where('id', $categoryFilter)
-                ->value('name');
-            
-            if ($selectedCategoryName) {
-                $words = preg_split('/\s+/', trim($selectedCategoryName));
-                
-                $categoryQuery = DB::table('glpi_itilcategories');
-                foreach ($words as $word) {
-                    if (strlen($word) > 2) {
-                        $categoryQuery->where('completename', 'LIKE', '%' . $word . '%');
+        // ============= Apply GLPI-style criteria filtering =============
+        if ($criteriaJson) {
+            $criteria = json_decode($criteriaJson, true);
+            if (is_array($criteria) && count($criteria) > 0) {
+                $this->applyCriteriaFilters($query, $criteria);
+            }
+        } else {
+            // Fallback: old-style filters
+            if ($statusFilter !== '') {
+                $query->where('t.status', $statusFilter);
+            }
+            if ($priorityFilter !== '') {
+                $query->where('t.priority', $priorityFilter);
+            }
+            if ($categoryFilter !== '') {
+                $selectedCategoryName = DB::table('glpi_itilcategories')
+                    ->where('id', $categoryFilter)
+                    ->value('name');
+                if ($selectedCategoryName) {
+                    $words = preg_split('/\s+/', trim($selectedCategoryName));
+                    $categoryQuery = DB::table('glpi_itilcategories');
+                    foreach ($words as $word) {
+                        if (strlen($word) > 2) {
+                            $categoryQuery->where('completename', 'LIKE', '%' . $word . '%');
+                        }
                     }
-                }
-                $categoryIds = $categoryQuery->pluck('id')->toArray();
-                
-                if (!empty($categoryIds)) {
-                    $query->whereIn('t.itilcategories_id', $categoryIds);
+                    $categoryIds = $categoryQuery->pluck('id')->toArray();
+                    if (!empty($categoryIds)) {
+                        $query->whereIn('t.itilcategories_id', $categoryIds);
+                    } else {
+                        $query->where('t.itilcategories_id', $categoryFilter);
+                    }
                 } else {
                     $query->where('t.itilcategories_id', $categoryFilter);
                 }
-            } else {
-                $query->where('t.itilcategories_id', $categoryFilter);
             }
-        }
-        if ($assignedFilter !== '') {
-            $query->where(function ($q) use ($assignedFilter) {
-                $q->whereExists(function ($sub) use ($assignedFilter) {
-                    $sub->select(DB::raw(1))
-                        ->from('glpi_itilsolutions')
-                        ->whereColumn('glpi_itilsolutions.items_id', 't.id')
-                        ->where('glpi_itilsolutions.itemtype', 'Ticket')
-                        ->where('glpi_itilsolutions.users_id', $assignedFilter);
-                })->orWhere(function ($sub) use ($assignedFilter) {
-                    $sub->whereExists(function ($inner) use ($assignedFilter) {
-                        $inner->select(DB::raw(1))
-                              ->from('glpi_tickets_users')
-                              ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                              ->where('glpi_tickets_users.type', 2)
-                              ->where('glpi_tickets_users.users_id', $assignedFilter);
-                    })->whereNotExists(function ($inner) {
-                        $inner->select(DB::raw(1))
-                              ->from('glpi_itilsolutions')
-                              ->whereColumn('glpi_itilsolutions.items_id', 't.id')
-                              ->where('glpi_itilsolutions.itemtype', 'Ticket');
+            if ($assignedFilter !== '') {
+                $query->where(function ($q) use ($assignedFilter) {
+                    $q->whereExists(function ($sub) use ($assignedFilter) {
+                        $sub->select(DB::raw(1))
+                            ->from('glpi_itilsolutions')
+                            ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                            ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                            ->where('glpi_itilsolutions.users_id', $assignedFilter);
+                    })->orWhere(function ($sub) use ($assignedFilter) {
+                        $sub->whereExists(function ($inner) use ($assignedFilter) {
+                            $inner->select(DB::raw(1))
+                                  ->from('glpi_tickets_users')
+                                  ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                                  ->where('glpi_tickets_users.type', 2)
+                                  ->where('glpi_tickets_users.users_id', $assignedFilter);
+                        })->whereNotExists(function ($inner) {
+                            $inner->select(DB::raw(1))
+                                  ->from('glpi_itilsolutions')
+                                  ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                                  ->where('glpi_itilsolutions.itemtype', 'Ticket');
+                        });
                     });
                 });
-            });
-        }
-        if ($dateFrom && $dateFrom !== '') {
-            $query->where('t.date', '>=', $dateFrom . ' 00:00:00');
-        }
-        if ($dateTo && $dateTo !== '') {
-            $query->where('t.date', '<=', $dateTo . ' 23:59:59');
+            }
+            if ($dateFrom && $dateFrom !== '') {
+                $query->where('t.date', '>=', $dateFrom . ' 00:00:00');
+            }
+            if ($dateTo && $dateTo !== '') {
+                $query->where('t.date', '<=', $dateTo . ' 23:59:59');
+            }
         }
 
         // Filtros especiales
@@ -1655,5 +1660,261 @@ class TicketController extends Controller
         }
 
         abort(404, 'Archivo no encontrado');
+    }
+
+    /**
+     * Apply GLPI-style criteria filters to the query.
+     * Each criterion has: connector (AND|OR|AND NOT|OR NOT), field, operator, value
+     */
+    private function applyCriteriaFilters($query, array $criteria)
+    {
+        foreach ($criteria as $index => $criterion) {
+            $connector = $criterion['connector'] ?? 'AND';
+            $field = $criterion['field'] ?? '';
+            $operator = $criterion['operator'] ?? 'contains';
+            $value = $criterion['value'] ?? '';
+
+            if ($field === '' || ($value === '' && !in_array($field, ['status']))) {
+                continue; // skip empty criteria (except status which can have special values)
+            }
+            if ($value === '' && $field === 'status') {
+                continue;
+            }
+
+            $isNot = in_array($connector, ['AND NOT', 'OR NOT']);
+            $isOr = in_array($connector, ['OR', 'OR NOT']);
+
+            $applyFn = function ($q) use ($field, $operator, $value, $isNot) {
+                $this->applySingleCriterion($q, $field, $operator, $value, $isNot);
+            };
+
+            if ($index === 0 || !$isOr) {
+                // AND / AND NOT
+                $query->where($applyFn);
+            } else {
+                // OR / OR NOT
+                $query->orWhere($applyFn);
+            }
+        }
+    }
+
+    /**
+     * Apply a single criterion filter condition.
+     */
+    private function applySingleCriterion($query, string $field, string $operator, string $value, bool $negate)
+    {
+        $applyCondition = function ($q) use ($field, $operator, $value) {
+            switch ($field) {
+                case 'status':
+                    // Handle special composite status values
+                    switch ($value) {
+                        case 'notold':
+                            $q->whereNotIn('t.status', [5, 6]); // Not resolved, not closed
+                            break;
+                        case 'notclosed':
+                            $q->where('t.status', '!=', 6);
+                            break;
+                        case 'process':
+                            $q->whereIn('t.status', [2, 3]); // In progress (assigned + planned)
+                            break;
+                        case 'solved_closed':
+                            $q->whereIn('t.status', [5, 6]);
+                            break;
+                        case 'all':
+                            // No filter needed
+                            break;
+                        default:
+                            $q->where('t.status', $value);
+                            break;
+                    }
+                    break;
+
+                case 'priority':
+                    $q->where('t.priority', $value);
+                    break;
+
+                case 'urgency':
+                    $q->where('t.urgency', $value);
+                    break;
+
+                case 'impact':
+                    $q->where('t.impact', $value);
+                    break;
+
+                case 'type':
+                    $q->where('t.type', $value);
+                    break;
+
+                case 'title':
+                    $this->applyTextOperator($q, 't.name', $operator, $value);
+                    break;
+
+                case 'description':
+                    $this->applyTextOperator($q, 't.content', $operator, $value);
+                    break;
+
+                case 'id':
+                    $this->applyTextOperator($q, DB::raw('CAST(t.id AS CHAR)'), $operator, $value);
+                    break;
+
+                case 'entity':
+                    $this->applyTextOperator($q, 'e.name', $operator, $value);
+                    break;
+
+                case 'location':
+                    $q->whereExists(function ($sub) use ($operator, $value) {
+                        $sub->select(DB::raw(1))
+                            ->from('glpi_locations as loc')
+                            ->whereColumn('loc.id', 't.locations_id');
+                        $this->applyTextOperator($sub, 'loc.completename', $operator, $value);
+                    });
+                    break;
+
+                case 'category':
+                    $selectedCategoryName = DB::table('glpi_itilcategories')
+                        ->where('id', $value)
+                        ->value('name');
+                    if ($selectedCategoryName) {
+                        $words = preg_split('/\s+/', trim($selectedCategoryName));
+                        $catQuery = DB::table('glpi_itilcategories');
+                        foreach ($words as $word) {
+                            if (strlen($word) > 2) {
+                                $catQuery->where('completename', 'LIKE', '%' . $word . '%');
+                            }
+                        }
+                        $categoryIds = $catQuery->pluck('id')->toArray();
+                        if (!empty($categoryIds)) {
+                            $q->whereIn('t.itilcategories_id', $categoryIds);
+                        } else {
+                            $q->where('t.itilcategories_id', $value);
+                        }
+                    } else {
+                        $q->where('t.itilcategories_id', $value);
+                    }
+                    break;
+
+                case 'assigned':
+                    $q->where(function ($sub) use ($value) {
+                        $sub->whereExists(function ($inner) use ($value) {
+                            $inner->select(DB::raw(1))
+                                ->from('glpi_itilsolutions')
+                                ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                                ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                                ->where('glpi_itilsolutions.users_id', $value);
+                        })->orWhere(function ($inner) use ($value) {
+                            $inner->whereExists(function ($sub2) use ($value) {
+                                $sub2->select(DB::raw(1))
+                                    ->from('glpi_tickets_users')
+                                    ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                                    ->where('glpi_tickets_users.type', 2)
+                                    ->where('glpi_tickets_users.users_id', $value);
+                            })->whereNotExists(function ($sub2) {
+                                $sub2->select(DB::raw(1))
+                                    ->from('glpi_itilsolutions')
+                                    ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                                    ->where('glpi_itilsolutions.itemtype', 'Ticket');
+                            });
+                        });
+                    });
+                    break;
+
+                case 'requester':
+                    $q->whereExists(function ($sub) use ($operator, $value) {
+                        $sub->select(DB::raw(1))
+                            ->from('glpi_tickets_users as tu_req')
+                            ->join('glpi_users as gu_req', 'tu_req.users_id', '=', 'gu_req.id')
+                            ->whereColumn('tu_req.tickets_id', 't.id')
+                            ->where('tu_req.type', 1);
+                        $this->applyTextOperator(
+                            $sub,
+                            DB::raw("CONCAT(gu_req.firstname, ' ', gu_req.realname)"),
+                            $operator,
+                            $value
+                        );
+                    });
+                    break;
+
+                case 'date':
+                    $this->applyDateOperator($q, 't.date', $operator, $value);
+                    break;
+
+                case 'date_mod':
+                    $this->applyDateOperator($q, 't.date_mod', $operator, $value);
+                    break;
+
+                case 'closedate':
+                    $this->applyDateOperator($q, 't.closedate', $operator, $value);
+                    break;
+
+                case 'solvedate':
+                    $this->applyDateOperator($q, 't.solvedate', $operator, $value);
+                    break;
+
+                case 'item_type':
+                    $q->whereExists(function ($sub) use ($value) {
+                        $sub->select(DB::raw(1))
+                            ->from('glpi_items_tickets as it_filter')
+                            ->whereColumn('it_filter.tickets_id', 't.id')
+                            ->where('it_filter.itemtype', $value);
+                    });
+                    break;
+            }
+        };
+
+        if ($negate) {
+            $query->where(function ($q) use ($applyCondition) {
+                $q->whereNot($applyCondition);
+            });
+        } else {
+            $applyCondition($query);
+        }
+    }
+
+    /**
+     * Apply a text-based operator (contains, is, not_contains, starts_with, ends_with)
+     */
+    private function applyTextOperator($query, $column, string $operator, string $value)
+    {
+        switch ($operator) {
+            case 'contains':
+                $query->where($column, 'LIKE', "%{$value}%");
+                break;
+            case 'is':
+                $query->where($column, '=', $value);
+                break;
+            case 'not_contains':
+                $query->where($column, 'NOT LIKE', "%{$value}%");
+                break;
+            case 'starts_with':
+                $query->where($column, 'LIKE', "{$value}%");
+                break;
+            case 'ends_with':
+                $query->where($column, 'LIKE', "%{$value}");
+                break;
+            default:
+                $query->where($column, 'LIKE', "%{$value}%");
+                break;
+        }
+    }
+
+    /**
+     * Apply a date-based operator (is, before, after)
+     */
+    private function applyDateOperator($query, string $column, string $operator, string $value)
+    {
+        switch ($operator) {
+            case 'is':
+                $query->whereDate($column, '=', $value);
+                break;
+            case 'before':
+                $query->where($column, '<', $value . ' 00:00:00');
+                break;
+            case 'after':
+                $query->where($column, '>=', $value . ' 00:00:00');
+                break;
+            default:
+                $query->whereDate($column, '=', $value);
+                break;
+        }
     }
 }

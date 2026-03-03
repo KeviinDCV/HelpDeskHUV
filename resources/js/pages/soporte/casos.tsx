@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus, Minus, Star, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
@@ -28,6 +28,127 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+
+// ============= GLPI-style Filter System Types =============
+interface FilterCriterion {
+    id: string;
+    connector: 'AND' | 'OR' | 'AND NOT' | 'OR NOT';
+    field: string;
+    operator: string;
+    value: string;
+}
+
+const FILTER_FIELDS = [
+    { value: 'status', label: 'Estado', type: 'select' },
+    { value: 'title', label: 'Título', type: 'text' },
+    { value: 'id', label: 'ID', type: 'text' },
+    { value: 'priority', label: 'Prioridad', type: 'select' },
+    { value: 'urgency', label: 'Urgencia', type: 'select' },
+    { value: 'impact', label: 'Impacto', type: 'select' },
+    { value: 'date', label: 'Fecha de Apertura', type: 'date' },
+    { value: 'closedate', label: 'Fecha de cierre', type: 'date' },
+    { value: 'date_mod', label: 'Última actualización', type: 'date' },
+    { value: 'category', label: 'Categoría', type: 'select' },
+    { value: 'entity', label: 'Entidad', type: 'text' },
+    { value: 'type', label: 'Tipo', type: 'select' },
+    { value: 'requester', label: 'Solicitante', type: 'text' },
+    { value: 'assigned', label: 'Técnico', type: 'select_technician' },
+    { value: 'item_type', label: 'Tipos de elementos asociados', type: 'select_item_type' },
+    { value: 'description', label: 'Descripción', type: 'text' },
+    { value: 'solvedate', label: 'Fecha de solución', type: 'date' },
+    { value: 'location', label: 'Localización', type: 'text' },
+];
+
+const STATUS_OPTIONS = [
+    { value: '1', label: 'Nuevo' },
+    { value: '2', label: 'En curso (asignada)' },
+    { value: '3', label: 'En curso (planificada)' },
+    { value: '4', label: 'En espera' },
+    { value: '5', label: 'Resueltas' },
+    { value: '6', label: 'Cerrado' },
+    { value: 'notold', label: 'No resueltos' },
+    { value: 'notclosed', label: 'Sin cerrar' },
+    { value: 'process', label: 'En curso' },
+    { value: 'solved_closed', label: 'Resuelto + Cerrado' },
+    { value: 'all', label: 'Todo' },
+];
+
+const PRIORITY_OPTIONS = [
+    { value: '1', label: 'Muy baja' },
+    { value: '2', label: 'Baja' },
+    { value: '3', label: 'Media' },
+    { value: '4', label: 'Alta' },
+    { value: '5', label: 'Muy alta' },
+    { value: '6', label: 'Urgente' },
+];
+
+const URGENCY_OPTIONS = [
+    { value: '1', label: 'Muy baja' },
+    { value: '2', label: 'Baja' },
+    { value: '3', label: 'Media' },
+    { value: '4', label: 'Alta' },
+    { value: '5', label: 'Muy alta' },
+];
+
+const IMPACT_OPTIONS = [
+    { value: '1', label: 'Muy bajo' },
+    { value: '2', label: 'Bajo' },
+    { value: '3', label: 'Medio' },
+    { value: '4', label: 'Alto' },
+    { value: '5', label: 'Muy alto' },
+];
+
+const TYPE_OPTIONS = [
+    { value: '1', label: 'Incidencia' },
+    { value: '2', label: 'Solicitud' },
+];
+
+const ITEM_TYPE_OPTIONS = [
+    { value: 'Computer', label: 'Computador' },
+    { value: 'Peripheral', label: 'Dispositivo' },
+    { value: 'NetworkEquipment', label: 'Dispositivo para red' },
+    { value: 'Enclosure', label: 'Gabinete' },
+    { value: 'Printer', label: 'Impresora' },
+    { value: 'Monitor', label: 'Monitor' },
+    { value: 'Software', label: 'Programa' },
+    { value: 'Phone', label: 'Teléfono' },
+];
+
+const CONNECTOR_OPTIONS = [
+    { value: 'AND', label: 'Y' },
+    { value: 'OR', label: 'O' },
+    { value: 'AND NOT', label: 'Y NO' },
+    { value: 'OR NOT', label: 'O NO' },
+];
+
+function getOperatorsForField(fieldType: string): { value: string; label: string }[] {
+    switch (fieldType) {
+        case 'select':
+        case 'select_technician':
+        case 'select_item_type':
+            return [{ value: 'is', label: 'es' }];
+        case 'text':
+            return [
+                { value: 'contains', label: 'contiene' },
+                { value: 'is', label: 'es' },
+                { value: 'not_contains', label: 'no contiene' },
+                { value: 'starts_with', label: 'empieza por' },
+                { value: 'ends_with', label: 'termina por' },
+            ];
+        case 'date':
+            return [
+                { value: 'is', label: 'es' },
+                { value: 'before', label: 'antes' },
+                { value: 'after', label: 'después' },
+            ];
+        default:
+            return [{ value: 'contains', label: 'contiene' }];
+    }
+}
+
+function generateId(): string {
+    return Math.random().toString(36).substring(2, 9);
+}
 
 interface User {
     id: number;
@@ -100,13 +221,31 @@ interface TicketsProps {
         date_to: string;
         filter: string;
         exclude_maintenance: string;
+        criteria: string;
     };
     auth: {
         user: User;
     };
 }
 
+function parseSavedCriteria(criteriaStr: string): FilterCriterion[] {
+    if (!criteriaStr) return [];
+    try {
+        const parsed = JSON.parse(criteriaStr);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* ignore */ }
+    return [];
+}
+
 export default function Casos({ tickets, categories, technicians, filters, auth }: TicketsProps) {
+    // Inicializar criterios desde la URL o con un criterio por defecto
+    const initialCriteria = parseSavedCriteria(filters.criteria);
+    const [filterCriteria, setFilterCriteria] = React.useState<FilterCriterion[]>(
+        initialCriteria.length > 0 ? initialCriteria : [
+            { id: generateId(), connector: 'AND', field: 'status', operator: 'is', value: 'notold' }
+        ]
+    );
+
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
@@ -114,7 +253,6 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [ticketToView, setTicketToView] = React.useState<Ticket | null>(null);
     const [ticketSolution, setTicketSolution] = React.useState<{ content: string; solved_by: string | null; date_creation: string } | null>(null);
     const [loadingSolution, setLoadingSolution] = React.useState(false);
-    const [showFilters, setShowFilters] = React.useState(false);
 
     // Estados para resolver caso
     const [solveDialogOpen, setSolveDialogOpen] = React.useState(false);
@@ -123,21 +261,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [solveDate, setSolveDate] = React.useState('');
     const [solving, setSolving] = React.useState(false);
     const [solveError, setSolveError] = React.useState<string | null>(null);
-
-    // Estados de filtros
-    const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
-    const [priorityFilter, setPriorityFilter] = React.useState(filters.priority || 'all');
-    const [categoryFilter, setCategoryFilter] = React.useState(filters.category || 'all');
-    const [assignedFilter, setAssignedFilter] = React.useState(filters.assigned || 'all');
-    const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
-    const [dateTo, setDateTo] = React.useState(filters.date_to || '');
     const [excludeMaintenance, setExcludeMaintenance] = React.useState(filters.exclude_maintenance === '1');
 
-    const hasActiveFilters = (statusFilter && statusFilter !== 'all') ||
-        (priorityFilter && priorityFilter !== 'all') ||
-        (categoryFilter && categoryFilter !== 'all') ||
-        (assignedFilter && assignedFilter !== 'all') ||
-        dateFrom || dateTo || filters.filter || excludeMaintenance;
+    const hasActiveFilters = filterCriteria.length > 0 || filters.filter || excludeMaintenance;
 
     const getSpecialFilterLabel = () => {
         switch (filters.filter) {
@@ -156,7 +282,126 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             direction: filters.direction,
         };
         if (excludeMaintenance) params.exclude_maintenance = '1';
+        if (filterCriteria.length > 0) params.criteria = JSON.stringify(filterCriteria);
         router.get('/soporte/casos', params, { preserveState: false });
+    };
+
+    // ============= Filter Criteria Management =============
+    const addCriterion = () => {
+        setFilterCriteria(prev => [...prev, {
+            id: generateId(),
+            connector: 'AND',
+            field: 'status',
+            operator: 'is',
+            value: 'notold'
+        }]);
+    };
+
+    const addGlobalCriterion = () => {
+        setFilterCriteria(prev => [...prev, {
+            id: generateId(),
+            connector: 'AND',
+            field: 'title',
+            operator: 'contains',
+            value: ''
+        }]);
+    };
+
+    const removeCriterion = (id: string) => {
+        setFilterCriteria(prev => prev.filter(c => c.id !== id));
+    };
+
+    const updateCriterion = (id: string, updates: Partial<FilterCriterion>) => {
+        setFilterCriteria(prev => prev.map(c => {
+            if (c.id !== id) return c;
+            const updated = { ...c, ...updates };
+            // Reset operator and value when field changes
+            if (updates.field && updates.field !== c.field) {
+                const fieldDef = FILTER_FIELDS.find(f => f.value === updates.field);
+                const operators = getOperatorsForField(fieldDef?.type || 'text');
+                updated.operator = operators[0]?.value || 'contains';
+                updated.value = '';
+            }
+            return updated;
+        }));
+    };
+
+    const getFieldDef = (fieldValue: string) => FILTER_FIELDS.find(f => f.value === fieldValue);
+
+    const renderValueInput = (criterion: FilterCriterion) => {
+        const fieldDef = getFieldDef(criterion.field);
+        if (!fieldDef) return <Input type="text" value={criterion.value} onChange={(e) => updateCriterion(criterion.id, { value: e.target.value })} className="h-7 text-xs w-40" />;
+
+        switch (fieldDef.type) {
+            case 'select':
+                let options: { value: string; label: string }[] = [];
+                if (criterion.field === 'status') options = STATUS_OPTIONS;
+                else if (criterion.field === 'priority') options = PRIORITY_OPTIONS;
+                else if (criterion.field === 'urgency') options = URGENCY_OPTIONS;
+                else if (criterion.field === 'impact') options = IMPACT_OPTIONS;
+                else if (criterion.field === 'type') options = TYPE_OPTIONS;
+                else if (criterion.field === 'category') {
+                    options = categories.map(cat => ({ value: cat.id.toString(), label: cat.completename }));
+                }
+                return (
+                    <select
+                        value={criterion.value}
+                        onChange={(e) => updateCriterion(criterion.id, { value: e.target.value })}
+                        className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700 min-w-[160px]"
+                    >
+                        <option value="">--</option>
+                        {options.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                );
+            case 'select_technician':
+                return (
+                    <select
+                        value={criterion.value}
+                        onChange={(e) => updateCriterion(criterion.id, { value: e.target.value })}
+                        className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700 min-w-[160px]"
+                    >
+                        <option value="">--</option>
+                        {technicians.map(tech => (
+                            <option key={tech.id} value={tech.id.toString()}>{tech.fullname}</option>
+                        ))}
+                    </select>
+                );
+            case 'select_item_type':
+                return (
+                    <select
+                        value={criterion.value}
+                        onChange={(e) => updateCriterion(criterion.id, { value: e.target.value })}
+                        className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700 min-w-[160px]"
+                    >
+                        <option value="">--</option>
+                        {ITEM_TYPE_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                );
+            case 'date':
+                return (
+                    <Input
+                        type="date"
+                        value={criterion.value}
+                        onChange={(e) => updateCriterion(criterion.id, { value: e.target.value })}
+                        className="h-7 text-xs w-40"
+                    />
+                );
+            case 'text':
+            default:
+                return (
+                    <Input
+                        type="text"
+                        value={criterion.value}
+                        onChange={(e) => updateCriterion(criterion.id, { value: e.target.value })}
+                        className="h-7 text-xs w-40"
+                        placeholder=""
+                    />
+                );
+        }
     };
 
     // Verificar si el usuario puede eliminar un ticket
@@ -186,7 +431,6 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         setTicketToSolve(ticket);
         setSolution('');
         setSolveError(null);
-        // Por defecto, usar fecha y hora actual en zona horaria local
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -200,14 +444,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
     // Confirmar resolución
     const confirmSolve = () => {
-        console.log('confirmSolve called', { ticketToSolve, solution, solveDate });
-
         if (!ticketToSolve || !solution.trim()) {
             alert('Debe ingresar una solución');
             return;
         }
-
-        // Validar fecha antes de enviar
         if (solveDate && ticketToSolve.date) {
             const solveDateObj = new Date(solveDate);
             const ticketDateObj = new Date(ticketToSolve.date);
@@ -216,45 +456,31 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 return;
             }
         }
-
         setSolving(true);
         setSolveError(null);
-
-        // Formatear fecha para el backend
         const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
-
-        console.log('Sending POST to:', `/dashboard/solve-ticket/${ticketToSolve.id}`, { solution: solution.trim(), solve_date: formattedDate });
-
-        // Usar router.post de Inertia
         router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
             solution: solution.trim(),
             solve_date: formattedDate
         }, {
             preserveState: true,
             onSuccess: (page: any) => {
-                console.log('onSuccess called', page.props?.flash);
                 setSolving(false);
-
-                // Verificar si hay mensaje de error en flash
                 if (page.props?.flash?.error) {
                     setSolveError(page.props.flash.error);
                     return;
                 }
-
-                // Si no hay error, cerrar el modal
                 setSolveDialogOpen(false);
                 setTicketToSolve(null);
                 setSolution('');
                 setSolveDate('');
             },
             onError: (errors: any) => {
-                console.log('onError called', errors);
                 setSolving(false);
                 const errorMsg = typeof errors === 'object' ? Object.values(errors).join(', ') : 'Error al resolver';
                 setSolveError(errorMsg);
             },
             onFinish: () => {
-                console.log('onFinish called');
                 setSolving(false);
             }
         });
@@ -277,27 +503,24 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         }
     };
 
-    const handleSort = (field: string) => {
-        const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-
-        // Construir parámetros solo con valores no vacíos
+    // Build params helper — centralizes all filter state for requests
+    const buildFilterParams = (overrides: Record<string, any> = {}): Record<string, any> => {
         const params: Record<string, any> = {
             per_page: filters.per_page,
-            sort: field,
-            direction: newDirection,
+            sort: filters.sort,
+            direction: filters.direction,
+            ...overrides,
         };
-
-        // Solo agregar filtros que tengan valor
         if (filters.search) params.search = filters.search;
-        if (filters.status) params.status = filters.status;
-        if (filters.priority) params.priority = filters.priority;
-        if (filters.category) params.category = filters.category;
-        if (filters.assigned) params.assigned = filters.assigned;
-        if (filters.date_from) params.date_from = filters.date_from;
-        if (filters.date_to) params.date_to = filters.date_to;
         if (filters.filter) params.filter = filters.filter;
         if (filters.exclude_maintenance === '1') params.exclude_maintenance = '1';
+        if (filterCriteria.length > 0) params.criteria = JSON.stringify(filterCriteria);
+        return params;
+    };
 
+    const handleSort = (field: string) => {
+        const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
+        const params = buildFilterParams({ sort: field, direction: newDirection });
         router.get('/soporte/casos', params, {
             preserveState: false,
             preserveScroll: true
@@ -306,9 +529,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
     const handlePageChange = (url: string | null) => {
         if (url) {
-            router.visit(url, {
-                preserveScroll: true
-            });
+            router.visit(url, { preserveScroll: true });
         }
     };
 
@@ -319,16 +540,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             direction: filters.direction,
             page: 1
         };
-
-        // Solo agregar parámetros si tienen valor
         if (searchValue) params.search = searchValue;
-        if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
-        if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
-        if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
-        if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
         if (excludeMaintenance) params.exclude_maintenance = '1';
+        if (filterCriteria.length > 0) params.criteria = JSON.stringify(filterCriteria);
+        if (filters.filter) params.filter = filters.filter;
 
         router.get('/soporte/casos', params, {
             preserveState: false,
@@ -338,25 +553,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const handlePerPageChange = (value: string) => {
-        // Solo enviar parámetros con valores
-        const params: Record<string, any> = {
-            per_page: value,
-            sort: filters.sort,
-            direction: filters.direction,
-            page: 1
-        };
-
-        // Agregar solo filtros con valores no vacíos
-        if (filters.search) params.search = filters.search;
-        if (filters.status) params.status = filters.status;
-        if (filters.priority) params.priority = filters.priority;
-        if (filters.category) params.category = filters.category;
-        if (filters.assigned) params.assigned = filters.assigned;
-        if (filters.date_from) params.date_from = filters.date_from;
-        if (filters.date_to) params.date_to = filters.date_to;
-        if (filters.filter) params.filter = filters.filter;
-        if (filters.exclude_maintenance === '1') params.exclude_maintenance = '1';
-
+        const params = buildFilterParams({ per_page: value, page: 1 });
         router.get('/soporte/casos', params, {
             preserveState: false,
             preserveScroll: true
@@ -370,18 +567,11 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             direction: filters.direction,
             page: 1
         };
-
-        // Solo agregar parámetros si tienen valor
         if (searchValue) params.search = searchValue;
-        if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
-        if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
-        if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
-        if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
         if (excludeMaintenance) params.exclude_maintenance = '1';
+        if (filterCriteria.length > 0) params.criteria = JSON.stringify(filterCriteria);
+        if (filters.filter) params.filter = filters.filter;
 
-        console.log('Applying filters:', params);
         router.get('/soporte/casos', params, {
             preserveState: false,
             preserveScroll: false,
@@ -390,12 +580,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const clearFilters = () => {
-        setStatusFilter('all');
-        setPriorityFilter('all');
-        setCategoryFilter('all');
-        setAssignedFilter('all');
-        setDateFrom('');
-        setDateTo('');
+        setFilterCriteria([{ id: generateId(), connector: 'AND', field: 'status', operator: 'is', value: 'notold' }]);
         setSearchValue('');
         setExcludeMaintenance(false);
 
@@ -403,7 +588,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-            page: 1
+            page: 1,
+            criteria: JSON.stringify([{ id: generateId(), connector: 'AND', field: 'status', operator: 'is', value: 'notold' }])
         }, {
             preserveState: false,
             preserveScroll: false,
@@ -416,14 +602,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         params.append('sort', filters.sort);
         params.append('direction', filters.direction);
         if (filters.search) params.append('search', filters.search);
-        if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-        if (filters.priority && filters.priority !== 'all') params.append('priority', filters.priority);
-        if (filters.category && filters.category !== 'all') params.append('category', filters.category);
-        if (filters.assigned && filters.assigned !== 'all') params.append('assigned', filters.assigned);
-        if (filters.date_from) params.append('date_from', filters.date_from);
-        if (filters.date_to) params.append('date_to', filters.date_to);
         if (filters.filter) params.append('filter', filters.filter);
         if (filters.exclude_maintenance === '1') params.append('exclude_maintenance', '1');
+        if (filterCriteria.length > 0) params.append('criteria', JSON.stringify(filterCriteria));
         window.location.href = `/soporte/casos/export?${params}`;
     };
 
@@ -486,185 +667,138 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                 <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
                                     {filters.filter ? getSpecialFilterLabel() : 'Casos'}
                                 </h1>
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                                    <div className="relative flex-1 sm:flex-initial">
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar..."
-                                            className="w-full sm:w-64 pr-10 h-9"
-                                            value={searchValue}
-                                            onChange={(e) => setSearchValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    handleSearch();
-                                                }
-                                            }}
-                                        />
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
+                                        onClick={handleExport}
+                                    >
+                                        <span className="hidden sm:inline">Exportar</span>
+                                        <span className="sm:hidden">Excel</span>
+                                    </Button>
+                                    <Link href="/soporte/crear-caso">
                                         <Button
                                             size="sm"
-                                            variant="ghost"
-                                            className="absolute right-0 top-0 h-full px-3"
-                                            onClick={handleSearch}
+                                            className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
                                         >
-                                            <Search className="h-4 w-4" />
+                                            <Plus className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">Crear Caso</span>
                                         </Button>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowFilters(!showFilters)}
-                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
-                                        >
-                                            <Filter className="h-4 w-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
-                                            onClick={handleExport}
-                                        >
-                                            <span className="hidden sm:inline">Exportar</span>
-                                            <span className="sm:hidden">Excel</span>
-                                        </Button>
-                                        <Link href="/soporte/crear-caso">
-                                            <Button
-                                                size="sm"
-                                                className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
-                                            >
-                                                <Plus className="h-4 w-4 sm:mr-1" />
-                                                <span className="hidden sm:inline">Crear Caso</span>
-                                            </Button>
-                                        </Link>
-                                    </div>
+                                    </Link>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Panel de Filtros */}
-                        {showFilters && (
-                            <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
-                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
-                                                <SelectValue placeholder="Todos" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="1">Nuevo</SelectItem>
-                                                <SelectItem value="2">En curso (asignado)</SelectItem>
-                                                <SelectItem value="3">En curso (planificado)</SelectItem>
-                                                <SelectItem value="4">En espera</SelectItem>
-                                                <SelectItem value="5">Resuelto</SelectItem>
-                                                <SelectItem value="6">Cerrado</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Prioridad</label>
-                                        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
-                                                <SelectValue placeholder="Todas" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todas</SelectItem>
-                                                <SelectItem value="1">Muy baja</SelectItem>
-                                                <SelectItem value="2">Baja</SelectItem>
-                                                <SelectItem value="3">Media</SelectItem>
-                                                <SelectItem value="4">Alta</SelectItem>
-                                                <SelectItem value="5">Muy alta</SelectItem>
-                                                <SelectItem value="6">Urgente</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Asignado a</label>
-                                        <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
-                                                <SelectValue placeholder="Todos" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {technicians.map((tech) => (
-                                                    <SelectItem key={tech.id} value={tech.id.toString()}>
-                                                        {tech.fullname}
-                                                    </SelectItem>
+                        {/* ============= GLPI-style Filter Bar ============= */}
+                        <div className="px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-200">
+                            <div className="space-y-1">
+                                {filterCriteria.map((criterion, index) => {
+                                    const fieldDef = getFieldDef(criterion.field);
+                                    const operators = getOperatorsForField(fieldDef?.type || 'text');
+                                    return (
+                                        <div key={criterion.id} className="flex items-center gap-1 flex-wrap">
+                                            {/* Add/Remove buttons and Connector */}
+                                            {index === 0 ? (
+                                                <div className="flex items-center gap-0.5">
+                                                    <button
+                                                        onClick={addCriterion}
+                                                        className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded hover:bg-gray-100 text-gray-600"
+                                                        title="Agregar criterio de búsqueda"
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={addGlobalCriterion}
+                                                        className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded hover:bg-gray-100 text-[#2c4370] font-bold text-xs"
+                                                        title="Agregar criterio de búsqueda global"
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-0.5">
+                                                    <button
+                                                        onClick={() => removeCriterion(criterion.id)}
+                                                        className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded hover:bg-red-50 text-red-500"
+                                                        title="Quitar criterio"
+                                                    >
+                                                        <Minus className="w-3 h-3" />
+                                                    </button>
+                                                    <select
+                                                        value={criterion.connector}
+                                                        onChange={(e) => updateCriterion(criterion.id, { connector: e.target.value as FilterCriterion['connector'] })}
+                                                        className="h-7 text-xs border border-gray-200 rounded px-1 bg-white text-gray-700 min-w-[60px]"
+                                                    >
+                                                        {CONNECTOR_OPTIONS.map(opt => (
+                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
+                                            {/* Field selector */}
+                                            <select
+                                                value={criterion.field}
+                                                onChange={(e) => updateCriterion(criterion.id, { field: e.target.value })}
+                                                className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700 min-w-[140px]"
+                                            >
+                                                {FILTER_FIELDS.map(f => (
+                                                    <option key={f.value} value={f.value}>{f.label}</option>
                                                 ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Categoría</label>
-                                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
-                                                <SelectValue placeholder="Todas" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todas</SelectItem>
-                                                {categories.map((cat) => (
-                                                    <SelectItem key={cat.id} value={cat.id.toString()}>
-                                                        {cat.completename}
-                                                    </SelectItem>
+                                            </select>
+
+                                            {/* Operator selector */}
+                                            <select
+                                                value={criterion.operator}
+                                                onChange={(e) => updateCriterion(criterion.id, { operator: e.target.value })}
+                                                className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700 min-w-[90px]"
+                                            >
+                                                {operators.map(op => (
+                                                    <option key={op.value} value={op.value}>{op.label}</option>
                                                 ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                        <Input
-                                            type="date"
-                                            value={dateFrom}
-                                            onChange={(e) => setDateFrom(e.target.value)}
-                                            className="h-8 text-xs"
+                                            </select>
+
+                                            {/* Value input/select */}
+                                            {renderValueInput(criterion)}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Bottom action bar */}
+                            <div className="flex items-center justify-between mt-2 pt-1">
+                                <div className="flex items-center gap-2">
+                                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={excludeMaintenance}
+                                            onChange={(e) => setExcludeMaintenance(e.target.checked)}
+                                            className="w-3.5 h-3.5 rounded border-gray-300 text-[#2c4370] focus:ring-[#2c4370] cursor-pointer"
                                         />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                        <Input
-                                            type="date"
-                                            value={dateTo}
-                                            onChange={(e) => setDateTo(e.target.value)}
-                                            className="h-8 text-xs"
-                                        />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-3 md:col-span-6 flex items-center gap-2 pt-1">
-                                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                checked={excludeMaintenance}
-                                                onChange={(e) => setExcludeMaintenance(e.target.checked)}
-                                                className="w-4 h-4 rounded border-gray-300 text-[#2c4370] focus:ring-[#2c4370] cursor-pointer"
-                                            />
-                                            <span className="text-xs text-gray-700 font-medium">Excluir Mantenimientos</span>
-                                        </label>
-                                        <span className="text-[10px] text-gray-400">(Oculta casos de mantenimiento preventivo y correctivo)</span>
-                                    </div>
+                                        <span className="text-[11px] text-gray-600">Excluir Mantenimientos</span>
+                                    </label>
                                 </div>
-                                <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
-                                    {hasActiveFilters && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={clearFilters}
-                                            className="h-8 text-xs text-gray-600"
-                                        >
-                                            <X className="h-3 w-3 mr-1" />
-                                            Limpiar
-                                        </Button>
-                                    )}
+                                <div className="flex items-center gap-1.5">
                                     <Button
                                         size="sm"
                                         onClick={applyFilters}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-7 text-xs px-4"
                                     >
-                                        Aplicar
+                                        <Search className="w-3 h-3 mr-1" />
+                                        Buscar
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={clearFilters}
+                                        className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                                        title="Restablecer filtros"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
                                     </Button>
                                 </div>
                             </div>
-                        )}
+                        </div>
 
                         {/* Stats */}
                         <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
