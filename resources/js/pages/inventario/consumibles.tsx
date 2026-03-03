@@ -2,16 +2,25 @@ import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, usePage, Link } from '@inertiajs/react';
 import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ChevronsUpDown, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import React from 'react';
 import {
-    InventoryFilterBar, PerPageSelect, parseSavedCriteria, createDefaultCriterion,
-    type FilterCriterion, type FilterFieldDefinition,
-} from '@/components/inventory-filter-bar';
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface Consumable {
     id: number;
@@ -27,9 +36,21 @@ interface Consumable {
     tech_name: string | null;
 }
 
-interface PaginationLinks { url: string | null; label: string; active: boolean; }
-interface ConsumableType { id: number; name: string; }
-interface Manufacturer { id: number; name: string; }
+interface PaginationLinks {
+    url: string | null;
+    label: string;
+    active: boolean;
+}
+
+interface ConsumableType {
+    id: number;
+    name: string;
+}
+
+interface Manufacturer {
+    id: number;
+    name: string;
+}
 
 interface ConsumablesProps {
     consumables: {
@@ -49,7 +70,6 @@ interface ConsumablesProps {
         search: string;
         type: string;
         manufacturer: string;
-        criteria: string;
     };
 }
 
@@ -58,65 +78,69 @@ export default function Consumibles({ consumables, types, manufacturers, filters
     const isAdmin = auth?.user?.role === 'Administrador';
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteModal, setDeleteModal] = React.useState<{ open: boolean, id: number | null, name: string }>({ open: false, id: null, name: '' });
+    const [showFilters, setShowFilters] = React.useState(false);
 
-    const filterFields: FilterFieldDefinition[] = React.useMemo(() => [
-        { value: 'name', label: 'Nombre', type: 'text' as const },
-        { value: 'entity_name', label: 'Entidad', type: 'text' as const },
-        { value: 'ref', label: 'Referencia', type: 'text' as const },
-        { value: 'manufacturer', label: 'Fabricante', type: 'select' as const, options: manufacturers?.map(m => ({ value: m.id.toString(), label: m.name })) || [] },
-        { value: 'type', label: 'Tipo', type: 'select' as const, options: types?.map(t => ({ value: t.id.toString(), label: t.name })) || [] },
-        { value: 'tech_name', label: 'Técnico a cargo', type: 'text' as const },
-    ], [manufacturers, types]);
+    const [typeFilter, setTypeFilter] = React.useState(filters.type || 'all');
+    const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
 
-    const initialCriteria = parseSavedCriteria(filters.criteria);
-    const [filterCriteria, setFilterCriteria] = React.useState<FilterCriterion[]>(
-        initialCriteria.length > 0 ? initialCriteria : [createDefaultCriterion(filterFields)]
-    );
-
-    const buildFilterParams = (overrides: Record<string, any> = {}): Record<string, any> => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, ...overrides };
-        if (searchValue) params.search = searchValue;
-        if (filterCriteria.length > 0) params.criteria = JSON.stringify(filterCriteria);
-        return params;
-    };
+    const hasActiveFilters = (typeFilter && typeFilter !== 'all') || (manufacturerFilter && manufacturerFilter !== 'all');
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        router.get('/inventario/consumibles', buildFilterParams({ sort: field, direction: newDirection }), { preserveState: false });
+        const params: Record<string, any> = { per_page: filters.per_page, sort: field, direction: newDirection };
+        if (filters.search) params.search = filters.search;
+        if (filters.type && filters.type !== 'all') params.type = filters.type;
+        if (filters.manufacturer && filters.manufacturer !== 'all') params.manufacturer = filters.manufacturer;
+        router.get('/inventario/consumibles', params, { preserveState: false });
+    };
+
+    const handleSearch = () => {
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        router.get('/inventario/consumibles', params, { preserveState: false });
     };
 
     const applyFilters = () => {
         const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
         if (searchValue) params.search = searchValue;
-        if (filterCriteria.length > 0) params.criteria = JSON.stringify(filterCriteria);
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
         router.get('/inventario/consumibles', params, { preserveState: false, replace: true });
     };
 
     const clearFilters = () => {
-        setFilterCriteria([createDefaultCriterion(filterFields)]);
-        setSearchValue('');
+        setTypeFilter('all'); setManufacturerFilter('all'); setSearchValue('');
         router.get('/inventario/consumibles', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
-    };
-
-    const handlePerPageChange = (value: string) => {
-        router.get('/inventario/consumibles', buildFilterParams({ per_page: value, page: 1 }), { preserveState: false });
     };
 
     const handleExport = () => {
         const params = new URLSearchParams();
         params.append('sort', filters.sort); params.append('direction', filters.direction);
         if (filters.search) params.append('search', filters.search);
-        if (filterCriteria.length > 0) params.append('criteria', JSON.stringify(filterCriteria));
+        if (filters.type && filters.type !== 'all') params.append('type', filters.type);
+        if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
         window.location.href = `/inventario/consumibles/export?${params}`;
     };
 
     const getSortIcon = (field: string) => {
-        if (filters.sort !== field) return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
-        return filters.direction === 'asc' ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" /> : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
+        if (filters.sort !== field) {
+            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
+        }
+        return filters.direction === 'asc'
+            ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
+            : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
+    };
+
+    const handleDelete = (id: number, name: string) => {
+        setDeleteModal({ open: true, id, name });
     };
 
     const confirmDelete = () => {
-        if (deleteModal.id) router.delete(`/inventario/consumibles/${deleteModal.id}`);
+        if (deleteModal.id) {
+            router.delete(`/inventario/consumibles/${deleteModal.id}`);
+        }
         setDeleteModal({ open: false, id: null, name: '' });
     };
 
@@ -124,82 +148,217 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         <>
             <Head title="HelpDesk HUV - Consumibles" />
             <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
-                        <span className="text-gray-400">/</span>
-                        <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">Consumibles</span>
-                    </div>
-                } />
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
+                            <span className="text-gray-400">/</span>
+                            <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Consumibles</span>
+                        </div>
+                    }
+                />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
                     <div className="bg-white shadow border border-gray-200">
+                        {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Consumibles</h1>
-                                <div className="flex items-center gap-2">
-                                    <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9" onClick={handleExport}>
-                                        <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>
-                                    </Button>
-                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9" onClick={() => router.visit('/inventario/consumibles/crear')}>
-                                        <Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Crear</span>
-                                    </Button>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                                    <div className="relative flex-1 sm:flex-initial">
+                                        <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
+                                            onChange={(e) => setSearchValue(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
+                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
+                                            <Search className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
+                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
+                                            <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
+                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
+                                        </Button>
+                                        <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial" onClick={handleExport}>
+                                            <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>
+                                        </Button>
+                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial" onClick={() => router.visit('/inventario/consumibles/crear')}>
+                                            <Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Crear</span>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <InventoryFilterBar fields={filterFields} criteria={filterCriteria} onCriteriaChange={setFilterCriteria} onApply={applyFilters} onReset={clearFilters} />
+                        {showFilters && (
+                            <div className="px-6 py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Tipo</label>
+                                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {types?.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Fabricante</label>
+                                        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {manufacturers?.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 mt-3">
+                                    {hasActiveFilters && (
+                                        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-gray-600">
+                                            <X className="h-3 w-3 mr-1" /> Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs">Aplicar filtros</Button>
+                                </div>
+                            </div>
+                        )}
 
+                        {/* Stats */}
                         <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2 sm:gap-3">
                                 <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
-                                <PerPageSelect value={filters.per_page.toString()} onChange={handlePerPageChange} />
+                                <Select
+                                    value={filters.per_page.toString()}
+                                    onValueChange={(value) => {
+                                        router.get('/inventario/consumibles', {
+                                            per_page: value,
+                                            sort: filters.sort,
+                                            direction: filters.direction,
+                                            search: filters.search
+                                        }, { preserveState: false })
+                                    }}
+                                >
+                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="15">15</SelectItem>
+                                        <SelectItem value="25">25</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                        <SelectItem value="100">100</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
                             </div>
                             <p className="text-xs sm:text-sm text-gray-600">
-                                <span className="font-medium">{consumables.data.length}</span> de <span className="font-medium">{consumables.total}</span>
+                                <span className="font-medium">{consumables.data.length}</span> de{' '}
+                                <span className="font-medium">{consumables.total}</span>
                             </p>
                         </div>
 
+                        {/* Table */}
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('name')}><div className="flex items-center">Nombre{getSortIcon('name')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('entity_name')}><div className="flex items-center">Entidad{getSortIcon('entity_name')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('ref')}><div className="flex items-center">Referencia{getSortIcon('ref')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('type_name')}><div className="flex items-center">Tipo{getSortIcon('type_name')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('manufacturer_name')}><div className="flex items-center">Fabricante{getSortIcon('manufacturer_name')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total')}><div className="flex items-center">Total{getSortIcon('total')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('nuevo')}><div className="flex items-center">Nuevos{getSortIcon('nuevo')}</div></TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100" onClick={() => handleSort('usado')}><div className="flex items-center">Usados{getSortIcon('usado')}</div></TableHead>
-                                        {isAdmin && <TableHead className="font-semibold text-gray-900 text-xs text-center">Acciones</TableHead>}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Nombre
+                                                {getSortIcon('name')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('entity_name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Entidad
+                                                {getSortIcon('entity_name')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('ref')}
+                                        >
+                                            <div className="flex items-center">
+                                                Referencia
+                                                {getSortIcon('ref')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('type_name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Tipo
+                                                {getSortIcon('type_name')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('manufacturer_name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Fabricante
+                                                {getSortIcon('manufacturer_name')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('total')}
+                                        >
+                                            <div className="flex items-center">
+                                                Consumibles
+                                                {getSortIcon('total')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold text-gray-900 text-xs">
+                                            Comentarios
+                                        </TableHead>
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
+                                            onClick={() => handleSort('tech_name')}
+                                        >
+                                            <div className="flex items-center">
+                                                Técnico a cargo
+                                                {getSortIcon('tech_name')}
+                                            </div>
+                                        </TableHead>
+                                        {isAdmin && (<TableHead className="font-semibold text-gray-900 text-xs text-center">Acciones</TableHead>)}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {consumables.data.map((c) => (
-                                        <TableRow key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.visit(`/inventario/consumibles/${c.id}`)}>
-                                            <TableCell className="font-medium text-xs text-[#2c4370] hover:underline">
-                                                {c.name || '-'}
+                                    {consumables.data.map((consumable) => (
+                                        <TableRow key={consumable.id} className="hover:bg-gray-50">
+                                            <TableCell className="font-medium text-xs">
+                                                <a href={`/inventario/consumibles/${consumable.id}`} className="text-[#2c4370] hover:underline">
+                                                    {consumable.name || '-'}
+                                                </a>
                                             </TableCell>
-                                            <TableCell className="text-xs">{c.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{c.ref || '-'}</TableCell>
-                                            <TableCell className="text-xs">{c.type_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{c.manufacturer_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.entity_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.ref || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.type_name || '-'}</TableCell>
+                                            <TableCell className="text-xs">{consumable.manufacturer_name || '-'}</TableCell>
                                             <TableCell className="text-xs">
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                                                    {c.total}
-                                                </span>
+                                                Total: {consumable.total || 0}, Nuevo: {consumable.nuevo || 0}, Usado: {consumable.usado || 0}
                                             </TableCell>
-                                            <TableCell className="text-xs text-green-600 font-medium">{c.nuevo}</TableCell>
-                                            <TableCell className="text-xs text-blue-600 font-medium">{c.usado}</TableCell>
+                                            <TableCell className="text-xs truncate max-w-xs" title={consumable.comment || ''}>
+                                                {consumable.comment || '-'}
+                                            </TableCell>
+                                            <TableCell className="text-xs">{consumable.tech_name || '-'}</TableCell>
                                             {isAdmin && (
-                                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                                <TableCell className="text-center">
                                                     <div className="flex items-center justify-center gap-1">
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/consumibles/${c.id}/editar`)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => setDeleteModal({ open: true, id: c.id, name: c.name || '' })} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/consumibles/${consumable.id}/editar`)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(consumable.id, consumable.name || '')} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
                                                     </div>
                                                 </TableCell>
                                             )}
@@ -209,19 +368,47 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                             </Table>
                         </div>
 
+                        {/* Pagination */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">Página {consumables.current_page} de {consumables.last_page}</div>
+                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+                                Página {consumables.current_page} de {consumables.last_page}
+                            </div>
                             <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
                                 {consumables.links.map((link: PaginationLinks, index: number) => {
                                     const isMobileVisible = index === 0 || index === consumables.links.length - 1 || link.active;
-                                    if (index === 0) return <Button key={index} variant="outline" size="sm" disabled={!link.url} className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0" onClick={() => link.url && router.visit(link.url)}><ChevronLeft className="h-4 w-4" /></Button>;
-                                    if (index === consumables.links.length - 1) return <Button key={index} variant="outline" size="sm" disabled={!link.url} className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0" onClick={() => link.url && router.visit(link.url)}><ChevronRight className="h-4 w-4" /></Button>;
-                                    return <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url} className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`} onClick={() => link.url && router.visit(link.url)}>{link.label}</Button>;
+                                    if (index === 0) {
+                                        return (
+                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
+                                                onClick={() => link.url && router.visit(link.url)}>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                        );
+                                    }
+                                    if (index === consumables.links.length - 1) {
+                                        return (
+                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
+                                                onClick={() => link.url && router.visit(link.url)}>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        );
+                                    }
+                                    return (
+                                        <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url}
+                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active
+                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]"
+                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
+                                            onClick={() => link.url && router.visit(link.url)}>
+                                            {link.label}
+                                        </Button>
+                                    );
                                 })}
                             </div>
                         </div>
                     </div>
                 </main>
+
                 <GLPIFooter />
             </div>
 
