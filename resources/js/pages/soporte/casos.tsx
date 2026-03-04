@@ -609,33 +609,126 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             onReset={handleAdvancedReset}
                         />
 
-                        {/* Checkbox Excluir Mantenimientos */}
+                        {/* Panel de Filtros Rápidos */}
                         {showFilters && (
-                            <div className="px-3 sm:px-6 py-2 bg-gray-50 border-b">
-                                <div className="flex items-center gap-2">
-                                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                                        <input
-                                            type="checkbox"
-                                            checked={excludeMaintenance}
-                                            onChange={(e) => {
-                                                setExcludeMaintenance(e.target.checked);
-                                                // Auto-apply when toggling
-                                                const params: Record<string, any> = {
-                                                    per_page: filters.per_page,
-                                                    sort: filters.sort,
-                                                    direction: filters.direction,
-                                                    page: 1,
-                                                };
-                                                if (e.target.checked) params.exclude_maintenance = '1';
-                                                if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-                                                if (filters.filter) params.filter = filters.filter;
-                                                router.get('/soporte/casos', params, { preserveState: false, replace: true });
-                                            }}
-                                            className="w-4 h-4 rounded border-gray-300 text-[#2c4370] focus:ring-[#2c4370] cursor-pointer"
+                            <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todos" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="1">Nuevo</SelectItem>
+                                                <SelectItem value="2">En curso (asignado)</SelectItem>
+                                                <SelectItem value="3">En curso (planificado)</SelectItem>
+                                                <SelectItem value="4">En espera</SelectItem>
+                                                <SelectItem value="5">Resuelto</SelectItem>
+                                                <SelectItem value="6">Cerrado</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Prioridad</label>
+                                        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todas" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                <SelectItem value="1">Muy baja</SelectItem>
+                                                <SelectItem value="2">Baja</SelectItem>
+                                                <SelectItem value="3">Media</SelectItem>
+                                                <SelectItem value="4">Alta</SelectItem>
+                                                <SelectItem value="5">Muy alta</SelectItem>
+                                                <SelectItem value="6">Urgente</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Asignado a</label>
+                                        <Select value={assignedFilter} onValueChange={setAssignedFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todos" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {technicians.map((tech) => (
+                                                    <SelectItem key={tech.id} value={tech.id.toString()}>
+                                                        {tech.fullname}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Categoría</label>
+                                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Todas" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                {categories.map((cat) => (
+                                                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                                                        {cat.completename}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <Input
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            className="h-8 text-xs"
                                         />
-                                        <span className="text-xs text-gray-700 font-medium">Excluir Mantenimientos</span>
-                                    </label>
-                                    <span className="text-[10px] text-gray-400">(Oculta casos de mantenimiento preventivo y correctivo)</span>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <Input
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={(e) => setDateTo(e.target.value)}
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-3 md:col-span-6 flex items-center gap-2 pt-1">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={excludeMaintenance}
+                                                onChange={(e) => setExcludeMaintenance(e.target.checked)}
+                                                className="w-4 h-4 rounded border-gray-300 text-[#2c4370] focus:ring-[#2c4370] cursor-pointer"
+                                            />
+                                            <span className="text-xs text-gray-700 font-medium">Excluir Mantenimientos</span>
+                                        </label>
+                                        <span className="text-[10px] text-gray-400">(Oculta casos de mantenimiento preventivo y correctivo)</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
+                                    {hasActiveFilters && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={clearFilters}
+                                            className="h-8 text-xs text-gray-600"
+                                        >
+                                            <X className="h-3 w-3 mr-1" />
+                                            Limpiar
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="sm"
+                                        onClick={applyFilters}
+                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
+                                    >
+                                        Aplicar
+                                    </Button>
                                 </div>
                             </div>
                         )}
