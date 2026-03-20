@@ -7,7 +7,7 @@ import {
     ArrowLeft, Pencil, Monitor as MonitorIcon, Package, Cpu, Ticket,
     HardDrive, MemoryStick, Wifi, MonitorSpeaker, CircuitBoard, Shield,
     Server, FileText, AlertTriangle, RefreshCw, Award, ScrollText,
-    Info, Disc3, Grip, Volume2, Waypoints, Printer, Phone
+    Info, Disc3, Grip, Volume2, Waypoints, Printer, Phone, Network
 } from 'lucide-react';
 
 // ============ INTERFACES ============
@@ -66,6 +66,18 @@ interface ProblemItem { id: number; name: string; status: number; date: string; 
 interface ChangeItem { id: number; name: string; status: number; date: string; }
 interface CertificateItem { id: number; name: string | null; serial: string | null; date_expiration: string | null; }
 interface ContractItem { id: number; name: string | null; num: string | null; begin_date: string | null; duration: number | null; }
+interface NetworkPortItem {
+    id: number;
+    name: string | null;
+    mac: string | null;
+    logical_number: number | null;
+    instantiation_type: string | null;
+    ip_address: string | null;
+    network_name: string | null;
+    network_address: string | null;
+    network_netmask: string | null;
+    network_gateway: string | null;
+}
 interface InfocomItem {
     buy_date: string | null; use_date: string | null; warranty_date: string | null;
     warranty_duration: number | null; order_number: string | null; delivery_number: string | null;
@@ -92,6 +104,7 @@ interface Props {
     printers: PrinterItem[];
     phones: PhoneItem[];
     tickets: TicketItem[];
+    networkPorts: NetworkPortItem[];
     antivirus: AntivirusItem[];
     virtualMachines: VirtualMachine[];
     documents: DocumentItem[];
@@ -150,7 +163,7 @@ const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) =>
 
 // ============ TAB DEFINITIONS ============
 
-type TabKey = 'general' | 'os' | 'components' | 'volumes' | 'software' | 'connections' | 'tickets' | 'antivirus' | 'virtualization' | 'documents' | 'problems' | 'changes' | 'certificates' | 'contracts' | 'infocom';
+type TabKey = 'general' | 'os' | 'components' | 'volumes' | 'software' | 'connections' | 'networkPorts' | 'tickets' | 'antivirus' | 'virtualization' | 'documents' | 'problems' | 'changes' | 'certificates' | 'contracts' | 'infocom';
 
 interface TabDef {
     key: TabKey;
@@ -166,8 +179,8 @@ export default function VerComputador(props: Props) {
         computer, operatingSystems, processors, memories, hardDrives,
         networkCards, graphicCards, soundCards, controllers, drives,
         firmwares, motherboards, volumes, software, monitors, peripherals,
-        printers, phones, tickets, antivirus, virtualMachines, documents,
-        problems, changes, certificates, contracts, infocom,
+        printers, phones, tickets, networkPorts, antivirus, virtualMachines,
+        documents, problems, changes, certificates, contracts, infocom,
     } = props;
 
     const [activeTab, setActiveTab] = useState<TabKey>('general');
@@ -185,6 +198,7 @@ export default function VerComputador(props: Props) {
         { key: 'volumes', label: 'Volúmenes', icon: <HardDrive className="h-4 w-4" />, count: volumes.length },
         { key: 'software', label: 'Software', icon: <Package className="h-4 w-4" />, count: software.length },
         { key: 'connections', label: 'Conexiones', icon: <Waypoints className="h-4 w-4" />, count: totalConnections },
+        { key: 'networkPorts', label: 'Puertos de Red', icon: <Network className="h-4 w-4" />, count: networkPorts.length },
         { key: 'tickets', label: 'Casos', icon: <Ticket className="h-4 w-4" />, count: tickets.length },
         { key: 'antivirus', label: 'Antivirus', icon: <Shield className="h-4 w-4" />, count: antivirus.length },
         { key: 'virtualization', label: 'Virtualización', icon: <Server className="h-4 w-4" />, count: virtualMachines.length },
@@ -281,6 +295,7 @@ export default function VerComputador(props: Props) {
                                     {activeTab === 'connections' && (
                                         <TabConnections monitors={monitors} peripherals={peripherals} printers={printers} phones={phones} />
                                     )}
+                                    {activeTab === 'networkPorts' && <TabNetworkPorts data={networkPorts} />}
                                     {activeTab === 'tickets' && <TabTickets data={tickets} />}
                                     {activeTab === 'antivirus' && <TabAntivirus data={antivirus} />}
                                     {activeTab === 'virtualization' && <TabVirtualization data={virtualMachines} />}
@@ -672,6 +687,36 @@ function TabConnections({ monitors, peripherals, printers, phones }: {
                         items={phones.map(p => ({ id: p.id, name: p.name, serial: p.serial }))}
                     />
                 </>
+            )}
+        </>
+    );
+}
+
+function TabNetworkPorts({ data }: { data: NetworkPortItem[] }) {
+    return (
+        <>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Network className="h-5 w-5 text-[#2c4370]" />
+                Puertos de Red
+                <span className="text-sm font-normal text-gray-500">({data.length})</span>
+            </h2>
+            {data.length > 0 ? (
+                <DataTable headers={['#', 'Nombre', 'MAC', 'Dirección IP', 'Red', 'Puerta de Enlace']}>
+                    {data.map((port, idx) => (
+                        <tr key={port.id} className="hover:bg-gray-50">
+                            <td className="py-2 px-3 text-gray-500">{idx + 1}</td>
+                            <td className="py-2 px-3 text-gray-900">{port.name || '-'}</td>
+                            <td className="py-2 px-3 text-gray-600 font-mono text-xs">{port.mac || '-'}</td>
+                            <td className="py-2 px-3 text-gray-900 font-mono text-xs">{port.ip_address || '-'}</td>
+                            <td className="py-2 px-3 text-gray-600">
+                                {port.network_name || (port.network_address ? `${port.network_address}/${port.network_netmask}` : '-')}
+                            </td>
+                            <td className="py-2 px-3 text-gray-500 font-mono text-xs">{port.network_gateway || '-'}</td>
+                        </tr>
+                    ))}
+                </DataTable>
+            ) : (
+                <EmptyState message="No hay puertos de red registrados" />
             )}
         </>
     );

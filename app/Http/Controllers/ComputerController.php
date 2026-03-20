@@ -465,6 +465,35 @@ class ComputerController extends Controller
             ->orderBy('t.date', 'desc')
             ->get();
 
+        // === PUERTOS DE RED ===
+        $networkPorts = DB::table('glpi_networkports as np')
+            ->leftJoin('glpi_networknames as nn', function ($join) {
+                $join->on('nn.items_id', '=', 'np.id')
+                     ->where('nn.itemtype', '=', 'NetworkPort');
+            })
+            ->leftJoin('glpi_ipaddresses as ip', function ($join) {
+                $join->on('ip.items_id', '=', 'nn.id')
+                     ->where('ip.itemtype', '=', 'NetworkName');
+            })
+            ->leftJoin('glpi_ipaddresses_ipnetworks as ipn', 'ip.id', '=', 'ipn.ipaddresses_id')
+            ->leftJoin('glpi_ipnetworks as net', 'ipn.ipnetworks_id', '=', 'net.id')
+            ->select(
+                'np.id',
+                'np.name',
+                'np.mac',
+                'np.logical_number',
+                'np.instantiation_type',
+                'ip.name as ip_address',
+                'net.name as network_name',
+                'net.address as network_address',
+                'net.netmask as network_netmask',
+                'net.gateway as network_gateway'
+            )
+            ->where('np.itemtype', 'Computer')
+            ->where('np.items_id', $id)
+            ->where('np.is_deleted', 0)
+            ->get();
+
         // === ANTIVIRUS ===
         $antivirus = DB::table('glpi_computerantiviruses')
             ->where('computers_id', $id)
@@ -486,19 +515,14 @@ class ComputerController extends Controller
             ->get();
 
         // === PROBLEMAS ===
-        $problems = collect();
-        try {
-            $problems = DB::table('glpi_items_problems as ip')
-                ->join('glpi_problems as prob', 'ip.problems_id', '=', 'prob.id')
-                ->select('prob.id', 'prob.name', 'prob.status', 'prob.date')
-                ->where('ip.itemtype', 'Computer')
-                ->where('ip.items_id', $id)
-                ->where('prob.is_deleted', 0)
-                ->orderBy('prob.date', 'desc')
-                ->get();
-        } catch (\Exception $e) {
-            $problems = collect();
-        }
+        $problems = DB::table('glpi_items_problems as ip')
+            ->join('glpi_problems as prob', 'ip.problems_id', '=', 'prob.id')
+            ->select('prob.id', 'prob.name', 'prob.status', 'prob.date')
+            ->where('ip.itemtype', 'Computer')
+            ->where('ip.items_id', $id)
+            ->where('prob.is_deleted', 0)
+            ->orderBy('prob.date', 'desc')
+            ->get();
 
         // === CAMBIOS ===
         $changes = DB::table('glpi_changes_items as ci')
@@ -552,6 +576,7 @@ class ComputerController extends Controller
             'printers' => $printers,
             'phones' => $phones,
             'tickets' => $tickets,
+            'networkPorts' => $networkPorts,
             'antivirus' => $antivirus,
             'virtualMachines' => $virtualMachines,
             'documents' => $documents,
@@ -565,28 +590,17 @@ class ComputerController extends Controller
 
     private function getOperatingSystems($computerId)
     {
-        // Build select with safe lookups - check if each lookup table exists
-        $select = ['ios.license_number', 'ios.license_id'];
-        $lookups = [
-            'os_name' => ['glpi_operatingsystems', 'operatingsystems_id'],
-            'version_name' => ['glpi_operatingsystemversions', 'operatingsystemversions_id'],
-            'arch_name' => ['glpi_operatingsystemarchitectures', 'operatingsystemarchitectures_id'],
-            'servicepack_name' => ['glpi_operatingsystemservicepacks', 'operatingsystemservicepacks_id'],
-            'kernel_version' => ['glpi_operatingsystemkernelversions', 'operatingsystemkernelversions_id'],
-            'edition_name' => ['glpi_operatingsystemeditions', 'operatingsystemeditions_id'],
-        ];
-
-        foreach ($lookups as $alias => [$table, $fk]) {
-            try {
-                DB::select("SELECT 1 FROM {$table} LIMIT 1");
-                $select[] = DB::raw("(SELECT name FROM {$table} WHERE id = ios.{$fk} LIMIT 1) as {$alias}");
-            } catch (\Exception $e) {
-                $select[] = DB::raw("NULL as {$alias}");
-            }
-        }
-
         return DB::table('glpi_items_operatingsystems as ios')
-            ->select($select)
+            ->select(
+                'ios.license_number',
+                'ios.license_id',
+                DB::raw("(SELECT name FROM glpi_operatingsystems WHERE id = ios.operatingsystems_id LIMIT 1) as os_name"),
+                DB::raw("(SELECT name FROM glpi_operatingsystemversions WHERE id = ios.operatingsystemversions_id LIMIT 1) as version_name"),
+                DB::raw("(SELECT name FROM glpi_operatingsystemarchitectures WHERE id = ios.operatingsystemarchitectures_id LIMIT 1) as arch_name"),
+                DB::raw("(SELECT name FROM glpi_operatingsystemservicepacks WHERE id = ios.operatingsystemservicepacks_id LIMIT 1) as servicepack_name"),
+                DB::raw("(SELECT name FROM glpi_operatingsystemkernelversions WHERE id = ios.operatingsystemkernelversions_id LIMIT 1) as kernel_version"),
+                DB::raw("(SELECT name FROM glpi_operatingsystemeditions WHERE id = ios.operatingsystemeditions_id LIMIT 1) as edition_name")
+            )
             ->where('ios.itemtype', 'Computer')
             ->where('ios.items_id', $computerId)
             ->where('ios.is_deleted', 0)
