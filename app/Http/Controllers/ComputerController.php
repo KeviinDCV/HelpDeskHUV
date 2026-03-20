@@ -361,7 +361,8 @@ class ComputerController extends Controller
                 'l.completename as location_name',
                 'e.name as entity_name',
                 't.name as type_name',
-                'cm.name as model_name'
+                'cm.name as model_name',
+                'd.name as domain_name'
             )
             ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
             ->leftJoin('glpi_computertypes as t', 'c.computertypes_id', '=', 't.id')
@@ -369,6 +370,7 @@ class ComputerController extends Controller
             ->leftJoin('glpi_states as s', 'c.states_id', '=', 's.id')
             ->leftJoin('glpi_manufacturers as m', 'c.manufacturers_id', '=', 'm.id')
             ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_domains as d', 'c.domains_id', '=', 'd.id')
             ->where('c.id', $id)
             ->where('c.is_deleted', 0)
             ->first();
@@ -377,7 +379,40 @@ class ComputerController extends Controller
             abort(404);
         }
 
-        // Obtener monitores conectados
+        // === SISTEMAS OPERATIVOS ===
+        $operatingSystems = $this->getOperatingSystems($id);
+
+        // === COMPONENTES ===
+        $processors = $this->getProcessors($id);
+        $memories = $this->getMemories($id);
+        $hardDrives = $this->getHardDrives($id);
+        $networkCards = $this->getNetworkCards($id);
+        $graphicCards = $this->getGraphicCards($id);
+        $soundCards = $this->getSoundCards($id);
+        $controllers = $this->getControllers($id);
+        $drives = $this->getDrives($id);
+        $firmwares = $this->getFirmwares($id);
+        $motherboards = $this->getMotherboards($id);
+
+        // === VOLÚMENES ===
+        $volumes = $this->getVolumes($id);
+
+        // === SOFTWARE ===
+        $software = collect();
+        try {
+            $software = DB::table('glpi_computers_softwareversions as csv')
+                ->join('glpi_softwareversions as sv', 'csv.softwareversions_id', '=', 'sv.id')
+                ->join('glpi_softwares as soft', 'sv.softwares_id', '=', 'soft.id')
+                ->select('soft.name', 'sv.name as version')
+                ->where('csv.computers_id', $id)
+                ->where('soft.is_deleted', 0)
+                ->orderBy('soft.name')
+                ->get();
+        } catch (\Exception $e) {
+            $software = collect();
+        }
+
+        // === CONEXIONES (Monitores, Periféricos, Impresoras, Teléfonos) ===
         $monitors = DB::table('glpi_computers_items as ci')
             ->join('glpi_monitors as mon', function($join) {
                 $join->on('ci.items_id', '=', 'mon.id')
@@ -390,25 +425,6 @@ class ComputerController extends Controller
             ->where('mon.is_deleted', 0)
             ->get();
 
-        // Obtener software instalado (puede no existir en algunas versiones de GLPI)
-        $software = collect();
-        try {
-            $software = DB::table('glpi_items_softwareversions as isv')
-                ->join('glpi_softwareversions as sv', 'isv.softwareversions_id', '=', 'sv.id')
-                ->join('glpi_softwares as soft', 'sv.softwares_id', '=', 'soft.id')
-                ->select('soft.name', 'sv.name as version')
-                ->where('isv.items_id', $id)
-                ->where('isv.itemtype', 'Computer')
-                ->where('soft.is_deleted', 0)
-                ->orderBy('soft.name')
-                ->limit(50)
-                ->get();
-        } catch (\Exception $e) {
-            // Tabla no existe en esta versión de GLPI, usar colección vacía
-            $software = collect();
-        }
-
-        // Obtener periféricos conectados
         $peripherals = DB::table('glpi_computers_items as ci')
             ->join('glpi_peripherals as p', function($join) {
                 $join->on('ci.items_id', '=', 'p.id')
@@ -419,7 +435,27 @@ class ComputerController extends Controller
             ->where('p.is_deleted', 0)
             ->get();
 
-        // Obtener tickets relacionados
+        $printers = DB::table('glpi_computers_items as ci')
+            ->join('glpi_printers as pr', function($join) {
+                $join->on('ci.items_id', '=', 'pr.id')
+                     ->where('ci.itemtype', '=', 'Printer');
+            })
+            ->select('pr.id', 'pr.name', 'pr.serial')
+            ->where('ci.computers_id', $id)
+            ->where('pr.is_deleted', 0)
+            ->get();
+
+        $phones = DB::table('glpi_computers_items as ci')
+            ->join('glpi_phones as ph', function($join) {
+                $join->on('ci.items_id', '=', 'ph.id')
+                     ->where('ci.itemtype', '=', 'Phone');
+            })
+            ->select('ph.id', 'ph.name', 'ph.serial')
+            ->where('ci.computers_id', $id)
+            ->where('ph.is_deleted', 0)
+            ->get();
+
+        // === TICKETS ===
         $tickets = DB::table('glpi_items_tickets as it')
             ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
             ->select('t.id', 't.name', 't.status', 't.date')
@@ -427,16 +463,246 @@ class ComputerController extends Controller
             ->where('it.itemtype', 'Computer')
             ->where('t.is_deleted', 0)
             ->orderBy('t.date', 'desc')
-            ->limit(10)
             ->get();
+
+        // === ANTIVIRUS ===
+        $antivirus = DB::table('glpi_computerantiviruses')
+            ->where('computers_id', $id)
+            ->where('is_deleted', 0)
+            ->get();
+
+        // === VIRTUALIZACIÓN ===
+        $virtualMachines = DB::table('glpi_computervirtualmachines')
+            ->where('computers_id', $id)
+            ->where('is_deleted', 0)
+            ->get();
+
+        // === DOCUMENTOS ===
+        $documents = DB::table('glpi_documents_items as di')
+            ->join('glpi_documents as doc', 'di.documents_id', '=', 'doc.id')
+            ->select('doc.id', 'doc.name', 'doc.filename', 'doc.mime', 'doc.date_mod')
+            ->where('di.itemtype', 'Computer')
+            ->where('di.items_id', $id)
+            ->get();
+
+        // === PROBLEMAS ===
+        $problems = collect();
+        try {
+            $problems = DB::table('glpi_items_problems as ip')
+                ->join('glpi_problems as prob', 'ip.problems_id', '=', 'prob.id')
+                ->select('prob.id', 'prob.name', 'prob.status', 'prob.date')
+                ->where('ip.itemtype', 'Computer')
+                ->where('ip.items_id', $id)
+                ->where('prob.is_deleted', 0)
+                ->orderBy('prob.date', 'desc')
+                ->get();
+        } catch (\Exception $e) {
+            $problems = collect();
+        }
+
+        // === CAMBIOS ===
+        $changes = DB::table('glpi_changes_items as ci')
+            ->join('glpi_changes as ch', 'ci.changes_id', '=', 'ch.id')
+            ->select('ch.id', 'ch.name', 'ch.status', 'ch.date')
+            ->where('ci.itemtype', 'Computer')
+            ->where('ci.items_id', $id)
+            ->where('ch.is_deleted', 0)
+            ->orderBy('ch.date', 'desc')
+            ->get();
+
+        // === CERTIFICADOS ===
+        $certificates = DB::table('glpi_certificates_items as ci')
+            ->join('glpi_certificates as cert', 'ci.certificates_id', '=', 'cert.id')
+            ->select('cert.id', 'cert.name', 'cert.serial', 'cert.date_expiration')
+            ->where('ci.itemtype', 'Computer')
+            ->where('ci.items_id', $id)
+            ->get();
+
+        // === CONTRATOS ===
+        $contracts = DB::table('glpi_contracts_items as ci')
+            ->join('glpi_contracts as con', 'ci.contracts_id', '=', 'con.id')
+            ->select('con.id', 'con.name', 'con.num', 'con.begin_date', 'con.duration')
+            ->where('ci.itemtype', 'Computer')
+            ->where('ci.items_id', $id)
+            ->get();
+
+        // === INFORMACIÓN FINANCIERA ===
+        $infocom = DB::table('glpi_infocoms')
+            ->where('itemtype', 'Computer')
+            ->where('items_id', $id)
+            ->first();
 
         return Inertia::render('inventario/ver-computador', [
             'computer' => $computer,
-            'monitors' => $monitors,
+            'operatingSystems' => $operatingSystems,
+            'processors' => $processors,
+            'memories' => $memories,
+            'hardDrives' => $hardDrives,
+            'networkCards' => $networkCards,
+            'graphicCards' => $graphicCards,
+            'soundCards' => $soundCards,
+            'controllers' => $controllers,
+            'drives' => $drives,
+            'firmwares' => $firmwares,
+            'motherboards' => $motherboards,
+            'volumes' => $volumes,
             'software' => $software,
+            'monitors' => $monitors,
             'peripherals' => $peripherals,
+            'printers' => $printers,
+            'phones' => $phones,
             'tickets' => $tickets,
+            'antivirus' => $antivirus,
+            'virtualMachines' => $virtualMachines,
+            'documents' => $documents,
+            'problems' => $problems,
+            'changes' => $changes,
+            'certificates' => $certificates,
+            'contracts' => $contracts,
+            'infocom' => $infocom,
         ]);
+    }
+
+    private function getOperatingSystems($computerId)
+    {
+        // Build select with safe lookups - check if each lookup table exists
+        $select = ['ios.license_number', 'ios.license_id'];
+        $lookups = [
+            'os_name' => ['glpi_operatingsystems', 'operatingsystems_id'],
+            'version_name' => ['glpi_operatingsystemversions', 'operatingsystemversions_id'],
+            'arch_name' => ['glpi_operatingsystemarchitectures', 'operatingsystemarchitectures_id'],
+            'servicepack_name' => ['glpi_operatingsystemservicepacks', 'operatingsystemservicepacks_id'],
+            'kernel_version' => ['glpi_operatingsystemkernelversions', 'operatingsystemkernelversions_id'],
+            'edition_name' => ['glpi_operatingsystemeditions', 'operatingsystemeditions_id'],
+        ];
+
+        foreach ($lookups as $alias => [$table, $fk]) {
+            try {
+                DB::select("SELECT 1 FROM {$table} LIMIT 1");
+                $select[] = DB::raw("(SELECT name FROM {$table} WHERE id = ios.{$fk} LIMIT 1) as {$alias}");
+            } catch (\Exception $e) {
+                $select[] = DB::raw("NULL as {$alias}");
+            }
+        }
+
+        return DB::table('glpi_items_operatingsystems as ios')
+            ->select($select)
+            ->where('ios.itemtype', 'Computer')
+            ->where('ios.items_id', $computerId)
+            ->where('ios.is_deleted', 0)
+            ->get();
+    }
+
+    private function getProcessors($computerId)
+    {
+        return DB::table('glpi_items_deviceprocessors as idp')
+            ->leftJoin('glpi_deviceprocessors as dp', 'idp.deviceprocessors_id', '=', 'dp.id')
+            ->select('dp.designation', 'idp.frequency', 'idp.nbcores', 'idp.nbthreads', 'idp.serial')
+            ->where('idp.itemtype', 'Computer')
+            ->where('idp.items_id', $computerId)
+            ->get();
+    }
+
+    private function getMemories($computerId)
+    {
+        return DB::table('glpi_items_devicememories as idm')
+            ->leftJoin('glpi_devicememories as dm', 'idm.devicememories_id', '=', 'dm.id')
+            ->select('dm.designation', 'idm.size', 'idm.serial', 'idm.busID')
+            ->where('idm.itemtype', 'Computer')
+            ->where('idm.items_id', $computerId)
+            ->get();
+    }
+
+    private function getHardDrives($computerId)
+    {
+        return DB::table('glpi_items_deviceharddrives as idh')
+            ->leftJoin('glpi_deviceharddrives as dh', 'idh.deviceharddrives_id', '=', 'dh.id')
+            ->select('dh.designation', 'idh.capacity', 'idh.serial')
+            ->where('idh.itemtype', 'Computer')
+            ->where('idh.items_id', $computerId)
+            ->get();
+    }
+
+    private function getNetworkCards($computerId)
+    {
+        return DB::table('glpi_items_devicenetworkcards as idn')
+            ->leftJoin('glpi_devicenetworkcards as dn', 'idn.devicenetworkcards_id', '=', 'dn.id')
+            ->select('dn.designation', 'idn.mac')
+            ->where('idn.itemtype', 'Computer')
+            ->where('idn.items_id', $computerId)
+            ->get();
+    }
+
+    private function getGraphicCards($computerId)
+    {
+        return DB::table('glpi_items_devicegraphiccards as idg')
+            ->leftJoin('glpi_devicegraphiccards as dg', 'idg.devicegraphiccards_id', '=', 'dg.id')
+            ->select('dg.designation', 'idg.memory')
+            ->where('idg.itemtype', 'Computer')
+            ->where('idg.items_id', $computerId)
+            ->get();
+    }
+
+    private function getSoundCards($computerId)
+    {
+        return DB::table('glpi_items_devicesoundcards as ids')
+            ->leftJoin('glpi_devicesoundcards as ds', 'ids.devicesoundcards_id', '=', 'ds.id')
+            ->select('ds.designation', 'ids.serial')
+            ->where('ids.itemtype', 'Computer')
+            ->where('ids.items_id', $computerId)
+            ->get();
+    }
+
+    private function getControllers($computerId)
+    {
+        return DB::table('glpi_items_devicecontrols as idc')
+            ->leftJoin('glpi_devicecontrols as dc', 'idc.devicecontrols_id', '=', 'dc.id')
+            ->select('dc.designation', 'idc.serial')
+            ->where('idc.itemtype', 'Computer')
+            ->where('idc.items_id', $computerId)
+            ->get();
+    }
+
+    private function getDrives($computerId)
+    {
+        return DB::table('glpi_items_devicedrives as idd')
+            ->leftJoin('glpi_devicedrives as dd', 'idd.devicedrives_id', '=', 'dd.id')
+            ->select('dd.designation', 'idd.serial')
+            ->where('idd.itemtype', 'Computer')
+            ->where('idd.items_id', $computerId)
+            ->get();
+    }
+
+    private function getFirmwares($computerId)
+    {
+        return DB::table('glpi_items_devicefirmwares as idf')
+            ->leftJoin('glpi_devicefirmwares as df', 'idf.devicefirmwares_id', '=', 'df.id')
+            ->leftJoin('glpi_devicefirmwaretypes as dft', 'df.devicefirmwaretypes_id', '=', 'dft.id')
+            ->select('df.designation', 'idf.serial', 'dft.name as type_name')
+            ->where('idf.itemtype', 'Computer')
+            ->where('idf.items_id', $computerId)
+            ->get();
+    }
+
+    private function getMotherboards($computerId)
+    {
+        return DB::table('glpi_items_devicemotherboards as idmb')
+            ->leftJoin('glpi_devicemotherboards as dmb', 'idmb.devicemotherboards_id', '=', 'dmb.id')
+            ->select('dmb.designation', 'idmb.serial')
+            ->where('idmb.itemtype', 'Computer')
+            ->where('idmb.items_id', $computerId)
+            ->get();
+    }
+
+    private function getVolumes($computerId)
+    {
+        return DB::table('glpi_items_disks as id')
+            ->leftJoin('glpi_filesystems as fs', 'id.filesystems_id', '=', 'fs.id')
+            ->select('id.name', 'id.mountpoint', 'id.totalsize', 'id.freesize', 'fs.name as filesystem_name', 'id.device')
+            ->where('id.itemtype', 'Computer')
+            ->where('id.items_id', $computerId)
+            ->where('id.is_deleted', 0)
+            ->get();
     }
 
     public function edit($id)
