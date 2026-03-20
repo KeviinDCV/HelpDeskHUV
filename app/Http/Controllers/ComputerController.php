@@ -592,6 +592,13 @@ class ComputerController extends Controller
     {
         return DB::table('glpi_items_operatingsystems as ios')
             ->select(
+                'ios.id',
+                'ios.operatingsystems_id',
+                'ios.operatingsystemversions_id',
+                'ios.operatingsystemarchitectures_id',
+                'ios.operatingsystemservicepacks_id',
+                'ios.operatingsystemkernelversions_id',
+                'ios.operatingsystemeditions_id',
                 'ios.license_number',
                 'ios.license_id',
                 DB::raw("(SELECT name FROM glpi_operatingsystems WHERE id = ios.operatingsystems_id LIMIT 1) as os_name"),
@@ -611,7 +618,8 @@ class ComputerController extends Controller
     {
         return DB::table('glpi_items_deviceprocessors as idp')
             ->leftJoin('glpi_deviceprocessors as dp', 'idp.deviceprocessors_id', '=', 'dp.id')
-            ->select('dp.designation', 'idp.frequency', 'idp.nbcores', 'idp.nbthreads', 'idp.serial')
+            ->leftJoin('glpi_manufacturers as mfg', 'dp.manufacturers_id', '=', 'mfg.id')
+            ->select('dp.designation', 'idp.frequency', 'idp.nbcores', 'idp.nbthreads', 'idp.serial', 'mfg.name as manufacturer_name')
             ->where('idp.itemtype', 'Computer')
             ->where('idp.items_id', $computerId)
             ->get();
@@ -712,7 +720,7 @@ class ComputerController extends Controller
     {
         return DB::table('glpi_items_disks as id')
             ->leftJoin('glpi_filesystems as fs', 'id.filesystems_id', '=', 'fs.id')
-            ->select('id.name', 'id.mountpoint', 'id.totalsize', 'id.freesize', 'fs.name as filesystem_name', 'id.device')
+            ->select('id.id', 'id.name', 'id.mountpoint', 'id.totalsize', 'id.freesize', 'id.device', 'id.filesystems_id', 'fs.name as filesystem_name')
             ->where('id.itemtype', 'Computer')
             ->where('id.items_id', $computerId)
             ->where('id.is_deleted', 0)
@@ -730,12 +738,157 @@ class ComputerController extends Controller
             abort(404);
         }
 
+        // Dropdowns para info general
         $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
         $manufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
         $types = DB::table('glpi_computertypes')->select('id', 'name')->orderBy('name')->get();
         $models = DB::table('glpi_computermodels')->select('id', 'name')->orderBy('name')->get();
         $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
         $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+        $users = DB::table('glpi_users')->select('id', 'name', 'realname', 'firstname')->where('is_deleted', 0)->orderBy('realname')->get();
+        $groups = DB::table('glpi_groups')->select('id', 'name')->orderBy('name')->get();
+        $domains = DB::table('glpi_domains')->select('id', 'name')->orderBy('name')->get();
+
+        // Datos existentes: OS
+        $operatingSystems = $this->getOperatingSystems($id);
+
+        // Dropdowns para OS
+        $osList = DB::table('glpi_operatingsystems')->select('id', 'name')->orderBy('name')->get();
+        $osVersions = DB::table('glpi_operatingsystemversions')->select('id', 'name')->orderBy('name')->get();
+        $osArchitectures = DB::table('glpi_operatingsystemarchitectures')->select('id', 'name')->orderBy('name')->get();
+        $osServicePacks = DB::table('glpi_operatingsystemservicepacks')->select('id', 'name')->orderBy('name')->get();
+        $osKernelVersions = DB::table('glpi_operatingsystemkernelversions')->select('id', 'name')->orderBy('name')->get();
+        $osEditions = DB::table('glpi_operatingsystemeditions')->select('id', 'name')->orderBy('name')->get();
+
+        // Datos existentes: Volúmenes
+        $volumes = $this->getVolumes($id);
+        $filesystems = DB::table('glpi_filesystems')->select('id', 'name')->orderBy('name')->get();
+
+        // Datos existentes: Componentes (solo lectura)
+        $processors = $this->getProcessors($id);
+        $memories = $this->getMemories($id);
+        $hardDrives = $this->getHardDrives($id);
+        $networkCards = $this->getNetworkCards($id);
+        $graphicCards = $this->getGraphicCards($id);
+        $soundCards = $this->getSoundCards($id);
+        $controllers = $this->getControllers($id);
+        $drives = $this->getDrives($id);
+        $firmwares = $this->getFirmwares($id);
+        $motherboards = $this->getMotherboards($id);
+
+        // === SOFTWARE (solo lectura) ===
+        $software = collect();
+        try {
+            $software = DB::table('glpi_computers_softwareversions as csv')
+                ->join('glpi_softwareversions as sv', 'csv.softwareversions_id', '=', 'sv.id')
+                ->join('glpi_softwares as soft', 'sv.softwares_id', '=', 'soft.id')
+                ->select('soft.id', 'soft.name', 'sv.name as version')
+                ->where('csv.computers_id', $id)
+                ->where('soft.is_deleted', 0)
+                ->orderBy('soft.name')
+                ->get();
+        } catch (\Exception $e) {
+            $software = collect();
+        }
+
+        // === CONEXIONES ===
+        $monitors = DB::table('glpi_computers_items as ci')
+            ->join('glpi_monitors as mon', function($join) {
+                $join->on('ci.items_id', '=', 'mon.id')->where('ci.itemtype', '=', 'Monitor');
+            })
+            ->leftJoin('glpi_manufacturers as m', 'mon.manufacturers_id', '=', 'm.id')
+            ->select('mon.id', 'mon.name', 'mon.serial', 'm.name as manufacturer_name')
+            ->where('ci.computers_id', $id)->where('mon.is_deleted', 0)->get();
+
+        $peripherals = DB::table('glpi_computers_items as ci')
+            ->join('glpi_peripherals as p', function($join) {
+                $join->on('ci.items_id', '=', 'p.id')->where('ci.itemtype', '=', 'Peripheral');
+            })
+            ->select('p.id', 'p.name', 'p.serial')
+            ->where('ci.computers_id', $id)->where('p.is_deleted', 0)->get();
+
+        $printers = DB::table('glpi_computers_items as ci')
+            ->join('glpi_printers as pr', function($join) {
+                $join->on('ci.items_id', '=', 'pr.id')->where('ci.itemtype', '=', 'Printer');
+            })
+            ->select('pr.id', 'pr.name', 'pr.serial')
+            ->where('ci.computers_id', $id)->where('pr.is_deleted', 0)->get();
+
+        $phones = DB::table('glpi_computers_items as ci')
+            ->join('glpi_phones as ph', function($join) {
+                $join->on('ci.items_id', '=', 'ph.id')->where('ci.itemtype', '=', 'Phone');
+            })
+            ->select('ph.id', 'ph.name', 'ph.serial')
+            ->where('ci.computers_id', $id)->where('ph.is_deleted', 0)->get();
+
+        // === PUERTOS DE RED ===
+        $networkPorts = DB::table('glpi_networkports as np')
+            ->leftJoin('glpi_networknames as nn', function ($join) {
+                $join->on('nn.items_id', '=', 'np.id')->where('nn.itemtype', '=', 'NetworkPort');
+            })
+            ->leftJoin('glpi_ipaddresses as ip', function ($join) {
+                $join->on('ip.items_id', '=', 'nn.id')->where('ip.itemtype', '=', 'NetworkName');
+            })
+            ->leftJoin('glpi_ipaddresses_ipnetworks as ipn', 'ip.id', '=', 'ipn.ipaddresses_id')
+            ->leftJoin('glpi_ipnetworks as net', 'ipn.ipnetworks_id', '=', 'net.id')
+            ->select('np.id', 'np.name', 'np.mac', 'np.logical_number', 'np.instantiation_type',
+                'ip.name as ip_address', 'net.name as network_name', 'net.address as network_address',
+                'net.netmask as network_netmask', 'net.gateway as network_gateway')
+            ->where('np.itemtype', 'Computer')->where('np.items_id', $id)->where('np.is_deleted', 0)->get();
+
+        // === TICKETS ===
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)->where('it.itemtype', 'Computer')
+            ->where('t.is_deleted', 0)->orderBy('t.date', 'desc')->get();
+
+        // === ANTIVIRUS ===
+        $antivirus = DB::table('glpi_computerantiviruses')
+            ->select('id', 'name', 'manufacturers_id', 'antivirus_version', 'signature_version', 'is_active', 'is_uptodate', 'date_expiration')
+            ->where('computers_id', $id)->where('is_deleted', 0)->get();
+        $antivirusManufacturers = DB::table('glpi_manufacturers')->select('id', 'name')->orderBy('name')->get();
+
+        // === VIRTUALIZACIÓN ===
+        $virtualMachines = DB::table('glpi_computervirtualmachines')
+            ->select('id', 'name', 'virtualmachinestates_id', 'virtualmachinesystems_id', 'virtualmachinetypes_id', 'vcpu', 'ram', 'uuid')
+            ->where('computers_id', $id)->where('is_deleted', 0)->get();
+
+        // === DOCUMENTOS ===
+        $documents = DB::table('glpi_documents_items as di')
+            ->join('glpi_documents as doc', 'di.documents_id', '=', 'doc.id')
+            ->select('doc.id', 'doc.name', 'doc.filename', 'doc.mime', 'doc.date_mod', 'di.id as link_id')
+            ->where('di.itemtype', 'Computer')->where('di.items_id', $id)->get();
+
+        // === PROBLEMAS ===
+        $problems = DB::table('glpi_items_problems as ip')
+            ->join('glpi_problems as prob', 'ip.problems_id', '=', 'prob.id')
+            ->select('prob.id', 'prob.name', 'prob.status', 'prob.date')
+            ->where('ip.itemtype', 'Computer')->where('ip.items_id', $id)
+            ->where('prob.is_deleted', 0)->orderBy('prob.date', 'desc')->get();
+
+        // === CAMBIOS ===
+        $changes = DB::table('glpi_changes_items as ci')
+            ->join('glpi_changes as ch', 'ci.changes_id', '=', 'ch.id')
+            ->select('ch.id', 'ch.name', 'ch.status', 'ch.date')
+            ->where('ci.itemtype', 'Computer')->where('ci.items_id', $id)
+            ->where('ch.is_deleted', 0)->orderBy('ch.date', 'desc')->get();
+
+        // === CERTIFICADOS ===
+        $certificates = DB::table('glpi_certificates_items as ci')
+            ->join('glpi_certificates as cert', 'ci.certificates_id', '=', 'cert.id')
+            ->select('cert.id', 'cert.name', 'cert.serial', 'cert.date_expiration', 'ci.id as link_id')
+            ->where('ci.itemtype', 'Computer')->where('ci.items_id', $id)->get();
+
+        // === CONTRATOS ===
+        $contracts = DB::table('glpi_contracts_items as ci')
+            ->join('glpi_contracts as con', 'ci.contracts_id', '=', 'con.id')
+            ->select('con.id', 'con.name', 'con.num', 'con.begin_date', 'con.duration', 'ci.id as link_id')
+            ->where('ci.itemtype', 'Computer')->where('ci.items_id', $id)->get();
+
+        // === INFO FINANCIERA ===
+        $infocom = DB::table('glpi_infocoms')
+            ->where('itemtype', 'Computer')->where('items_id', $id)->first();
 
         return Inertia::render('inventario/editar-computador', [
             'computer' => $computer,
@@ -745,6 +898,44 @@ class ComputerController extends Controller
             'models' => $models,
             'locations' => $locations,
             'entities' => $entities,
+            'users' => $users,
+            'groups' => $groups,
+            'domains' => $domains,
+            'operatingSystems' => $operatingSystems,
+            'osList' => $osList,
+            'osVersions' => $osVersions,
+            'osArchitectures' => $osArchitectures,
+            'osServicePacks' => $osServicePacks,
+            'osKernelVersions' => $osKernelVersions,
+            'osEditions' => $osEditions,
+            'volumes' => $volumes,
+            'filesystems' => $filesystems,
+            'processors' => $processors,
+            'memories' => $memories,
+            'hardDrives' => $hardDrives,
+            'networkCards' => $networkCards,
+            'graphicCards' => $graphicCards,
+            'soundCards' => $soundCards,
+            'controllers' => $controllers,
+            'drives' => $drives,
+            'firmwares' => $firmwares,
+            'motherboards' => $motherboards,
+            'software' => $software,
+            'monitors' => $monitors,
+            'peripherals' => $peripherals,
+            'printers' => $printers,
+            'phones' => $phones,
+            'networkPorts' => $networkPorts,
+            'tickets' => $tickets,
+            'antivirus' => $antivirus,
+            'antivirusManufacturers' => $antivirusManufacturers,
+            'virtualMachines' => $virtualMachines,
+            'documents' => $documents,
+            'problems' => $problems,
+            'changes' => $changes,
+            'certificates' => $certificates,
+            'contracts' => $contracts,
+            'infocom' => $infocom,
         ]);
     }
 
@@ -764,6 +955,13 @@ class ComputerController extends Controller
             'computermodels_id' => 'nullable|integer',
             'locations_id' => 'nullable|integer',
             'entities_id' => 'nullable|integer',
+            'users_id_tech' => 'nullable|integer',
+            'groups_id_tech' => 'nullable|integer',
+            'contact' => 'nullable|string|max:255',
+            'contact_num' => 'nullable|string|max:255',
+            'users_id' => 'nullable|integer',
+            'groups_id' => 'nullable|integer',
+            'domains_id' => 'nullable|integer',
             'comment' => 'nullable|string',
         ]);
 
@@ -777,11 +975,308 @@ class ComputerController extends Controller
             'computermodels_id' => $validated['computermodels_id'] ?? 0,
             'locations_id' => $validated['locations_id'] ?? 0,
             'entities_id' => $validated['entities_id'] ?? 0,
+            'users_id_tech' => $validated['users_id_tech'] ?? 0,
+            'groups_id_tech' => $validated['groups_id_tech'] ?? 0,
+            'contact' => $validated['contact'] ?? null,
+            'contact_num' => $validated['contact_num'] ?? null,
+            'users_id' => $validated['users_id'] ?? 0,
+            'groups_id' => $validated['groups_id'] ?? 0,
+            'domains_id' => $validated['domains_id'] ?? 0,
             'comment' => $validated['comment'] ?? null,
             'date_mod' => now(),
         ]);
 
-        return redirect()->route('inventario.computadores')->with('success', 'Computador actualizado exitosamente');
+        return redirect("/inventario/computadores/{$id}/editar")->with('success', 'Computador actualizado exitosamente');
+    }
+
+    // === CRUD Sistema Operativo ===
+    public function storeOS(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'operatingsystems_id' => 'nullable|integer',
+            'operatingsystemversions_id' => 'nullable|integer',
+            'operatingsystemarchitectures_id' => 'nullable|integer',
+            'operatingsystemservicepacks_id' => 'nullable|integer',
+            'operatingsystemkernelversions_id' => 'nullable|integer',
+            'operatingsystemeditions_id' => 'nullable|integer',
+            'license_number' => 'nullable|string|max:255',
+            'licenseid' => 'nullable|string|max:255',
+        ]);
+
+        DB::table('glpi_items_operatingsystems')->insert([
+            'itemtype' => 'Computer',
+            'items_id' => $id,
+            'operatingsystems_id' => $validated['operatingsystems_id'] ?? 0,
+            'operatingsystemversions_id' => $validated['operatingsystemversions_id'] ?? 0,
+            'operatingsystemarchitectures_id' => $validated['operatingsystemarchitectures_id'] ?? 0,
+            'operatingsystemservicepacks_id' => $validated['operatingsystemservicepacks_id'] ?? 0,
+            'operatingsystemkernelversions_id' => $validated['operatingsystemkernelversions_id'] ?? 0,
+            'operatingsystemeditions_id' => $validated['operatingsystemeditions_id'] ?? 0,
+            'license_number' => $validated['license_number'] ?? '',
+            'licenseid' => $validated['licenseid'] ?? '',
+            'is_deleted' => 0,
+            'is_dynamic' => 0,
+            'entities_id' => 0,
+            'is_recursive' => 0,
+            'date_mod' => now(),
+            'date_creation' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=os")->with('success', 'Sistema operativo agregado');
+    }
+
+    public function updateOS(Request $request, $id, $osId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'operatingsystems_id' => 'nullable|integer',
+            'operatingsystemversions_id' => 'nullable|integer',
+            'operatingsystemarchitectures_id' => 'nullable|integer',
+            'operatingsystemservicepacks_id' => 'nullable|integer',
+            'operatingsystemkernelversions_id' => 'nullable|integer',
+            'operatingsystemeditions_id' => 'nullable|integer',
+            'license_number' => 'nullable|string|max:255',
+            'licenseid' => 'nullable|string|max:255',
+        ]);
+
+        DB::table('glpi_items_operatingsystems')->where('id', $osId)->update([
+            'operatingsystems_id' => $validated['operatingsystems_id'] ?? 0,
+            'operatingsystemversions_id' => $validated['operatingsystemversions_id'] ?? 0,
+            'operatingsystemarchitectures_id' => $validated['operatingsystemarchitectures_id'] ?? 0,
+            'operatingsystemservicepacks_id' => $validated['operatingsystemservicepacks_id'] ?? 0,
+            'operatingsystemkernelversions_id' => $validated['operatingsystemkernelversions_id'] ?? 0,
+            'operatingsystemeditions_id' => $validated['operatingsystemeditions_id'] ?? 0,
+            'license_number' => $validated['license_number'] ?? '',
+            'licenseid' => $validated['licenseid'] ?? '',
+            'date_mod' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=os")->with('success', 'Sistema operativo actualizado');
+    }
+
+    public function destroyOS($id, $osId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_items_operatingsystems')->where('id', $osId)->update(['is_deleted' => 1]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=os")->with('success', 'Sistema operativo eliminado');
+    }
+
+    // === CRUD Volúmenes ===
+    public function storeVolume(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'mountpoint' => 'nullable|string|max:255',
+            'device' => 'nullable|string|max:255',
+            'filesystems_id' => 'nullable|integer',
+            'totalsize' => 'nullable|integer',
+            'freesize' => 'nullable|integer',
+        ]);
+
+        DB::table('glpi_items_disks')->insert([
+            'itemtype' => 'Computer',
+            'items_id' => $id,
+            'name' => $validated['name'] ?? '',
+            'mountpoint' => $validated['mountpoint'] ?? '',
+            'device' => $validated['device'] ?? '',
+            'filesystems_id' => $validated['filesystems_id'] ?? 0,
+            'totalsize' => $validated['totalsize'] ?? 0,
+            'freesize' => $validated['freesize'] ?? 0,
+            'is_deleted' => 0,
+            'is_dynamic' => 0,
+            'entities_id' => 0,
+            'date_mod' => now(),
+            'date_creation' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=volumes")->with('success', 'Volumen agregado');
+    }
+
+    public function updateVolume(Request $request, $id, $volId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'mountpoint' => 'nullable|string|max:255',
+            'device' => 'nullable|string|max:255',
+            'filesystems_id' => 'nullable|integer',
+            'totalsize' => 'nullable|integer',
+            'freesize' => 'nullable|integer',
+        ]);
+
+        DB::table('glpi_items_disks')->where('id', $volId)->update([
+            'name' => $validated['name'] ?? '',
+            'mountpoint' => $validated['mountpoint'] ?? '',
+            'device' => $validated['device'] ?? '',
+            'filesystems_id' => $validated['filesystems_id'] ?? 0,
+            'totalsize' => $validated['totalsize'] ?? 0,
+            'freesize' => $validated['freesize'] ?? 0,
+            'date_mod' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=volumes")->with('success', 'Volumen actualizado');
+    }
+
+    public function destroyVolume($id, $volId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_items_disks')->where('id', $volId)->update(['is_deleted' => 1]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=volumes")->with('success', 'Volumen eliminado');
+    }
+
+    // ── Antivirus CRUD ──────────────────────────────────────────────
+
+    public function storeAntivirus(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_computerantiviruses')->insert([
+            'computers_id' => $id,
+            'name' => $request->input('name', ''),
+            'manufacturers_id' => $request->input('manufacturers_id', 0),
+            'antivirus_version' => $request->input('antivirus_version', ''),
+            'signature_version' => $request->input('signature_version', ''),
+            'is_active' => $request->input('is_active', 0),
+            'is_uptodate' => $request->input('is_uptodate', 0),
+            'is_dynamic' => 0,
+            'is_deleted' => 0,
+            'date_expiration' => $request->input('date_expiration') ?: null,
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=antivirus")->with('success', 'Antivirus agregado');
+    }
+
+    public function updateAntivirus(Request $request, $id, $avId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_computerantiviruses')->where('id', $avId)->update([
+            'name' => $request->input('name', ''),
+            'manufacturers_id' => $request->input('manufacturers_id', 0),
+            'antivirus_version' => $request->input('antivirus_version', ''),
+            'signature_version' => $request->input('signature_version', ''),
+            'is_active' => $request->input('is_active', 0),
+            'is_uptodate' => $request->input('is_uptodate', 0),
+            'date_expiration' => $request->input('date_expiration') ?: null,
+            'date_mod' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=antivirus")->with('success', 'Antivirus actualizado');
+    }
+
+    public function destroyAntivirus($id, $avId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_computerantiviruses')->where('id', $avId)->update(['is_deleted' => 1]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=antivirus")->with('success', 'Antivirus eliminado');
+    }
+
+    // ── Info Financiera CRUD ────────────────────────────────────────
+
+    public function storeInfocom(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_infocoms')->insert([
+            'items_id' => $id,
+            'itemtype' => 'Computer',
+            'entities_id' => 0,
+            'buy_date' => $request->input('buy_date') ?: null,
+            'use_date' => $request->input('use_date') ?: null,
+            'warranty_duration' => $request->input('warranty_duration', 0),
+            'warranty_info' => $request->input('warranty_info', ''),
+            'suppliers_id' => $request->input('suppliers_id', 0),
+            'order_number' => $request->input('order_number', ''),
+            'delivery_number' => $request->input('delivery_number', ''),
+            'immo_number' => $request->input('immo_number', ''),
+            'value' => $request->input('value', 0),
+            'warranty_value' => $request->input('warranty_value', 0),
+            'sink_time' => $request->input('sink_time', 0),
+            'sink_type' => $request->input('sink_type', 0),
+            'sink_coeff' => $request->input('sink_coeff', 0),
+            'comment' => $request->input('comment', ''),
+            'bill' => $request->input('bill', ''),
+            'budgets_id' => $request->input('budgets_id', 0),
+            'order_date' => $request->input('order_date') ?: null,
+            'delivery_date' => $request->input('delivery_date') ?: null,
+            'inventory_date' => $request->input('inventory_date') ?: null,
+            'warranty_date' => $request->input('warranty_date') ?: null,
+            'decommission_date' => $request->input('decommission_date') ?: null,
+            'businesscriticities_id' => $request->input('businesscriticities_id', 0),
+            'date_creation' => now(),
+            'date_mod' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=infocom")->with('success', 'Info financiera creada');
+    }
+
+    public function updateInfocom(Request $request, $id, $infoId)
+    {
+        if (auth()->user()->role !== 'Administrador') {
+            abort(403, 'No autorizado');
+        }
+
+        DB::table('glpi_infocoms')->where('id', $infoId)->update([
+            'buy_date' => $request->input('buy_date') ?: null,
+            'use_date' => $request->input('use_date') ?: null,
+            'warranty_duration' => $request->input('warranty_duration', 0),
+            'warranty_info' => $request->input('warranty_info', ''),
+            'suppliers_id' => $request->input('suppliers_id', 0),
+            'order_number' => $request->input('order_number', ''),
+            'delivery_number' => $request->input('delivery_number', ''),
+            'immo_number' => $request->input('immo_number', ''),
+            'value' => $request->input('value', 0),
+            'warranty_value' => $request->input('warranty_value', 0),
+            'sink_time' => $request->input('sink_time', 0),
+            'sink_type' => $request->input('sink_type', 0),
+            'sink_coeff' => $request->input('sink_coeff', 0),
+            'comment' => $request->input('comment', ''),
+            'bill' => $request->input('bill', ''),
+            'budgets_id' => $request->input('budgets_id', 0),
+            'order_date' => $request->input('order_date') ?: null,
+            'delivery_date' => $request->input('delivery_date') ?: null,
+            'inventory_date' => $request->input('inventory_date') ?: null,
+            'warranty_date' => $request->input('warranty_date') ?: null,
+            'decommission_date' => $request->input('decommission_date') ?: null,
+            'businesscriticities_id' => $request->input('businesscriticities_id', 0),
+            'date_mod' => now(),
+        ]);
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=infocom")->with('success', 'Info financiera actualizada');
     }
 
     public function destroy($id)

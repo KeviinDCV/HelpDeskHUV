@@ -47,6 +47,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/computadores/{id}', [App\Http\Controllers\ComputerController::class, 'show'])->name('inventario.computadores.show');
     Route::put('/inventario/computadores/{id}', [App\Http\Controllers\ComputerController::class, 'update'])->name('inventario.computadores.update');
     Route::delete('/inventario/computadores/{id}', [App\Http\Controllers\ComputerController::class, 'destroy'])->name('inventario.computadores.destroy');
+    // CRUD para secciones de computador (OS, Volúmenes, Componentes)
+    Route::post('/inventario/computadores/{id}/os', [App\Http\Controllers\ComputerController::class, 'storeOS'])->name('inventario.computadores.os.store');
+    Route::put('/inventario/computadores/{id}/os/{osId}', [App\Http\Controllers\ComputerController::class, 'updateOS'])->name('inventario.computadores.os.update');
+    Route::delete('/inventario/computadores/{id}/os/{osId}', [App\Http\Controllers\ComputerController::class, 'destroyOS'])->name('inventario.computadores.os.destroy');
+    Route::post('/inventario/computadores/{id}/volumenes', [App\Http\Controllers\ComputerController::class, 'storeVolume'])->name('inventario.computadores.vol.store');
+    Route::put('/inventario/computadores/{id}/volumenes/{volId}', [App\Http\Controllers\ComputerController::class, 'updateVolume'])->name('inventario.computadores.vol.update');
+    Route::delete('/inventario/computadores/{id}/volumenes/{volId}', [App\Http\Controllers\ComputerController::class, 'destroyVolume'])->name('inventario.computadores.vol.destroy');
+    // Antivirus CRUD
+    Route::post('/inventario/computadores/{id}/antivirus', [App\Http\Controllers\ComputerController::class, 'storeAntivirus'])->name('inventario.computadores.av.store');
+    Route::put('/inventario/computadores/{id}/antivirus/{avId}', [App\Http\Controllers\ComputerController::class, 'updateAntivirus'])->name('inventario.computadores.av.update');
+    Route::delete('/inventario/computadores/{id}/antivirus/{avId}', [App\Http\Controllers\ComputerController::class, 'destroyAntivirus'])->name('inventario.computadores.av.destroy');
+    // Info Financiera (single record per computer)
+    Route::post('/inventario/computadores/{id}/infocom', [App\Http\Controllers\ComputerController::class, 'storeInfocom'])->name('inventario.computadores.infocom.store');
+    Route::put('/inventario/computadores/{id}/infocom/{infoId}', [App\Http\Controllers\ComputerController::class, 'updateInfocom'])->name('inventario.computadores.infocom.update');
     Route::get('/inventario/monitores', [App\Http\Controllers\MonitorController::class, 'index'])->name('inventario.monitores');
     Route::get('/inventario/monitores/export', [App\Http\Controllers\MonitorController::class, 'export'])->name('inventario.monitores.export');
     Route::get('/inventario/monitores/crear', [App\Http\Controllers\MonitorController::class, 'create'])->name('inventario.monitores.crear');
