@@ -9,10 +9,12 @@ use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use App\Traits\ExcelExportStyles;
+use App\Traits\AdvancedFilterable;
 
 class SoftwareController extends Controller
 {
     use ExcelExportStyles;
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -20,6 +22,7 @@ class SoftwareController extends Controller
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
         $manufacturerFilter = $request->input('manufacturer', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -64,6 +67,14 @@ class SoftwareController extends Controller
                   ->orWhereRaw('LOWER(m.name) LIKE ?', ["%{$searchLower}%"]);
             });
         }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getSoftwareFieldMap());
+            }
+        }
         
         $softwares = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -72,7 +83,8 @@ class SoftwareController extends Controller
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'search' => $search,
-                'manufacturer' => $manufacturerFilter
+                'manufacturer' => $manufacturerFilter,
+                'advanced_filters' => $advancedFiltersJson,
             ]);
 
         // Obtener datos para filtros (con cache)
@@ -88,7 +100,8 @@ class SoftwareController extends Controller
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'search' => $search,
-                'manufacturer' => $manufacturerFilter
+                'manufacturer' => $manufacturerFilter,
+                'advanced_filters' => $advancedFiltersJson,
             ]
         ]);
     }
@@ -351,5 +364,15 @@ class SoftwareController extends Controller
         DB::table('glpi_softwares')->where('id', $id)->update(['is_deleted' => 1]);
 
         return redirect()->route('inventario.programas')->with('success', 'Programa eliminado exitosamente');
+    }
+
+    private function getSoftwareFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 's.name', 'type' => 'text'],
+            'entidad' => ['column' => 'e.name', 'type' => 'text'],
+            'editor' => ['column' => 'm.name', 'type' => 'text'],
+            'id' => ['column' => 's.id', 'type' => 'number'],
+        ];
     }
 }

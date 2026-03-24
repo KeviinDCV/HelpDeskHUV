@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 
 interface Software {
     id: number;
@@ -59,6 +60,7 @@ interface SoftwaresProps {
         direction: string;
         search: string;
         manufacturer: string;
+        advanced_filters: string;
     };
 }
 
@@ -69,10 +71,21 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
     const [deleteModal, setDeleteModal] = React.useState<{ open: boolean, id: number | null, name: string }>({ open: false, id: null, name: '' });
     const [showFilters, setShowFilters] = React.useState(false);
 
+    // Filtros avanzados
+    const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
+        if (filters.advanced_filters) {
+            try {
+                const parsed = JSON.parse(filters.advanced_filters);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } catch (e) {}
+        }
+        return [];
+    });
+
     // Estados de filtros
     const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
 
-    const hasActiveFilters = (manufacturerFilter && manufacturerFilter !== 'all');
+    const hasActiveFilters = (manufacturerFilter && manufacturerFilter !== 'all') || advancedFilters.length > 0;
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -83,6 +96,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         };
         if (filters.search) params.search = filters.search;
         if (filters.manufacturer && filters.manufacturer !== 'all') params.manufacturer = filters.manufacturer;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/programas', params, { preserveState: false });
     };
 
@@ -95,6 +109,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         };
         if (searchValue) params.search = searchValue;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/programas', params, { preserveState: false });
     };
 
@@ -107,12 +122,14 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         };
         if (searchValue) params.search = searchValue;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/programas', params, { preserveState: false, replace: true });
     };
 
     const clearFilters = () => {
         setManufacturerFilter('all');
         setSearchValue('');
+        setAdvancedFilters([]);
         router.get('/inventario/programas', {
             per_page: filters.per_page,
             sort: filters.sort,
@@ -127,6 +144,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         params.append('direction', filters.direction);
         if (filters.search) params.append('search', filters.search);
         if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
+        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
         window.location.href = `/inventario/programas/export?${params}`;
     };
 
@@ -149,6 +167,42 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         }
         setDeleteModal({ open: false, id: null, name: '' });
     };
+
+    // ─── Advanced Filter Handlers ────────────────────────────────────
+    const handleAdvancedSearch = (filterRows: FilterRow[]) => {
+        setAdvancedFilters(filterRows);
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+            advanced_filters: JSON.stringify(filterRows),
+        };
+        if (searchValue) params.search = searchValue;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        router.get('/inventario/programas', params, { preserveState: false });
+    };
+
+    const handleAdvancedReset = () => {
+        setAdvancedFilters([]);
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+        };
+        if (searchValue) params.search = searchValue;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        router.get('/inventario/programas', params, { preserveState: false });
+    };
+
+    // ─── Software Field Definitions for Advanced Filter ──────────────
+    const SOFTWARE_FIELDS: FieldDef[] = [
+        { key: 'nombre', label: 'Nombre', type: 'text' },
+        { key: 'id', label: 'ID', type: 'number' },
+        { key: 'entidad', label: 'Entidad', type: 'text' },
+        { key: 'editor', label: 'Editor', type: 'text' },
+    ];
 
     return (
         <>
@@ -226,6 +280,15 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                 </div>
                             </div>
                         </div>
+
+                        {/* Advanced Filter Bar */}
+                        <AdvancedFilterBar
+                            initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
+                            onSearch={handleAdvancedSearch}
+                            onReset={handleAdvancedReset}
+                            fields={SOFTWARE_FIELDS}
+                            defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
+                        />
 
                         {/* Panel de Filtros */}
                         {showFilters && (

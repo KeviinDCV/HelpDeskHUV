@@ -9,10 +9,12 @@ use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use App\Traits\ExcelExportStyles;
+use App\Traits\AdvancedFilterable;
 
 class NetworkEquipmentController extends Controller
 {
     use ExcelExportStyles;
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -25,6 +27,7 @@ class NetworkEquipmentController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -92,6 +95,14 @@ class NetworkEquipmentController extends Controller
         if ($dateTo) {
             $query->whereDate('n.date_mod', '<=', $dateTo);
         }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getNetworkEquipmentFieldMap());
+            }
+        }
         
         $networkequipments = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -105,7 +116,8 @@ class NetworkEquipmentController extends Controller
                 'type' => $typeFilter,
                 'location' => $locationFilter,
                 'date_from' => $dateFrom,
-                'date_to' => $dateTo
+                'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]);
 
         // Obtener datos para filtros
@@ -130,7 +142,8 @@ class NetworkEquipmentController extends Controller
                 'type' => $typeFilter,
                 'location' => $locationFilter,
                 'date_from' => $dateFrom,
-                'date_to' => $dateTo
+                'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]
         ]);
     }
@@ -449,5 +462,20 @@ class NetworkEquipmentController extends Controller
         DB::table('glpi_networkequipments')->where('id', $id)->update(['is_deleted' => 1]);
 
         return redirect()->route('inventario.dispositivos-red')->with('success', 'Dispositivo de red eliminado exitosamente');
+    }
+
+    private function getNetworkEquipmentFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 'n.name', 'type' => 'text'],
+            'entidad' => ['column' => 'e.name', 'type' => 'text'],
+            'estado' => ['column' => 's.name', 'type' => 'text'],
+            'fabricante' => ['column' => 'mf.name', 'type' => 'text'],
+            'localizacion' => ['column' => 'l.completename', 'type' => 'text'],
+            'tipo' => ['column' => 't.name', 'type' => 'text'],
+            'modelo' => ['column' => 'md.name', 'type' => 'text'],
+            'fecha_mod' => ['column' => 'n.date_mod', 'type' => 'date'],
+            'id' => ['column' => 'n.id', 'type' => 'number'],
+        ];
     }
 }

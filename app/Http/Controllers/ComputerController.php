@@ -98,6 +98,14 @@ class ComputerController extends Controller
         if ($dateTo) {
             $query->whereDate('c.date_mod', '<=', $dateTo);
         }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getComputerFieldMap());
+            }
+        }
         
         $computers = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
