@@ -1,6 +1,7 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, usePage, Link } from '@inertiajs/react';
+import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 import {
     Table,
     TableBody,
@@ -86,6 +87,7 @@ interface PhonesProps {
         location: string;
         date_from: string;
         date_to: string;
+        advanced_filters: string;
     };
 }
 
@@ -103,11 +105,15 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
     const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
     const [dateTo, setDateTo] = React.useState(filters.date_to || '');
 
+    const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
+        try { return filters.advanced_filters ? JSON.parse(filters.advanced_filters) : []; } catch { return []; }
+    });
+
     const hasActiveFilters = (stateFilter && stateFilter !== 'all') ||
         (manufacturerFilter && manufacturerFilter !== 'all') ||
         (typeFilter && typeFilter !== 'all') ||
         (locationFilter && locationFilter !== 'all') ||
-        dateFrom || dateTo;
+        dateFrom || dateTo || advancedFilters.length > 0;
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -119,6 +125,7 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
         if (filters.location && filters.location !== 'all') params.location = filters.location;
         if (filters.date_from) params.date_from = filters.date_from;
         if (filters.date_to) params.date_to = filters.date_to;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/telefonos', params, { preserveState: false });
     };
 
@@ -131,6 +138,7 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/telefonos', params, { preserveState: false });
     };
 
@@ -143,12 +151,13 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/telefonos', params, { preserveState: false, replace: true });
     };
 
     const clearFilters = () => {
         setStateFilter('all'); setManufacturerFilter('all'); setTypeFilter('all'); setLocationFilter('all');
-        setDateFrom(''); setDateTo(''); setSearchValue('');
+        setDateFrom(''); setDateTo(''); setSearchValue(''); setAdvancedFilters([]);
         router.get('/inventario/telefonos', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
     };
 
@@ -162,6 +171,7 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
         if (filters.location && filters.location !== 'all') params.append('location', filters.location);
         if (filters.date_from) params.append('date_from', filters.date_from);
         if (filters.date_to) params.append('date_to', filters.date_to);
+        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
         window.location.href = `/inventario/telefonos/export?${params}`;
     };
 
@@ -184,6 +194,46 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
         }
         setDeleteModal({ open: false, id: null, name: '' });
     };
+
+    const handleAdvancedSearch = (rows: FilterRow[]) => {
+        setAdvancedFilters(rows);
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        params.advanced_filters = JSON.stringify(rows);
+        router.get('/inventario/telefonos', params, { preserveState: false });
+    };
+
+    const handleAdvancedReset = () => {
+        setAdvancedFilters([]);
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        router.get('/inventario/telefonos', params, { preserveState: false });
+    };
+
+    const PHONE_FIELDS: FieldDef[] = [
+        { key: 'nombre', label: 'Nombre', type: 'text' },
+        { key: 'entidad', label: 'Entidad', type: 'text' },
+        { key: 'estado', label: 'Estado', type: 'text' },
+        { key: 'fabricante', label: 'Fabricante', type: 'text' },
+        { key: 'localizacion', label: 'Localización', type: 'text' },
+        { key: 'tipo', label: 'Tipo', type: 'text' },
+        { key: 'modelo', label: 'Modelo', type: 'text' },
+        { key: 'fecha_mod', label: 'Última actualización', type: 'date' },
+        { key: 'otherserial', label: 'Nombre usuario alternativo', type: 'text' },
+        { key: 'id', label: 'ID', type: 'number' },
+    ];
 
     return (
         <>
@@ -232,6 +282,13 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
                                 </div>
                             </div>
                         </div>
+
+                        <AdvancedFilterBar
+                            filters={advancedFilters}
+                            onSearch={handleAdvancedSearch}
+                            onReset={handleAdvancedReset}
+                            fields={PHONE_FIELDS}
+                        />
 
                         {showFilters && (
                             <div className="px-6 py-4 bg-gray-50 border-b">
@@ -303,12 +360,14 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/telefonos', {
+                                        const params: Record<string, any> = {
                                             per_page: value,
                                             sort: filters.sort,
                                             direction: filters.direction,
                                             search: filters.search
-                                        }, { preserveState: false })
+                                        };
+                                        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+                                        router.get('/inventario/telefonos', params, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

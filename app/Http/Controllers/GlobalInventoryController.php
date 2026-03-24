@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Traits\AdvancedFilterable;
 
 class GlobalInventoryController extends Controller
 {
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -16,6 +18,7 @@ class GlobalInventoryController extends Controller
         $search = $request->input('search', '');
         $stateFilter = $request->input('state', '');
         $itemTypeFilter = $request->input('item_type', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Construir query UNION de todos los tipos de activos
         $computersQuery = DB::table('glpi_computers as c')
@@ -125,6 +128,14 @@ class GlobalInventoryController extends Controller
             }
         }
 
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $advancedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($advancedFilters) && count($advancedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $advancedFilters, $this->getGlobalFieldMap());
+            }
+        }
+
         // Mapeo de campos para ordenamiento
         $sortableFields = [
             'name' => 'name',
@@ -139,7 +150,7 @@ class GlobalInventoryController extends Controller
             ->paginate($perPage)
             ->appends([
                 'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
-                'state' => $stateFilter, 'item_type' => $itemTypeFilter
+                'state' => $stateFilter, 'item_type' => $itemTypeFilter, 'advanced_filters' => $advancedFiltersJson
             ]);
 
         $states = DB::table('glpi_states')->select('id', 'name')->orderBy('name')->get();
@@ -149,7 +160,7 @@ class GlobalInventoryController extends Controller
             'items' => $items, 'states' => $states, 'itemTypes' => $itemTypes,
             'filters' => [
                 'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
-                'state' => $stateFilter, 'item_type' => $itemTypeFilter
+                'state' => $stateFilter, 'item_type' => $itemTypeFilter, 'advanced_filters' => $advancedFiltersJson
             ]
         ]);
     }
@@ -312,5 +323,15 @@ class GlobalInventoryController extends Controller
         return response($csv)
             ->header('Content-Type', 'text/csv; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    private function getGlobalFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 'name', 'type' => 'text'],
+            'entidad' => ['column' => 'entity_name', 'type' => 'text'],
+            'estado' => ['column' => 'state_name', 'type' => 'text'],
+            'tipo_elemento' => ['column' => 'item_type', 'type' => 'text'],
+        ];
     }
 }

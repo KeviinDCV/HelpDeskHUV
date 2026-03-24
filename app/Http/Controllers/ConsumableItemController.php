@@ -6,9 +6,11 @@ use App\Models\ConsumableItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Traits\AdvancedFilterable;
 
 class ConsumableItemController extends Controller
 {
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -17,6 +19,7 @@ class ConsumableItemController extends Controller
         $search = $request->input('search', '');
         $typeFilter = $request->input('type', '');
         $manufacturerFilter = $request->input('manufacturer', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -71,7 +74,7 @@ class ConsumableItemController extends Controller
             ->paginate($perPage)
             ->appends([
                 'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
-                'type' => $typeFilter, 'manufacturer' => $manufacturerFilter
+                'type' => $typeFilter, 'manufacturer' => $manufacturerFilter, 'advanced_filters' => $advancedFiltersJson
             ]);
 
         $types = DB::table('glpi_consumableitemtypes')->select('id', 'name')->orderBy('name')->get();
@@ -81,7 +84,7 @@ class ConsumableItemController extends Controller
             'consumables' => $consumables, 'types' => $types, 'manufacturers' => $manufacturers,
             'filters' => [
                 'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
-                'type' => $typeFilter, 'manufacturer' => $manufacturerFilter
+                'type' => $typeFilter, 'manufacturer' => $manufacturerFilter, 'advanced_filters' => $advancedFiltersJson
             ]
         ]);
     }
@@ -337,5 +340,18 @@ class ConsumableItemController extends Controller
         DB::table('glpi_consumableitems')->where('id', $id)->update(['is_deleted' => 1]);
 
         return redirect()->route('inventario.consumibles')->with('success', 'Consumible eliminado exitosamente');
+    }
+
+    private function getConsumableFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 'ci.name', 'type' => 'text'],
+            'entidad' => ['column' => 'e.name', 'type' => 'text'],
+            'referencia' => ['column' => 'ci.ref', 'type' => 'text'],
+            'tipo' => ['column' => 't.name', 'type' => 'text'],
+            'fabricante' => ['column' => 'mf.name', 'type' => 'text'],
+            'tecnico' => ['column' => 'u.name', 'type' => 'text'],
+            'id' => ['column' => 'ci.id', 'type' => 'number'],
+        ];
     }
 }

@@ -369,7 +369,7 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
     const activeFields = fields ?? DEFAULT_FILTER_FIELDS;
     const activeSelectOptions = selectOptions ?? DEFAULT_SELECT_OPTIONS;
     const { getFieldDef, getOperatorsForField, getDefaultOperator, getDefaultValue } = makeHelpers(activeFields, activeSelectOptions);
-    const defaultRow = defaultFirstRow ?? { field: 'estado', operator: 'es', value: 'not_resolved' };
+    const defaultRow = defaultFirstRow ?? (fields ? { field: fields[0]?.key || '', operator: getDefaultOperator(fields[0]?.key || ''), value: '' } : { field: 'estado', operator: 'es', value: 'not_resolved' });
     const [rows, setRows] = useState<FilterRow[]>(() => {
         if (initialFilters && initialFilters.length > 0) {
             // Restaurar el nextId basándose en los filtros existentes

@@ -1,6 +1,7 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, usePage, Link } from '@inertiajs/react';
+import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 import {
     Table,
     TableBody,
@@ -70,6 +71,7 @@ interface ConsumablesProps {
         search: string;
         type: string;
         manufacturer: string;
+        advanced_filters: string;
     };
 }
 
@@ -83,7 +85,11 @@ export default function Consumibles({ consumables, types, manufacturers, filters
     const [typeFilter, setTypeFilter] = React.useState(filters.type || 'all');
     const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
 
-    const hasActiveFilters = (typeFilter && typeFilter !== 'all') || (manufacturerFilter && manufacturerFilter !== 'all');
+    const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
+        try { return filters.advanced_filters ? JSON.parse(filters.advanced_filters) : []; } catch { return []; }
+    });
+
+    const hasActiveFilters = (typeFilter && typeFilter !== 'all') || (manufacturerFilter && manufacturerFilter !== 'all') || advancedFilters.length > 0;
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -91,6 +97,7 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         if (filters.search) params.search = filters.search;
         if (filters.type && filters.type !== 'all') params.type = filters.type;
         if (filters.manufacturer && filters.manufacturer !== 'all') params.manufacturer = filters.manufacturer;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/consumibles', params, { preserveState: false });
     };
 
@@ -99,6 +106,7 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         if (searchValue) params.search = searchValue;
         if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/consumibles', params, { preserveState: false });
     };
 
@@ -107,11 +115,12 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         if (searchValue) params.search = searchValue;
         if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/consumibles', params, { preserveState: false, replace: true });
     };
 
     const clearFilters = () => {
-        setTypeFilter('all'); setManufacturerFilter('all'); setSearchValue('');
+        setTypeFilter('all'); setManufacturerFilter('all'); setSearchValue(''); setAdvancedFilters([]);
         router.get('/inventario/consumibles', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
     };
 
@@ -121,6 +130,7 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         if (filters.search) params.append('search', filters.search);
         if (filters.type && filters.type !== 'all') params.append('type', filters.type);
         if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
+        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
         window.location.href = `/inventario/consumibles/export?${params}`;
     };
 
@@ -143,6 +153,35 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         }
         setDeleteModal({ open: false, id: null, name: '' });
     };
+
+    const handleAdvancedSearch = (rows: FilterRow[]) => {
+        setAdvancedFilters(rows);
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        params.advanced_filters = JSON.stringify(rows);
+        router.get('/inventario/consumibles', params, { preserveState: false });
+    };
+
+    const handleAdvancedReset = () => {
+        setAdvancedFilters([]);
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        router.get('/inventario/consumibles', params, { preserveState: false });
+    };
+
+    const CONSUMABLE_FIELDS: FieldDef[] = [
+        { key: 'nombre', label: 'Nombre', type: 'text' },
+        { key: 'entidad', label: 'Entidad', type: 'text' },
+        { key: 'referencia', label: 'Referencia', type: 'text' },
+        { key: 'tipo', label: 'Tipo', type: 'text' },
+        { key: 'fabricante', label: 'Fabricante', type: 'text' },
+        { key: 'tecnico', label: 'Técnico a cargo', type: 'text' },
+        { key: 'id', label: 'ID', type: 'number' },
+    ];
 
     return (
         <>
@@ -192,6 +231,13 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                             </div>
                         </div>
 
+                        <AdvancedFilterBar
+                            filters={advancedFilters}
+                            onSearch={handleAdvancedSearch}
+                            onReset={handleAdvancedReset}
+                            fields={CONSUMABLE_FIELDS}
+                        />
+
                         {showFilters && (
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -234,12 +280,14 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/consumibles', {
+                                        const params: Record<string, any> = {
                                             per_page: value,
                                             sort: filters.sort,
                                             direction: filters.direction,
                                             search: filters.search
-                                        }, { preserveState: false })
+                                        };
+                                        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+                                        router.get('/inventario/consumibles', params, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

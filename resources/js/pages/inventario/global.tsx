@@ -1,6 +1,7 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, Link } from '@inertiajs/react';
+import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 import {
     Table,
     TableBody,
@@ -57,6 +58,7 @@ interface GlobalInventoryProps {
         search: string;
         state: string;
         item_type: string;
+        advanced_filters: string;
     };
 }
 
@@ -67,7 +69,11 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
     const [stateFilter, setStateFilter] = React.useState(filters.state || 'all');
     const [itemTypeFilter, setItemTypeFilter] = React.useState(filters.item_type || 'all');
 
-    const hasActiveFilters = (stateFilter && stateFilter !== 'all') || (itemTypeFilter && itemTypeFilter !== 'all');
+    const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
+        try { return filters.advanced_filters ? JSON.parse(filters.advanced_filters) : []; } catch { return []; }
+    });
+
+    const hasActiveFilters = (stateFilter && stateFilter !== 'all') || (itemTypeFilter && itemTypeFilter !== 'all') || advancedFilters.length > 0;
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -75,6 +81,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
         if (filters.search) params.search = filters.search;
         if (filters.state && filters.state !== 'all') params.state = filters.state;
         if (filters.item_type && filters.item_type !== 'all') params.item_type = filters.item_type;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/global', params, { preserveState: false });
     };
 
@@ -83,6 +90,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
         if (searchValue) params.search = searchValue;
         if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
         if (itemTypeFilter && itemTypeFilter !== 'all') params.item_type = itemTypeFilter;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/global', params, { preserveState: false });
     };
 
@@ -91,11 +99,12 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
         if (searchValue) params.search = searchValue;
         if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
         if (itemTypeFilter && itemTypeFilter !== 'all') params.item_type = itemTypeFilter;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/global', params, { preserveState: false, replace: true });
     };
 
     const clearFilters = () => {
-        setStateFilter('all'); setItemTypeFilter('all'); setSearchValue('');
+        setStateFilter('all'); setItemTypeFilter('all'); setSearchValue(''); setAdvancedFilters([]);
         router.get('/inventario/global', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
     };
 
@@ -105,6 +114,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
         if (filters.search) params.append('search', filters.search);
         if (filters.state && filters.state !== 'all') params.append('state', filters.state);
         if (filters.item_type && filters.item_type !== 'all') params.append('item_type', filters.item_type);
+        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
         window.location.href = `/inventario/global/export?${params}`;
     };
 
@@ -116,6 +126,32 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
             ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
             : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
     };
+
+    const handleAdvancedSearch = (rows: FilterRow[]) => {
+        setAdvancedFilters(rows);
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (itemTypeFilter && itemTypeFilter !== 'all') params.item_type = itemTypeFilter;
+        params.advanced_filters = JSON.stringify(rows);
+        router.get('/inventario/global', params, { preserveState: false });
+    };
+
+    const handleAdvancedReset = () => {
+        setAdvancedFilters([]);
+        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (itemTypeFilter && itemTypeFilter !== 'all') params.item_type = itemTypeFilter;
+        router.get('/inventario/global', params, { preserveState: false });
+    };
+
+    const GLOBAL_FIELDS: FieldDef[] = [
+        { key: 'nombre', label: 'Nombre', type: 'text' },
+        { key: 'entidad', label: 'Entidad', type: 'text' },
+        { key: 'estado', label: 'Estado', type: 'text' },
+        { key: 'tipo_elemento', label: 'Tipo de elemento', type: 'text' },
+    ];
 
     return (
         <>
@@ -162,6 +198,13 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                             </div>
                         </div>
 
+                        <AdvancedFilterBar
+                            filters={advancedFilters}
+                            onSearch={handleAdvancedSearch}
+                            onReset={handleAdvancedReset}
+                            fields={GLOBAL_FIELDS}
+                        />
+
                         {showFilters && (
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -204,12 +247,14 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/global', {
+                                        const params: Record<string, any> = {
                                             per_page: value,
                                             sort: filters.sort,
                                             direction: filters.direction,
                                             search: filters.search
-                                        }, { preserveState: false })
+                                        };
+                                        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+                                        router.get('/inventario/global', params, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
