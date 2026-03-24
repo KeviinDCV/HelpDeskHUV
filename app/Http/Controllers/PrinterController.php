@@ -9,10 +9,12 @@ use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use App\Traits\ExcelExportStyles;
+use App\Traits\AdvancedFilterable;
 
 class PrinterController extends Controller
 {
     use ExcelExportStyles;
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -25,6 +27,7 @@ class PrinterController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -79,13 +82,22 @@ class PrinterController extends Controller
         if ($locationFilter && $locationFilter !== 'all') { $query->where('p.locations_id', $locationFilter); }
         if ($dateFrom) { $query->whereDate('p.date_mod', '>=', $dateFrom); }
         if ($dateTo) { $query->whereDate('p.date_mod', '<=', $dateTo); }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getPrinterFieldMap());
+            }
+        }
         
         $printers = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
             ->appends([
                 'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
                 'state' => $stateFilter, 'manufacturer' => $manufacturerFilter, 'type' => $typeFilter,
-                'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
+                'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]);
 
         // Obtener IPs para cada impresora
@@ -123,7 +135,8 @@ class PrinterController extends Controller
             'filters' => [
                 'per_page' => $perPage, 'sort' => $sortField, 'direction' => $sortDirection, 'search' => $search,
                 'state' => $stateFilter, 'manufacturer' => $manufacturerFilter, 'type' => $typeFilter,
-                'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo
+                'location' => $locationFilter, 'date_from' => $dateFrom, 'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]
         ]);
     }
@@ -570,5 +583,20 @@ class PrinterController extends Controller
         DB::table('glpi_printers')->where('id', $id)->update(['is_deleted' => 1]);
 
         return redirect()->route('inventario.impresoras')->with('success', 'Impresora eliminada exitosamente');
+    }
+
+    private function getPrinterFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 'p.name', 'type' => 'text'],
+            'entidad' => ['column' => 'e.name', 'type' => 'text'],
+            'estado' => ['column' => 's.name', 'type' => 'text'],
+            'fabricante' => ['column' => 'mf.name', 'type' => 'text'],
+            'localizacion' => ['column' => 'l.completename', 'type' => 'text'],
+            'tipo' => ['column' => 't.name', 'type' => 'text'],
+            'modelo' => ['column' => 'md.name', 'type' => 'text'],
+            'fecha_mod' => ['column' => 'p.date_mod', 'type' => 'date'],
+            'id' => ['column' => 'p.id', 'type' => 'number'],
+        ];
     }
 }
