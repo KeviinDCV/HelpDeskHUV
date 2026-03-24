@@ -9,10 +9,12 @@ use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use App\Traits\ExcelExportStyles;
+use App\Traits\AdvancedFilterable;
 
 class MonitorController extends Controller
 {
     use ExcelExportStyles;
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -25,6 +27,7 @@ class MonitorController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -95,6 +98,14 @@ class MonitorController extends Controller
         if ($dateTo) {
             $query->whereDate('m.date_mod', '<=', $dateTo);
         }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getMonitorFieldMap());
+            }
+        }
         
         $monitors = $query->orderBy($orderByField, $sortDirection)
             ->paginate($perPage)
@@ -108,7 +119,8 @@ class MonitorController extends Controller
                 'type' => $typeFilter,
                 'location' => $locationFilter,
                 'date_from' => $dateFrom,
-                'date_to' => $dateTo
+                'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]);
 
         // Obtener datos para filtros
@@ -133,7 +145,8 @@ class MonitorController extends Controller
                 'type' => $typeFilter,
                 'location' => $locationFilter,
                 'date_from' => $dateFrom,
-                'date_to' => $dateTo
+                'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]
         ]);
     }
@@ -476,5 +489,25 @@ class MonitorController extends Controller
         DB::table('glpi_monitors')->where('id', $id)->update(['is_deleted' => 1]);
 
         return redirect()->route('inventario.monitores')->with('success', 'Monitor eliminado exitosamente');
+    }
+
+    private function getMonitorFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 'm.name', 'type' => 'text'],
+            'entidad' => ['column' => 'e.name', 'type' => 'text'],
+            'estado' => ['column' => 's.name', 'type' => 'text'],
+            'fabricante' => ['column' => 'mf.name', 'type' => 'text'],
+            'localizacion' => ['column' => 'l.completename', 'type' => 'text'],
+            'tipo' => ['column' => 't.name', 'type' => 'text'],
+            'modelo' => ['column' => 'md.name', 'type' => 'text'],
+            'fecha_mod' => ['column' => 'm.date_mod', 'type' => 'date'],
+            'otherserial' => ['column' => 'm.otherserial', 'type' => 'text'],
+            'id' => ['column' => 'm.id', 'type' => 'number'],
+            'serial' => ['column' => 'm.serial', 'type' => 'text'],
+            'contacto' => ['column' => 'm.contact', 'type' => 'text'],
+            'contacto_num' => ['column' => 'm.contact_num', 'type' => 'text'],
+            'comentarios' => ['column' => 'm.comment', 'type' => 'text'],
+        ];
     }
 }

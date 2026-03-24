@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import React from 'react';
+import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 import {
     Select,
     SelectContent,
@@ -86,6 +87,7 @@ interface ComputersProps {
         location: string;
         date_from: string;
         date_to: string;
+        advanced_filters: string;
     };
 }
 
@@ -95,6 +97,17 @@ export default function Computadores({ computers, states, manufacturers, types, 
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteModal, setDeleteModal] = React.useState<{ open: boolean, id: number | null, name: string }>({ open: false, id: null, name: '' });
     const [showFilters, setShowFilters] = React.useState(false);
+
+    // Filtros avanzados
+    const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
+        if (filters.advanced_filters) {
+            try {
+                const parsed = JSON.parse(filters.advanced_filters);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } catch (e) {}
+        }
+        return [];
+    });
 
     // Estados de filtros
     const [stateFilter, setStateFilter] = React.useState(filters.state || 'all');
@@ -108,7 +121,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
         (manufacturerFilter && manufacturerFilter !== 'all') ||
         (typeFilter && typeFilter !== 'all') ||
         (locationFilter && locationFilter !== 'all') ||
-        dateFrom || dateTo;
+        dateFrom || dateTo || advancedFilters.length > 0;
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
@@ -124,6 +137,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
         if (filters.location && filters.location !== 'all') params.location = filters.location;
         if (filters.date_from) params.date_from = filters.date_from;
         if (filters.date_to) params.date_to = filters.date_to;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/computadores', params, { preserveState: false });
     };
 
@@ -141,6 +155,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/computadores', params, { preserveState: false });
     };
 
@@ -158,6 +173,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
         router.get('/inventario/computadores', params, { preserveState: false, replace: true });
     };
 
@@ -169,6 +185,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
         setDateFrom('');
         setDateTo('');
         setSearchValue('');
+        setAdvancedFilters([]);
         router.get('/inventario/computadores', {
             per_page: filters.per_page,
             sort: filters.sort,
@@ -188,8 +205,65 @@ export default function Computadores({ computers, states, manufacturers, types, 
         if (filters.location && filters.location !== 'all') params.append('location', filters.location);
         if (filters.date_from) params.append('date_from', filters.date_from);
         if (filters.date_to) params.append('date_to', filters.date_to);
+        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
         window.location.href = `/inventario/computadores/export?${params}`;
     };
+
+    // ─── Advanced Filter Handlers ────────────────────────────────────
+    const handleAdvancedSearch = (filterRows: FilterRow[]) => {
+        setAdvancedFilters(filterRows);
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+            advanced_filters: JSON.stringify(filterRows),
+        };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        router.get('/inventario/computadores', params, { preserveState: false });
+    };
+
+    const handleAdvancedReset = () => {
+        setAdvancedFilters([]);
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+        };
+        if (searchValue) params.search = searchValue;
+        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        router.get('/inventario/computadores', params, { preserveState: false });
+    };
+
+    // ─── Computer Field Definitions for Advanced Filter ──────────────
+    const COMPUTER_FIELDS: FieldDef[] = [
+        { key: 'nombre', label: 'Nombre', type: 'text' },
+        { key: 'id', label: 'ID', type: 'number' },
+        { key: 'entidad', label: 'Entidad', type: 'text' },
+        { key: 'estado', label: 'Estado', type: 'text' },
+        { key: 'fabricante', label: 'Fabricante', type: 'text' },
+        { key: 'serial', label: 'Número de serie', type: 'text' },
+        { key: 'tipo', label: 'Tipo', type: 'text' },
+        { key: 'modelo', label: 'Modelo', type: 'text' },
+        { key: 'localizacion', label: 'Localización', type: 'text' },
+        { key: 'fecha_mod', label: 'Última actualización', type: 'date' },
+        { key: 'otherserial', label: 'Nº de inventario', type: 'text' },
+        { key: 'contacto', label: 'Contacto', type: 'text' },
+        { key: 'contacto_num', label: 'Número de contacto', type: 'text' },
+        { key: 'comentarios', label: 'Comentarios', type: 'text' },
+    ];
 
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) {
@@ -289,6 +363,15 @@ export default function Computadores({ computers, states, manufacturers, types, 
                                 </div>
                             </div>
                         </div>
+
+                        {/* Advanced Filter Bar */}
+                        <AdvancedFilterBar
+                            initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
+                            onSearch={handleAdvancedSearch}
+                            onReset={handleAdvancedReset}
+                            fields={COMPUTER_FIELDS}
+                            defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
+                        />
 
                         {/* Panel de Filtros */}
                         {showFilters && (

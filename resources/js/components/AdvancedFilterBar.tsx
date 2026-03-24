@@ -11,7 +11,7 @@ export interface FilterRow {
     value: string;
 }
 
-interface FieldDef {
+export interface FieldDef {
     key: string;
     label: string;
     type: 'text' | 'select' | 'date' | 'number';
@@ -21,11 +21,14 @@ interface AdvancedFilterBarProps {
     initialFilters?: FilterRow[];
     onSearch: (filters: FilterRow[]) => void;
     onReset: () => void;
+    fields?: FieldDef[];
+    selectOptions?: Record<string, { value: string; label: string }[]>;
+    defaultFirstRow?: { field: string; operator: string; value: string };
 }
 
 // ─── Field Definitions ──────────────────────────────────────────────────────────
 
-const FILTER_FIELDS: FieldDef[] = [
+const DEFAULT_FILTER_FIELDS: FieldDef[] = [
     // Campos principales del ticket
     { key: 'elementos_mostrados', label: 'Elementos mostrados', type: 'text' },
     { key: 'titulo', label: 'Título', type: 'text' },
@@ -184,7 +187,7 @@ const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
 
 // ─── Select Field Options ───────────────────────────────────────────────────────
 
-const SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+const DEFAULT_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
     estado: [
         { value: 'not_resolved', label: 'No resueltos' },
         { value: 'not_closed', label: 'No cerrados' },
@@ -312,38 +315,42 @@ const DATE_PRESETS = generateDatePresets();
 
 // ─── Helper Functions ───────────────────────────────────────────────────────────
 
-function getFieldDef(fieldKey: string): FieldDef | undefined {
-    return FILTER_FIELDS.find(f => f.key === fieldKey);
-}
-
-function getOperatorsForField(fieldKey: string): { value: string; label: string }[] {
-    const field = getFieldDef(fieldKey);
-    if (!field) return OPERATORS_BY_TYPE.text;
-    return OPERATORS_BY_TYPE[field.type] || OPERATORS_BY_TYPE.text;
-}
-
-function getDefaultOperator(fieldKey: string): string {
-    const field = getFieldDef(fieldKey);
-    if (!field) return 'contiene';
-    switch (field.type) {
-        case 'select': return 'es';
-        case 'date': return 'es';
-        case 'number': return 'es';
-        default: return 'contiene';
+function makeHelpers(fields: FieldDef[], selectOpts: Record<string, { value: string; label: string }[]>) {
+    function getFieldDef(fieldKey: string): FieldDef | undefined {
+        return fields.find(f => f.key === fieldKey);
     }
-}
 
-function getDefaultValue(fieldKey: string): string {
-    const field = getFieldDef(fieldKey);
-    if (!field) return '';
-    if (field.type === 'select') {
-        const opts = SELECT_OPTIONS[fieldKey];
-        return opts && opts.length > 0 ? opts[0].value : '';
+    function getOperatorsForField(fieldKey: string): { value: string; label: string }[] {
+        const field = getFieldDef(fieldKey);
+        if (!field) return OPERATORS_BY_TYPE.text;
+        return OPERATORS_BY_TYPE[field.type] || OPERATORS_BY_TYPE.text;
     }
-    if (field.type === 'date') {
-        return 'now';
+
+    function getDefaultOperator(fieldKey: string): string {
+        const field = getFieldDef(fieldKey);
+        if (!field) return 'contiene';
+        switch (field.type) {
+            case 'select': return 'es';
+            case 'date': return 'es';
+            case 'number': return 'es';
+            default: return 'contiene';
+        }
     }
-    return '';
+
+    function getDefaultValue(fieldKey: string): string {
+        const field = getFieldDef(fieldKey);
+        if (!field) return '';
+        if (field.type === 'select') {
+            const opts = selectOpts[fieldKey];
+            return opts && opts.length > 0 ? opts[0].value : '';
+        }
+        if (field.type === 'date') {
+            return 'now';
+        }
+        return '';
+    }
+
+    return { getFieldDef, getOperatorsForField, getDefaultOperator, getDefaultValue };
 }
 
 function isDateOperatorWithPresets(operator: string): boolean {
@@ -358,7 +365,11 @@ function isNoValueOperator(operator: string): boolean {
 
 let nextId = 1;
 
-export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }: AdvancedFilterBarProps) {
+export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, fields, selectOptions, defaultFirstRow }: AdvancedFilterBarProps) {
+    const activeFields = fields ?? DEFAULT_FILTER_FIELDS;
+    const activeSelectOptions = selectOptions ?? DEFAULT_SELECT_OPTIONS;
+    const { getFieldDef, getOperatorsForField, getDefaultOperator, getDefaultValue } = makeHelpers(activeFields, activeSelectOptions);
+    const defaultRow = defaultFirstRow ?? { field: 'estado', operator: 'es', value: 'not_resolved' };
     const [rows, setRows] = useState<FilterRow[]>(() => {
         if (initialFilters && initialFilters.length > 0) {
             // Restaurar el nextId basándose en los filtros existentes
@@ -366,15 +377,14 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }:
             nextId = maxId + 1;
             return initialFilters;
         }
-        // Default: Estado es No resueltos
-        const defaultRow: FilterRow = {
+        const firstRow: FilterRow = {
             id: nextId++,
             connector: 'AND',
-            field: 'estado',
-            operator: 'es',
-            value: 'not_resolved',
+            field: defaultRow.field,
+            operator: defaultRow.operator,
+            value: defaultRow.value,
         };
-        return [defaultRow];
+        return [firstRow];
     });
 
     // Track specific date inputs for rows using "Especificar una fecha"
@@ -386,7 +396,7 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }:
         const newRow: FilterRow = {
             id: nextId++,
             connector,
-            field: 'elementos_mostrados',
+            field: activeFields[0]?.key || 'elementos_mostrados',
             operator: 'contiene',
             value: '',
         };
@@ -403,9 +413,9 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }:
             return filtered.length > 0 ? filtered : [{
                 id: nextId++,
                 connector: 'AND' as const,
-                field: 'estado',
-                operator: 'es',
-                value: 'not_resolved',
+                field: defaultRow.field,
+                operator: defaultRow.operator,
+                value: defaultRow.value,
             }];
         });
         // Limpiar fecha específica
@@ -466,9 +476,9 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }:
         setRows([{
             id: nextId++,
             connector: 'AND',
-            field: 'estado',
-            operator: 'es',
-            value: 'not_resolved',
+            field: defaultRow.field,
+            operator: defaultRow.operator,
+            value: defaultRow.value,
         }]);
         setSpecificDates({});
         onReset();
@@ -493,7 +503,7 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }:
 
         // Select fields with es/no_es → show dropdown
         if (fieldDef?.type === 'select' && (row.operator === 'es' || row.operator === 'no_es')) {
-            const options = SELECT_OPTIONS[row.field] || [];
+            const options = activeSelectOptions[row.field] || [];
             return (
                 <select
                     value={row.value}
@@ -619,7 +629,7 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset }:
                         onChange={(e) => updateRow(row.id, { field: e.target.value })}
                         className="h-[26px] text-[11px] rounded-sm border border-gray-300 bg-white px-1 min-w-[150px] max-w-[220px] focus:outline-none focus:ring-1 focus:ring-[#2c4370]"
                     >
-                        {FILTER_FIELDS.map(field => (
+                        {activeFields.map(field => (
                             <option key={field.key} value={field.key}>{field.label}</option>
                         ))}
                     </select>

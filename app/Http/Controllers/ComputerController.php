@@ -9,10 +9,12 @@ use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use App\Traits\ExcelExportStyles;
+use App\Traits\AdvancedFilterable;
 
 class ComputerController extends Controller
 {
     use ExcelExportStyles;
+    use AdvancedFilterable;
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -25,6 +27,7 @@ class ComputerController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -108,7 +111,8 @@ class ComputerController extends Controller
                 'type' => $typeFilter,
                 'location' => $locationFilter,
                 'date_from' => $dateFrom,
-                'date_to' => $dateTo
+                'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]);
 
         // Obtener datos para filtros
@@ -133,7 +137,8 @@ class ComputerController extends Controller
                 'type' => $typeFilter,
                 'location' => $locationFilter,
                 'date_from' => $dateFrom,
-                'date_to' => $dateTo
+                'date_to' => $dateTo,
+                'advanced_filters' => $advancedFiltersJson,
             ]
         ]);
     }
@@ -1288,5 +1293,25 @@ class ComputerController extends Controller
         DB::table('glpi_computers')->where('id', $id)->update(['is_deleted' => 1]);
 
         return redirect()->route('inventario.computadores')->with('success', 'Computador eliminado exitosamente');
+    }
+
+    private function getComputerFieldMap(): array
+    {
+        return [
+            'nombre' => ['column' => 'c.name', 'type' => 'text'],
+            'entidad' => ['column' => 'e.name', 'type' => 'text'],
+            'estado' => ['column' => 's.name', 'type' => 'text'],
+            'fabricante' => ['column' => 'm.name', 'type' => 'text'],
+            'serial' => ['column' => 'c.serial', 'type' => 'text'],
+            'tipo' => ['column' => 't.name', 'type' => 'text'],
+            'modelo' => ['column' => 'cm.name', 'type' => 'text'],
+            'localizacion' => ['column' => 'l.completename', 'type' => 'text'],
+            'fecha_mod' => ['column' => 'c.date_mod', 'type' => 'date'],
+            'id' => ['column' => 'c.id', 'type' => 'number'],
+            'otherserial' => ['column' => 'c.otherserial', 'type' => 'text'],
+            'contacto' => ['column' => 'c.contact', 'type' => 'text'],
+            'contacto_num' => ['column' => 'c.contact_num', 'type' => 'text'],
+            'comentarios' => ['column' => 'c.comment', 'type' => 'text'],
+        ];
     }
 }
