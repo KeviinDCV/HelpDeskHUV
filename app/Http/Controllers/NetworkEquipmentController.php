@@ -355,7 +355,12 @@ class NetworkEquipmentController extends Controller
                 'l.completename as location_name',
                 'e.name as entity_name',
                 't.name as type_name',
-                'md.name as model_name'
+                'md.name as model_name',
+                'u_tech.name as tech_user_name',
+                'g_tech.name as tech_group_name',
+                'u.name as user_name',
+                'g.name as group_name',
+                'd.name as domain_name'
             )
             ->leftJoin('glpi_entities as e', 'n.entities_id', '=', 'e.id')
             ->leftJoin('glpi_networkequipmenttypes as t', 'n.networkequipmenttypes_id', '=', 't.id')
@@ -363,6 +368,11 @@ class NetworkEquipmentController extends Controller
             ->leftJoin('glpi_states as s', 'n.states_id', '=', 's.id')
             ->leftJoin('glpi_manufacturers as m', 'n.manufacturers_id', '=', 'm.id')
             ->leftJoin('glpi_locations as l', 'n.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_users as u_tech', 'n.users_id_tech', '=', 'u_tech.id')
+            ->leftJoin('glpi_groups as g_tech', 'n.groups_id_tech', '=', 'g_tech.id')
+            ->leftJoin('glpi_users as u', 'n.users_id', '=', 'u.id')
+            ->leftJoin('glpi_groups as g', 'n.groups_id', '=', 'g.id')
+            ->leftJoin('glpi_domains as d', 'n.domains_id', '=', 'd.id')
             ->where('n.id', $id)
             ->where('n.is_deleted', 0)
             ->first();

@@ -10,6 +10,9 @@ interface NetworkEquipment {
     serial: string | null;
     otherserial: string | null;
     comment: string | null;
+    contact: string | null;
+    contact_num: string | null;
+    ram: number | null;
     date_mod: string | null;
     date_creation: string | null;
     state_name: string | null;
@@ -18,6 +21,11 @@ interface NetworkEquipment {
     model_name: string | null;
     location_name: string | null;
     entity_name: string | null;
+    tech_user_name: string | null;
+    tech_group_name: string | null;
+    user_name: string | null;
+    group_name: string | null;
+    domain_name: string | null;
     ip: string | null;
     mac: string | null;
 }
@@ -127,6 +135,42 @@ export default function VerDispositivoRed({ networkequipment, tickets }: Props) 
                                             <label className="text-xs text-gray-500 uppercase tracking-wide">Número de Inventario</label>
                                             <p className="text-sm font-mono font-medium text-gray-900">{networkequipment.otherserial || '-'}</p>
                                         </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Localización</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.location_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Dominio</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.domain_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Memoria (MB)</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.ram || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Técnico a cargo</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.tech_user_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Grupo a cargo</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.tech_group_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Usuario</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.user_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Grupo</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.group_name || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Contacto</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.contact || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Número de contacto</label>
+                                            <p className="text-sm font-medium text-gray-900">{networkequipment.contact_num || '-'}</p>
+                                        </div>
                                         {networkequipment.ip && (
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase tracking-wide">IP</label>
@@ -139,10 +183,6 @@ export default function VerDispositivoRed({ networkequipment, tickets }: Props) 
                                                 <p className="text-sm font-mono font-medium text-gray-900">{networkequipment.mac}</p>
                                             </div>
                                         )}
-                                        <div className="sm:col-span-2">
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Localización</label>
-                                            <p className="text-sm font-medium text-gray-900">{networkequipment.location_name || '-'}</p>
-                                        </div>
                                         {networkequipment.comment && (
                                             <div className="sm:col-span-2">
                                                 <label className="text-xs text-gray-500 uppercase tracking-wide">Comentarios</label>
