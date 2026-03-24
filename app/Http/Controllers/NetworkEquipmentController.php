@@ -28,6 +28,7 @@ class NetworkEquipmentController extends Controller
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
         $advancedFiltersJson = $request->input('advanced_filters', '');
+        $deviceCategory = $request->input('device_category', 'all');
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -96,6 +97,16 @@ class NetworkEquipmentController extends Controller
             $query->whereDate('n.date_mod', '<=', $dateTo);
         }
 
+        // Filtro de categoría de dispositivo
+        if ($deviceCategory === 'wifi') {
+            $query->where('mf.name', 'LIKE', '%Ubiquiti%');
+        } elseif ($deviceCategory === 'switches') {
+            $query->where(function($q) {
+                $q->where('mf.name', 'NOT LIKE', '%Ubiquiti%')
+                  ->orWhereNull('mf.name');
+            });
+        }
+
         // Filtros avanzados
         if ($advancedFiltersJson) {
             $parsedFilters = json_decode($advancedFiltersJson, true);
@@ -118,6 +129,7 @@ class NetworkEquipmentController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'advanced_filters' => $advancedFiltersJson,
+                'device_category' => $deviceCategory,
             ]);
 
         // Obtener datos para filtros
@@ -144,6 +156,7 @@ class NetworkEquipmentController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'advanced_filters' => $advancedFiltersJson,
+                'device_category' => $deviceCategory,
             ]
         ]);
     }

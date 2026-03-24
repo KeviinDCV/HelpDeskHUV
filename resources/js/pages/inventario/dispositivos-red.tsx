@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle, Wifi, Network } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import React from 'react';
@@ -87,6 +87,7 @@ interface NetworkEquipmentsProps {
         date_from: string;
         date_to: string;
         advanced_filters: string;
+        device_category: string;
     };
 }
 
@@ -96,6 +97,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteModal, setDeleteModal] = React.useState<{ open: boolean, id: number | null, name: string }>({ open: false, id: null, name: '' });
     const [showFilters, setShowFilters] = React.useState(false);
+    const [deviceCategory, setDeviceCategory] = React.useState(filters.device_category || 'all');
 
     // Filtros avanzados
     const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
@@ -137,6 +139,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         if (filters.date_from) params.date_from = filters.date_from;
         if (filters.date_to) params.date_to = filters.date_to;
         if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+        if (filters.device_category && filters.device_category !== 'all') params.device_category = filters.device_category;
         router.get('/inventario/dispositivos-red', params, { preserveState: false });
     };
 
@@ -155,6 +158,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
         if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+        if (deviceCategory && deviceCategory !== 'all') params.device_category = deviceCategory;
         router.get('/inventario/dispositivos-red', params, { preserveState: false });
     };
 
@@ -173,6 +177,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
         if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+        if (deviceCategory && deviceCategory !== 'all') params.device_category = deviceCategory;
         router.get('/inventario/dispositivos-red', params, { preserveState: false, replace: true });
     };
 
@@ -189,7 +194,8 @@ export default function DispositivosRed({ networkequipments, states, manufacture
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-            page: 1
+            page: 1,
+            device_category: deviceCategory !== 'all' ? deviceCategory : undefined
         }, { preserveState: false, replace: true });
     };
 
@@ -205,6 +211,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         if (filters.date_from) params.append('date_from', filters.date_from);
         if (filters.date_to) params.append('date_to', filters.date_to);
         if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
+        if (filters.device_category && filters.device_category !== 'all') params.append('device_category', filters.device_category);
         window.location.href = `/inventario/dispositivos-red/export?${params}`;
     };
 
@@ -245,6 +252,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (deviceCategory && deviceCategory !== 'all') params.device_category = deviceCategory;
         router.get('/inventario/dispositivos-red', params, { preserveState: false });
     };
 
@@ -263,6 +271,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
+        if (deviceCategory && deviceCategory !== 'all') params.device_category = deviceCategory;
         router.get('/inventario/dispositivos-red', params, { preserveState: false });
     };
 
@@ -296,6 +305,46 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                 />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
+                    {/* Category Filter - Always Visible */}
+                    <div className="mb-4 flex items-center gap-2">
+                        {[
+                            { key: 'all', label: 'Todos', icon: null },
+                            { key: 'switches', label: 'Switches', icon: <Network className="h-4 w-4" /> },
+                            { key: 'wifi', label: 'Platos WiFi', icon: <Wifi className="h-4 w-4" /> },
+                        ].map((cat) => (
+                            <button
+                                key={cat.key}
+                                onClick={() => {
+                                    setDeviceCategory(cat.key);
+                                    const params: Record<string, any> = {
+                                        per_page: filters.per_page,
+                                        sort: filters.sort,
+                                        direction: filters.direction,
+                                        page: 1,
+                                        device_category: cat.key,
+                                    };
+                                    if (searchValue) params.search = searchValue;
+                                    if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
+                                    if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
+                                    if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+                                    if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
+                                    if (dateFrom) params.date_from = dateFrom;
+                                    if (dateTo) params.date_to = dateTo;
+                                    if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+                                    router.get('/inventario/dispositivos-red', params, { preserveState: false });
+                                }}
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    deviceCategory === cat.key
+                                        ? 'bg-[#2c4370] text-white shadow-sm'
+                                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                }`}
+                            >
+                                {cat.icon}
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="bg-white shadow border border-gray-200">
                         {/* Header */}
                         <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
@@ -486,7 +535,8 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                             per_page: value,
                                             sort: filters.sort,
                                             direction: filters.direction,
-                                            search: filters.search
+                                            search: filters.search,
+                                            device_category: filters.device_category !== 'all' ? filters.device_category : undefined
                                         }, { preserveState: false })
                                     }}
                                 >
