@@ -17,7 +17,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
   return (
     <div className="w-full lg:w-80 space-y-4">
       {/* Estadísticas rápidas - Horizontal scroll on mobile */}
-      <Card className="bg-white border shadow-sm">
+      <Card className="bg-white border shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2 px-3 sm:px-6">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-[#2c5599]" />
@@ -28,9 +28,9 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
           {/* Grid on mobile, stack on desktop */}
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 lg:space-y-3 lg:gap-0">
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 lg:space-y-2 lg:gap-0">
             <Link href="/soporte/casos?filter=my_cases" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2.5 bg-blue-50 hover:bg-blue-100 transition-all duration-200 cursor-pointer text-center lg:text-left rounded-xl">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <UserCheck className="w-5 h-5 lg:w-4 lg:h-4 text-blue-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Mis casos</span>
@@ -39,7 +39,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
               </div>
             </Link>
             <Link href="/soporte/casos?filter=unassigned" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2.5 bg-red-50 hover:bg-red-100 transition-all duration-200 cursor-pointer text-center lg:text-left rounded-xl">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <TicketIcon className="w-5 h-5 lg:w-4 lg:h-4 text-red-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Sin asignar</span>
@@ -48,7 +48,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
               </div>
             </Link>
             <Link href="/soporte/casos?filter=my_resolved" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2.5 bg-green-50 hover:bg-green-100 transition-all duration-200 cursor-pointer text-center lg:text-left rounded-xl">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <CheckCircle2 className="w-5 h-5 lg:w-4 lg:h-4 text-green-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Resueltos</span>
@@ -57,7 +57,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
               </div>
             </Link>
             <Link href="/soporte/casos?filter=my_pending" className="block">
-              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between p-2.5 bg-orange-50 hover:bg-orange-100 transition-all duration-200 cursor-pointer text-center lg:text-left rounded-xl">
                 <div className="flex flex-col lg:flex-row items-center gap-1 lg:gap-2">
                   <Clock className="w-5 h-5 lg:w-4 lg:h-4 text-orange-500" />
                   <span className="text-xs lg:text-sm text-gray-700">Sin resolver</span>
@@ -72,7 +72,7 @@ export function DashboardCards({ stats }: DashboardCardsProps) {
       {/* Hidden on mobile - shown on desktop */}
       <div className="hidden lg:block space-y-4">
         {/* Shortcuts Card */}
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-white border shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-[#2c5599]" />

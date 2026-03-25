@@ -14,31 +14,39 @@ export function ViewTabs({ activeTab, onTabChange, publicCount = 0, myCount = 0 
   ]
 
   return (
-    <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-4">
-      <div className="bg-white shadow-sm border border-gray-200 inline-flex w-full sm:w-auto">
-        {tabs.map((tab) => (
-          <Button
-            key={tab.name}
-            variant="ghost"
-            onClick={() => onTabChange(tab.name)}
-            className={`flex-1 sm:flex-initial px-3 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === tab.name
-                ? "bg-[#2c4370] text-white hover:bg-[#2c4370]"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            }`}
-          >
-            {tab.name}
-            {tab.count > 0 && (
-              <span className={`ml-2 px-1.5 py-0.5 text-[10px] font-bold ${
-                activeTab === tab.name
-                  ? "bg-white/20 text-white"
-                  : "bg-red-500 text-white"
-              }`}>
-                {tab.count}
-              </span>
-            )}
-          </Button>
-        ))}
+    <div className="px-4 sm:px-6 pt-5 sm:pt-8 pb-3 sm:pb-5">
+      <div className="bg-gray-200/50 p-1.5 rounded-2xl inline-flex w-full sm:w-auto overflow-hidden">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.name;
+          return (
+            <button
+              key={tab.name}
+              onClick={() => onTabChange(tab.name)}
+              className={`relative flex-1 sm:flex-initial px-4 sm:px-6 py-2.5 sm:py-2 text-sm font-medium transition-colors duration-300 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#2c4370] ${isActive
+                  ? "text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-white/40"
+                }`}
+            >
+              {isActive && (
+                <div
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm"
+                  style={{ zIndex: -1 }}
+                />
+              )}
+              <div className="flex items-center justify-center gap-2">
+                <span>{tab.name}</span>
+                {tab.count > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors ${isActive
+                      ? "bg-[#2c4370] text-white"
+                      : "bg-gray-400 text-white"
+                    }`}>
+                    {tab.count}
+                  </span>
+                )}
+              </div>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
