@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class ChatbotController extends Controller
 {
@@ -20,111 +21,93 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Procesar mensaje del chatbot usando OpenRouter (Backend)
+     * Llamar al proveedor de IA con fallback: Groq (primario) → OpenRouter (respaldo)
      */
-    public function chatPuter(Request $request)
+    private function callAI(array $messages, string $model = 'auto'): array
     {
-        $request->validate([
-            'message' => 'required|string|max:1000',
-            'context' => 'nullable|array',
-            'currentFormData' => 'nullable|array',
-            'filledFields' => 'nullable|array',
-        ]);
+        // Proveedor 1: Groq (rápido, 30 RPM gratis)
+        $groqKey = env('GROQ_API_KEY');
+        if ($groqKey) {
+            try {
+                $response = Http::timeout(15)->connectTimeout(5)->withHeaders([
+                    'Authorization' => 'Bearer ' . $groqKey,
+                    'Content-Type' => 'application/json',
+                ])->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model' => 'llama-3.3-70b-versatile',
+                    'messages' => $messages,
+                    'temperature' => 0.1,
+                    'max_tokens' => 400,
+                ]);
 
-        $userMessage = $request->input('message');
-        $context = $request->input('context', []);
-        $currentFormData = $request->input('currentFormData', []);
-        $filledFields = $request->input('filledFields', []);
-        
-        // Obtener lista de ECOMs si el problema es con computador
-        $ecomList = $this->getEcomList();
-        
-        // Obtener categorías disponibles
-        $categories = $this->getCategoryList();
+                if ($response->successful()) {
+                    return ['response' => $response, 'provider' => 'groq'];
+                }
 
-        $systemPrompt = $this->getSystemPrompt($currentFormData, $filledFields, $ecomList, $categories);
-        
-        $messages = [
-            ['role' => 'system', 'content' => $systemPrompt],
-        ];
-
-        // Agregar solo los últimos 4 mensajes del contexto para reducir tokens
-        $recentContext = array_slice($context, -4);
-        foreach ($recentContext as $msg) {
-            $messages[] = $msg;
+                \Log::warning('Groq API failed', ['status' => $response->status()]);
+            } catch (\Exception $e) {
+                \Log::warning('Groq exception', ['error' => $e->getMessage()]);
+            }
         }
 
-        $messages[] = ['role' => 'user', 'content' => $userMessage];
+        // Proveedor 2: OpenRouter (respaldo)
+        $openRouterKey = env('OPENROUTER_API_KEY');
+        if ($openRouterKey) {
+            $fallbackModels = $model === 'auto'
+                ? ['z-ai/glm-4.5-air:free', 'mistralai/mistral-small-3.1-24b-instruct:free']
+                : (is_array($model) ? $model : [$model]);
 
-        try {
-            // Usar OpenRouter API (funciona sin autenticación del usuario)
-            $maxRetries = 2;
-            $response = null;
-            
-            for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            foreach ($fallbackModels as $currentModel) {
                 try {
-                    $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
-                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                    $response = Http::timeout(30)->connectTimeout(10)->withHeaders([
+                        'Authorization' => 'Bearer ' . $openRouterKey,
                         'HTTP-Referer' => config('app.url'),
                         'X-Title' => config('app.name'),
                         'Content-Type' => 'application/json',
                     ])->post('https://openrouter.ai/api/v1/chat/completions', [
-                        'model' => 'openai/gpt-4o-mini', // Modelo rápido y eficiente
+                        'model' => $currentModel,
                         'messages' => $messages,
                         'temperature' => 0.1,
-                        'max_tokens' => 500,
+                        'max_tokens' => 400,
                     ]);
 
-                    if ($response->successful() || $response->status() !== 429) {
-                        break;
+                    if ($response->successful()) {
+                        return ['response' => $response, 'provider' => 'openrouter'];
                     }
-                    if ($attempt < $maxRetries) sleep(2);
+
+                    \Log::warning("OpenRouter model {$currentModel} failed", [
+                        'status' => $response->status(),
+                    ]);
                 } catch (\Exception $e) {
-                    if ($attempt >= $maxRetries) throw $e;
-                    sleep(1);
+                    \Log::warning("OpenRouter {$currentModel} exception", [
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $assistantResponse = $data['choices'][0]['message']['content'] ?? '';
-                
-                \Log::info('Chatbot AI Response', ['raw' => $assistantResponse]);
-                
-                $parsed = $this->parseResponse($assistantResponse);
-                
-                \Log::info('Chatbot Parsed', [
-                    'fields' => $parsed['fields'],
-                    'message' => $parsed['message'],
-                ]);
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => $parsed['message'],
-                    'fields' => $parsed['fields'],
-                ]);
-            }
-
-            \Log::error('AI API Error', ['status' => $response->status(), 'body' => $response->body()]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al comunicarse con el asistente.',
-            ], 500);
-
-        } catch (\Exception $e) {
-            \Log::error('Chatbot Exception', ['error' => $e->getMessage()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Error de conexión. Por favor intenta de nuevo.',
-            ], 500);
         }
+
+        return ['response' => $response ?? null, 'provider' => null];
     }
 
     /**
-     * Procesar mensaje del chatbot
+     * Procesar mensaje del chatbot usando OpenRouter (Backend - Puter)
+     */
+    public function chatPuter(Request $request)
+    {
+        return $this->processChat($request, 'openai/gpt-4o-mini');
+    }
+
+    /**
+     * Procesar mensaje del chatbot (ruta principal)
      */
     public function chat(Request $request)
+    {
+        return $this->processChat($request, 'auto');
+    }
+
+    /**
+     * Lógica compartida de procesamiento de chat
+     */
+    private function processChat(Request $request, string $model)
     {
         $request->validate([
             'message' => 'required|string|max:1000',
@@ -137,21 +120,16 @@ class ChatbotController extends Controller
         $context = $request->input('context', []);
         $currentFormData = $request->input('currentFormData', []);
         $filledFields = $request->input('filledFields', []);
-        
-        // Obtener lista de ECOMs si el problema es con computador
-        $ecomList = $this->getEcomList();
-        
-        // Obtener categorías disponibles
-        $categories = $this->getCategoryList();
 
-        $systemPrompt = $this->getSystemPrompt($currentFormData, $filledFields, $ecomList, $categories);
-        
+        $categories = $this->getCategoryList();
+        $systemPrompt = $this->getSystemPrompt($currentFormData, $filledFields, $categories);
+
         $messages = [
             ['role' => 'system', 'content' => $systemPrompt],
         ];
 
-        // Agregar solo los últimos 4 mensajes del contexto para reducir tokens
-        $recentContext = array_slice($context, -4);
+        // Solo los últimos 2 mensajes de contexto para reducir tokens
+        $recentContext = array_slice($context, -2);
         foreach ($recentContext as $msg) {
             $messages[] = $msg;
         }
@@ -159,60 +137,15 @@ class ChatbotController extends Controller
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
-            $maxRetries = 2;
-            $response = null;
-            
-            for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-                try {
-                    $response = Http::timeout(45)->connectTimeout(15)->withHeaders([
-                        'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
-                        'HTTP-Referer' => config('app.url'),
-                        'X-Title' => config('app.name'),
-                        'Content-Type' => 'application/json',
-                    ])->post('https://openrouter.ai/api/v1/chat/completions', [
-                        'model' => 'z-ai/glm-4.5-air:free',
-                        'messages' => $messages,
-                        'temperature' => 0.1,
-                        'max_tokens' => 500,
-                        'top_p' => 0.9,
-                    ]);
+            $result = $this->callAI($messages, $model);
+            $response = $result['response'];
 
-                    // Si es exitoso o no es rate limit, salir del loop
-                    if ($response->successful() || $response->status() !== 429) {
-                        break;
-                    }
-
-                    // Si es rate limit, esperar y reintentar
-                    if ($attempt < $maxRetries) {
-                        sleep(2);
-                    }
-                } catch (\Illuminate\Http\Client\ConnectionException $e) {
-                    \Log::warning('Chatbot Connection Retry', ['attempt' => $attempt, 'error' => $e->getMessage()]);
-                    if ($attempt >= $maxRetries) {
-                        throw $e;
-                    }
-                    sleep(1);
-                }
-            }
-
-            if ($response->successful()) {
+            if ($response && $response->successful()) {
                 $data = $response->json();
                 $assistantResponse = $data['choices'][0]['message']['content'] ?? '';
-                
-                // Log para debug
-                \Log::info('Chatbot Response', [
-                    'raw_response' => $assistantResponse,
-                ]);
-                
-                // Parsear la respuesta para extraer campos y mensaje
+
                 $parsed = $this->parseResponse($assistantResponse);
-                
-                // Log del parsing
-                \Log::info('Chatbot Parsed', [
-                    'fields' => $parsed['fields'],
-                    'message' => $parsed['message'],
-                ]);
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => $parsed['message'],
@@ -220,25 +153,16 @@ class ChatbotController extends Controller
                 ]);
             }
 
-            // Log del error de OpenRouter para depuración
-            \Log::error('OpenRouter API Error', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+            \Log::error('AI API Error - all providers failed', [
+                'provider' => $result['provider'] ?? 'none',
+                'status' => $response ? $response->status() : 'no response',
             ]);
 
-            // Mensaje más amigable para rate limit
-            if ($response->status() === 429) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Estoy procesando muchas solicitudes. Por favor espera unos segundos e intenta de nuevo.',
-                    'fields' => [],
-                ]);
-            }
-
             return response()->json([
-                'success' => false,
-                'message' => 'Error al comunicarse con el asistente.',
-            ], 500);
+                'success' => true,
+                'message' => 'Todos los servicios están ocupados. Por favor intenta de nuevo en unos segundos.',
+                'fields' => [],
+            ]);
 
         } catch (\Exception $e) {
             \Log::error('Chatbot Exception', ['error' => $e->getMessage()]);
@@ -286,12 +210,9 @@ class ChatbotController extends Controller
         $message = preg_replace('/\s+/', ' ', $message);
         $message = trim($message);
 
-        // Si el mensaje quedó vacío, usar uno por defecto
         if (empty($message)) {
             $message = 'Entendido. ¿Algo más que necesites?';
         }
-
-        \Log::info('Chatbot Parsed', ['fields' => $fields, 'message' => substr($message, 0, 100)]);
 
         return [
             'message' => $message,
@@ -300,35 +221,39 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Obtener lista de categorías ITIL (principales)
+     * Obtener lista de categorías ITIL (cacheada 10 min)
      */
     private function getCategoryList(): array
     {
-        return DB::table('glpi_itilcategories')
-            ->select('id', 'name')
-            ->where('is_incident', 1)
-            ->whereIn('id', [1, 2, 6, 11, 12, 14, 17, 18]) // Categorías principales útiles
-            ->orderBy('id')
-            ->get()
-            ->map(fn($c) => ['id' => $c->id, 'name' => $c->name])
-            ->toArray();
+        return Cache::remember('chatbot_categories', 600, function () {
+            return DB::table('glpi_itilcategories')
+                ->select('id', 'name')
+                ->where('is_incident', 1)
+                ->whereIn('id', [1, 2, 6, 11, 12, 14, 17, 18])
+                ->orderBy('id')
+                ->get()
+                ->map(fn($c) => ['id' => $c->id, 'name' => $c->name])
+                ->toArray();
+        });
     }
 
     /**
-     * Obtener lista de ECOMs de computadores
+     * Obtener lista de ECOMs de computadores (cacheada 10 min)
      */
     private function getEcomList(): array
     {
-        return DB::table('glpi_computers')
-            ->select('id', 'name')
-            ->where('is_deleted', 0)
-            ->whereNotNull('name')
-            ->where('name', '!=', '')
-            ->orderBy('name')
-            ->limit(100) // Limitar para no sobrecargar
-            ->get()
-            ->map(fn($c) => $c->name)
-            ->toArray();
+        return Cache::remember('chatbot_ecoms', 600, function () {
+            return DB::table('glpi_computers')
+                ->select('id', 'name')
+                ->where('is_deleted', 0)
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->limit(100)
+                ->get()
+                ->map(fn($c) => $c->name)
+                ->toArray();
+        });
     }
 
     /**
@@ -341,12 +266,11 @@ class ChatbotController extends Controller
         
         foreach ($ecomList as $existing) {
             $existingLower = strtolower($existing);
-            // Buscar coincidencias parciales
             if (str_contains($existingLower, $ecomLower) || 
                 str_contains($ecomLower, $existingLower) ||
                 similar_text($ecomLower, $existingLower) > strlen($ecomLower) * 0.6) {
                 $similar[] = $existing;
-                if (count($similar) >= 3) break; // Máximo 3 sugerencias
+                if (count($similar) >= 3) break;
             }
         }
         
@@ -354,11 +278,10 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Obtener el prompt del sistema para el chatbot
+     * Obtener el prompt del sistema para el chatbot (optimizado)
      */
-    private function getSystemPrompt(array $formData, array $filledFields, array $ecomList, array $categories): string
+    private function getSystemPrompt(array $formData, array $filledFields, array $categories): string
     {
-        // Construir info de campos ya llenados con sus valores actuales
         $currentData = [];
         foreach ($formData as $key => $value) {
             if (!empty($value) && $value !== '') {
@@ -367,130 +290,45 @@ class ChatbotController extends Controller
         }
         $currentDataStr = empty($currentData) ? "Ninguno" : implode(", ", $currentData);
 
-        // Crear muestra de ECOMs para el prompt
-        $ecomSample = array_slice($ecomList, 0, 15);
-        $ecomListStr = implode(', ', $ecomSample);
-
-        // Crear lista de categorías COMPLETA con descripciones
-        $categoryListStr = implode("\n", array_map(fn($c) => "  - {$c['id']} = {$c['name']}", $categories));
+        $categoryListStr = implode(", ", array_map(fn($c) => "{$c['id']}={$c['name']}", $categories));
 
         return <<<PROMPT
 Eres Evarisbot, asistente del Hospital Universitario del Valle para reportar problemas técnicos.
-
 DATOS YA CAPTURADOS: {$currentDataStr}
 
-=== INSTRUCCIÓN CRÍTICA ===
-1. EXTRAE TODOS los datos del mensaje del usuario EN UNA SOLA RESPUESTA
-2. NUNCA pidas un dato que ya está en "DATOS YA CAPTURADOS"
-3. NUNCA pidas un dato que el usuario acaba de dar en su mensaje
-4. Si el usuario da múltiples datos, captúralos TODOS en el JSON
-5. GUARDA TODA la información que el usuario mencione sobre el problema - será analizada después
+FORMATO: Siempre que el usuario dé datos, responde así:
+{FIELDS}{"campo": "valor"}{/FIELDS}
+Mensaje corto (máx 2 oraciones).
 
-=== FORMATO OBLIGATORIO ===
-SIEMPRE que el usuario proporcione cualquier dato, debes responder con este formato EXACTO:
-{FIELDS}{"campo1": "valor1", "campo2": "valor2"}{/FIELDS}
-Mensaje breve aquí.
+CAMPOS:
+- reporter_name: Nombre de la persona
+- reporter_position: Administrativo|Médico|Enfermero|Técnico|Auxiliar|Otro
+- reporter_service: Área (Urgencias/UCI/Laboratorio/Farmacia/CIAU/etc)
+- reporter_extension: 4 dígitos. Sin extensión → "0000"
+- device_type: computer|printer|monitor|phone|network|software
+- equipment_ecom: Código ECOM del equipo. Impresora/teléfono → no pedir. Externo → "N/A"
+- name: Título corto del problema
+- content: Descripción completa con todos los detalles
+- itilcategories_id: Categoría del problema
+- priority: Siempre "3"
 
-IMPORTANTE: Si el usuario da un dato (nombre, cargo, ext, etc), SIEMPRE incluye {FIELDS} con ese dato.
+CATEGORÍAS: {$categoryListStr}
+Clasificar: internet/red/wifi→11, software/SAP/sistema→6, hardware/no enciende/lento→2, impresora→12, teléfono→17
 
-=== CAMPOS A CAPTURAR ===
-- reporter_name: Nombre (busca: "soy X", "me llamo X", "mi nombre es X", o cualquier nombre propio)
-- reporter_position: Cargo (Administrativo/Médico/Enfermero/Técnico/Auxiliar/Otro). Si dice "usuario", "usuaria", "paciente", "ciudadano" o "externo", pon "Otro".
-- reporter_service: Área/Servicio (Urgencias/Fisiatría/UCI/Laboratorio/Farmacia/CIAU/etc). "CIAU" es Centro de Información y Atención al Usuario, es un área VÁLIDA.
-- reporter_extension: Extensión (4 dígitos). Si dice que NO TIENE o es usuario externo, pon "0000".
-- device_type: computer|printer|monitor|phone|network|software. Para problemas de páginas web/citas, usa "software".
-- equipment_ecom: Código ECOM (busca: "ecom" + números). Si es usuario externo o problema de web/citas, NO lo pidas y pon "N/A".
-- name: Título corto del problema (IMPORTANTE: captura la esencia del problema)
-- content: Descripción COMPLETA del problema (IMPORTANTE: incluye TODOS los detalles que mencione el usuario)
-- itilcategories_id: Ver sección CATEGORÍAS abajo
-- priority: 3 (siempre)
+USUARIOS EXTERNOS (paciente/ciudadano/no trabaja aquí):
+reporter_position="Otro", reporter_extension="0000", equipment_ecom="N/A", reporter_service="Externo"
 
-=== REGLA USUARIOS EXTERNOS / PACIENTES ===
-Si el usuario dice "soy usuario/usuaria del hospital", "paciente", "ciudadano" o no trabaja en el hospital:
-1. Cargo = "Otro"
-2. Extensión = "0000" (NO la pidas)
-3. ECOM = "N/A" (NO lo pidas)
-4. Área = Si dice "CIAU" es válido. Si no tiene área, pon "Externo".
-5. Continúa directo al problema sin hacer preguntas innecesarias.
+EJEMPLOS:
+"María García, administrativa de Urgencias, ext 1234, no abre SAP"
+{FIELDS}{"reporter_name":"María García","reporter_position":"Administrativo","reporter_service":"Urgencias","reporter_extension":"1234","name":"SAP no abre","content":"El sistema SAP no abre","device_type":"computer","itilcategories_id":"6"}{/FIELDS}
+Perfecto María, necesito el código ECOM del computador (etiqueta en el CPU).
 
-=== CATEGORÍAS DISPONIBLES (itilcategories_id) ===
-{$categoryListStr}
+"enfermera de UCI"
+{FIELDS}{"reporter_position":"Enfermero","reporter_service":"UCI"}{/FIELDS}
+¿Cuál es tu extensión telefónica?
 
-=== GUÍA DE CLASIFICACIÓN DE CATEGORÍAS ===
-PALABRAS CLAVE → CATEGORÍA:
-- "internet", "red", "wifi", "conexión", "no conecta", "sin red", "IP", "cable de red" → Busca categoría de RED (probablemente 11)
-- "programa", "SAP", "Excel", "Word", "Servinte", "sistema", "aplicación", "no abre", "error" → Busca categoría de SOFTWARE (probablemente 6)
-- "no enciende", "apagado", "lento", "pantalla azul", "reinicia", "teclado", "mouse", "físico" → Busca categoría de HARDWARE (probablemente 2)
-- "impresora", "no imprime", "toner", "atasco", "papel", "cola de impresión" → Busca categoría de IMPRESIÓN (probablemente 12)
-- "teléfono", "extensión", "sin tono", "llamadas", "no suena" → Busca categoría de TELÉFONO (probablemente 17)
-
-=== CAPTURA DE INFORMACIÓN DEL PROBLEMA ===
-CRÍTICO: Cuando el usuario describa su problema, captura TODA la información en "content":
-- Qué está fallando exactamente
-- Cuándo empezó el problema
-- Qué mensajes de error aparecen
-- Qué intentó hacer el usuario
-- Cualquier detalle adicional
-
-EJEMPLO CORRECTO:
-Usuario: "No me abre SAP, me sale un error de conexión desde ayer, ya reinicié el computador pero sigue igual"
-{FIELDS}{"name": "SAP no abre - error de conexión", "content": "El sistema SAP no abre, muestra error de conexión. El problema comenzó desde ayer. El usuario ya reinició el computador pero el problema persiste.", "device_type": "computer", "itilcategories_id": "6"}{/FIELDS}
-Entendido, problema con SAP. ¿Me dices tu nombre para crear el reporte?
-
-=== EXTRACCIÓN DE DATOS - EJEMPLOS ===
-EJEMPLO: "No tengo internet" o "sin red" o "no conecta a la red"
-{FIELDS}{"name": "Sin conexión a internet", "content": "El equipo no tiene conexión a internet/red", "device_type": "network", "itilcategories_id": "11"}{/FIELDS}
-Entendido, problema de red. ¿Me dices tu nombre para crear el reporte?
-
-EJEMPLO: "Soy María García, administrativa de Urgencias, extensión 1234, no me abre SAP"
-{FIELDS}{"reporter_name": "María García", "reporter_position": "Administrativo", "reporter_service": "Urgencias", "reporter_extension": "1234", "name": "SAP no abre", "content": "El sistema SAP no abre", "device_type": "computer", "itilcategories_id": "6"}{/FIELDS}
-Perfecto María, necesito el código ECOM del computador. Es una etiqueta en el CPU que dice "ecom" seguido de números.
-
-EJEMPLO: "Juan Pérez" (solo nombre)
-{FIELDS}{"reporter_name": "Juan Pérez"}{/FIELDS}
-Gracias Juan. ¿Cuál es tu cargo?
-
-EJEMPLO: "enfermera de UCI"
-{FIELDS}{"reporter_position": "Enfermero", "reporter_service": "UCI"}{/FIELDS}
-Perfecto. ¿Cuál es tu extensión telefónica?
-
-EJEMPLO: "1234" (solo extensión)
-{FIELDS}{"reporter_extension": "1234"}{/FIELDS}
-Gracias. ¿Cuál es el problema que tienes?
-
-EJEMPLO: "ecom12345"
-{FIELDS}{"equipment_ecom": "ecom12345"}{/FIELDS}
-¡Listo! Ya tengo todos los datos. ¿Confirmas que quieres enviar el reporte?
-
-EJEMPLO USUARIO EXTERNO: "Soy usuaria del hospital" o "No trabajo aquí" o "Soy paciente"
-{FIELDS}{"reporter_position": "Otro", "reporter_extension": "0000", "equipment_ecom": "N/A", "reporter_service": "Externo"}{/FIELDS}
-Entendido. ¿Cuál es el problema que estás experimentando?
-
-=== CLASIFICACIÓN DE DISPOSITIVO ===
-SOFTWARE/SISTEMA (SAP, Excel, correo, navegador, etc.) → device_type="computer" → PEDIR ECOM
-HARDWARE PC (lento, no enciende, pantalla azul) → device_type="computer" → PEDIR ECOM
-RED/INTERNET → device_type="network" → PEDIR ECOM del equipo afectado
-IMPRESORA FÍSICA (atasco, toner, dañada) → device_type="printer" → NO ECOM
-TELÉFONO → device_type="phone" → NO ECOM
-MONITOR → device_type="monitor" → PEDIR ECOM del PC
-
-=== FLUJO SIMPLE ===
-1. Si NO hay nombre → pedir nombre
-2. Si hay nombre pero NO cargo → pedir cargo  
-3. Si hay cargo pero NO área → pedir área
-4. Si hay área pero NO extensión → pedir extensión
-5. Si hay extensión pero NO problema → pedir problema
-6. Si hay problema y es computer/network → pedir ECOM
-7. Si hay todos los datos → confirmar envío
-
-=== REGLAS ESTRICTAS ===
-- SIEMPRE responde en español
-- SIEMPRE usa el formato {FIELDS}...{/FIELDS} primero
-- SIEMPRE extrae TODOS los datos posibles del mensaje
-- SIEMPRE captura la descripción COMPLETA del problema en "content"
-- NUNCA repitas preguntas sobre datos ya capturados
-- Mensajes CORTOS y directos (máximo 2 oraciones)
-- NO uses emojis ni decoraciones
+FLUJO: nombre → cargo → área → extensión → problema → ECOM (si aplica) → confirmar
+REGLAS: Español. No repetir datos ya capturados. Extraer TODO del mensaje. Sin emojis.
 PROMPT;
     }
 }
