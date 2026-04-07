@@ -3,8 +3,11 @@ import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
+import { InputWithHistory } from '@/components/ui/input-with-history';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { TextareaWithHistory } from '@/components/ui/textarea-with-history';
+import { useFieldHistory } from '@/hooks/use-field-history';
 import {
     Select,
     SelectContent,
@@ -67,6 +70,8 @@ interface CreateTicketProps {
 
 export default function CrearCaso({ users, locations, categories, itemTypes, auth }: CreateTicketProps) {
     const { flash } = usePage<any>().props;
+    const titleHistory = useFieldHistory('crear_caso_titulo');
+    const descHistory = useFieldHistory('crear_caso_descripcion');
     const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
     const [observerIds, setObserverIds] = React.useState<number[]>([]);
     const [assignedIds, setAssignedIds] = React.useState<number[]>([]);
@@ -156,6 +161,11 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Guardar título y descripción en historial ANTES del post
+        // (onSuccess de Inertia se ejecuta después del redirect y el componente puede haberse remontado)
+        titleHistory.save(data.name);
+        descHistory.save(data.content);
+
         // Preparar datos para enviar (Inertia maneja automáticamente FormData cuando hay archivos)
         const submitData = {
             ...data,
@@ -214,12 +224,14 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {/* Título - Fila 1 (Full width) */}
                                     <div className="md:col-span-4">
                                         <Label htmlFor="name" className="text-xs">Título *</Label>
-                                        <Input
+                                        <InputWithHistory
+                                            historyKey="crear_caso_titulo"
                                             id="name"
                                             name="name"
                                             autoComplete="off"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
+                                            onValueAccepted={(val) => setData('name', val)}
                                             placeholder="Título del caso"
                                             required
                                             className="mt-1 h-8 text-sm"
@@ -490,12 +502,14 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {/* Descripción y Adjuntos en paralelo */}
                                     <div className="md:col-span-3">
                                         <Label htmlFor="content" className="text-xs">Descripción *</Label>
-                                        <Textarea
+                                        <TextareaWithHistory
+                                            historyKey="crear_caso_descripcion"
                                             id="content"
                                             name="content"
                                             autoComplete="off"
                                             value={data.content}
                                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('content', e.target.value)}
+                                            onValueAccepted={(val) => setData('content', val)}
                                             placeholder="Detalle el caso..."
                                             required
                                             rows={4}
