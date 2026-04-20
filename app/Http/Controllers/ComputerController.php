@@ -304,6 +304,15 @@ class ComputerController extends Controller
         $models = DB::table('glpi_computermodels')->select('id', 'name')->orderBy('name')->get();
         $locations = DB::table('glpi_locations')->select('id', 'name', 'completename')->orderBy('completename')->get();
         $entities = DB::table('glpi_entities')->select('id', 'name')->orderBy('name')->get();
+        $users = DB::table('glpi_users')->select('id', 'name', 'realname', 'firstname')->orderBy('name')->get();
+        $groups = DB::table('glpi_groups')->select('id', 'name')->orderBy('name')->get();
+        try {
+            $networks = DB::table('glpi_networks')->select('id', 'name')->orderBy('name')->get();
+        } catch (\Exception $e) {
+            $networks = collect();
+        }
+        $domains = DB::table('glpi_domains')->select('id', 'name')->orderBy('name')->get();
+        $autoupdatesystems = DB::table('glpi_autoupdatesystems')->select('id', 'name')->orderBy('name')->get();
 
         return Inertia::render('inventario/crear-computador', [
             'states' => $states,
@@ -312,6 +321,11 @@ class ComputerController extends Controller
             'models' => $models,
             'locations' => $locations,
             'entities' => $entities,
+            'users' => $users,
+            'groups' => $groups,
+            'networks' => $networks,
+            'domains' => $domains,
+            'autoupdatesystems' => $autoupdatesystems,
         ]);
     }
 
@@ -321,12 +335,22 @@ class ComputerController extends Controller
             'name' => 'required|string|max:255',
             'serial' => 'nullable|string|max:255',
             'otherserial' => 'nullable|string|max:255',
+            'contact' => 'nullable|string|max:255',
+            'contact_num' => 'nullable|string|max:255',
             'states_id' => 'nullable',
             'manufacturers_id' => 'nullable',
             'computertypes_id' => 'nullable',
             'computermodels_id' => 'nullable',
             'locations_id' => 'nullable',
             'entities_id' => 'nullable',
+            'users_id_tech' => 'nullable',
+            'groups_id_tech' => 'nullable',
+            'users_id' => 'nullable',
+            'groups_id' => 'nullable',
+            'networks_id' => 'nullable',
+            'domains_id' => 'nullable',
+            'uuid' => 'nullable|string|max:255',
+            'autoupdatesystems_id' => 'nullable',
             'comment' => 'nullable|string',
         ]);
 
@@ -334,29 +358,29 @@ class ComputerController extends Controller
             'name' => $validated['name'],
             'serial' => $validated['serial'] ?: '',
             'otherserial' => $validated['otherserial'] ?: '',
-            'contact' => '',
-            'contact_num' => '',
-            'users_id_tech' => 0,
-            'groups_id_tech' => 0,
+            'contact' => $validated['contact'] ?: '',
+            'contact_num' => $validated['contact_num'] ?: '',
+            'users_id_tech' => !empty($validated['users_id_tech']) ? (int)$validated['users_id_tech'] : 0,
+            'groups_id_tech' => !empty($validated['groups_id_tech']) ? (int)$validated['groups_id_tech'] : 0,
             'states_id' => !empty($validated['states_id']) ? (int)$validated['states_id'] : 0,
             'manufacturers_id' => !empty($validated['manufacturers_id']) ? (int)$validated['manufacturers_id'] : 0,
             'computertypes_id' => !empty($validated['computertypes_id']) ? (int)$validated['computertypes_id'] : 0,
             'computermodels_id' => !empty($validated['computermodels_id']) ? (int)$validated['computermodels_id'] : 0,
             'locations_id' => !empty($validated['locations_id']) ? (int)$validated['locations_id'] : 0,
             'entities_id' => !empty($validated['entities_id']) ? (int)$validated['entities_id'] : 0,
+            'users_id' => !empty($validated['users_id']) ? (int)$validated['users_id'] : 0,
+            'groups_id' => !empty($validated['groups_id']) ? (int)$validated['groups_id'] : 0,
+            'networks_id' => !empty($validated['networks_id']) ? (int)$validated['networks_id'] : 0,
+            'domains_id' => !empty($validated['domains_id']) ? (int)$validated['domains_id'] : 0,
+            'autoupdatesystems_id' => !empty($validated['autoupdatesystems_id']) ? (int)$validated['autoupdatesystems_id'] : 0,
             'comment' => $validated['comment'] ?: '',
             'is_deleted' => 0,
             'is_template' => 0,
             'is_dynamic' => 0,
             'is_recursive' => 0,
-            'users_id' => 0,
-            'groups_id' => 0,
-            'networks_id' => 0,
-            'domains_id' => 0,
-            'autoupdatesystems_id' => 0,
             'template_name' => '',
             'ticket_tco' => 0,
-            'uuid' => \Illuminate\Support\Str::uuid()->toString(),
+            'uuid' => !empty($validated['uuid']) ? $validated['uuid'] : \Illuminate\Support\Str::uuid()->toString(),
             'date_creation' => now(),
             'date_mod' => now(),
         ]);

@@ -19,6 +19,8 @@ interface Option {
     id: number;
     name: string;
     completename?: string;
+    realname?: string;
+    firstname?: string;
 }
 
 interface CrearComputadorProps {
@@ -28,19 +30,34 @@ interface CrearComputadorProps {
     models: Option[];
     locations: Option[];
     entities: Option[];
+    users: Option[];
+    groups: Option[];
+    networks: Option[];
+    domains: Option[];
+    autoupdatesystems: Option[];
 }
 
-export default function CrearComputador({ states, manufacturers, types, models, locations, entities }: CrearComputadorProps) {
+export default function CrearComputador({ states, manufacturers, types, models, locations, entities, users, groups, networks, domains, autoupdatesystems }: CrearComputadorProps) {
     const [formData, setFormData] = useState({
         name: '',
         serial: '',
         otherserial: '',
+        contact: '',
+        contact_num: '',
         states_id: '',
         manufacturers_id: '',
         computertypes_id: '',
         computermodels_id: '',
         locations_id: '',
         entities_id: '',
+        users_id_tech: '',
+        groups_id_tech: '',
+        users_id: '',
+        groups_id: '',
+        networks_id: '',
+        domains_id: '',
+        uuid: '',
+        autoupdatesystems_id: '',
         comment: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -112,7 +129,7 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             />
                                         </div>
                                         <div>
-                                            <Label htmlFor="otherserial" className="text-xs">Nº Inventario</Label>
+                                            <Label htmlFor="otherserial" className="text-xs">Número de Inventario</Label>
                                             <Input
                                                 id="otherserial"
                                                 value={formData.otherserial}
@@ -175,12 +192,12 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     </div>
                                 </div>
 
-                                {/* Ubicación */}
+                                {/* Ubicación y Entidad */}
                                 <div className="mb-4">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <Label className="text-xs">Ubicación</Label>
+                                            <Label className="text-xs">Localización</Label>
                                             <Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}>
                                                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar ubicación..." /></SelectTrigger>
                                                 <SelectContent>
@@ -204,9 +221,136 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     </div>
                                 </div>
 
+                                {/* Gestión / Responsables */}
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Gestión</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <Label className="text-xs">Técnico a cargo del hardware</Label>
+                                            <Select value={formData.users_id_tech} onValueChange={(v) => setFormData({ ...formData, users_id_tech: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {users.map((u) => (
+                                                        <SelectItem key={u.id} value={u.id.toString()}>
+                                                            {u.realname ? `${u.realname} ${u.firstname || ''}`.trim() : u.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Grupo a cargo del hardware</Label>
+                                            <Select value={formData.groups_id_tech} onValueChange={(v) => setFormData({ ...formData, groups_id_tech: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {groups.map((g) => (
+                                                        <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Usuario</Label>
+                                            <Select value={formData.users_id} onValueChange={(v) => setFormData({ ...formData, users_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {users.map((u) => (
+                                                        <SelectItem key={u.id} value={u.id.toString()}>
+                                                            {u.realname ? `${u.realname} ${u.firstname || ''}`.trim() : u.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Grupo</Label>
+                                            <Select value={formData.groups_id} onValueChange={(v) => setFormData({ ...formData, groups_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {groups.map((g) => (
+                                                        <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                        <div>
+                                            <Label htmlFor="contact" className="text-xs">Nombre de usuario alternativo</Label>
+                                            <Input
+                                                id="contact"
+                                                value={formData.contact}
+                                                onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                                                placeholder=""
+                                                className="mt-1 h-8 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="contact_num" className="text-xs">Número de contacto</Label>
+                                            <Input
+                                                id="contact_num"
+                                                value={formData.contact_num}
+                                                onChange={(e) => setFormData({ ...formData, contact_num: e.target.value })}
+                                                placeholder=""
+                                                className="mt-1 h-8 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Red y Sistema */}
+                                <div className="mb-4">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Red y Sistema</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <Label className="text-xs">Red</Label>
+                                            <Select value={formData.networks_id} onValueChange={(v) => setFormData({ ...formData, networks_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {networks.map((n) => (
+                                                        <SelectItem key={n.id} value={n.id.toString()}>{n.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Dominio</Label>
+                                            <Select value={formData.domains_id} onValueChange={(v) => setFormData({ ...formData, domains_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {domains.map((d) => (
+                                                        <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="uuid" className="text-xs">UUID</Label>
+                                            <Input
+                                                id="uuid"
+                                                value={formData.uuid}
+                                                onChange={(e) => setFormData({ ...formData, uuid: e.target.value })}
+                                                placeholder="Se genera automáticamente si se deja vacío"
+                                                className="mt-1 h-8 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Fuente de actualización</Label>
+                                            <Select value={formData.autoupdatesystems_id} onValueChange={(v) => setFormData({ ...formData, autoupdatesystems_id: v })}>
+                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {autoupdatesystems.map((a) => (
+                                                        <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Comentarios */}
                                 <div className="mb-4">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notas</h3>
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Comentarios</h3>
                                     <Textarea
                                         id="comment"
                                         value={formData.comment}
