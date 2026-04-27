@@ -18,8 +18,8 @@ class ComputerController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('direction', 'asc');
+        $sortField = $request->input('sort', 'date_mod');
+        $sortDirection = $request->input('direction', 'desc');
         $search = $request->input('search', '');
         $stateFilter = $request->input('state', '');
         $manufacturerFilter = $request->input('manufacturer', '');
@@ -42,7 +42,7 @@ class ComputerController extends Controller
             'date_mod' => 'c.date_mod',
         ];
 
-        $orderByField = $sortableFields[$sortField] ?? 'c.name';
+        $orderByField = $sortableFields[$sortField] ?? 'c.date_mod';
         
         $query = DB::table('glpi_computers as c')
             ->select(
