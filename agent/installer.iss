@@ -14,7 +14,7 @@
 
 ; >>> Configuracion del servidor (editar estas dos lineas) <<<
 #define DefaultBaseUrl         "http://helpdesk.huv.gov.co"
-#define EnrollmentSecret       "CAMBIAR_ESTE_SECRETO_EN_ENV_DEL_SERVIDOR"
+#define EnrollmentSecret       "d2e964be2c0362f40a4f0682e476e519195cab2fdff0fe13"
 
 [Setup]
 AppId={{D1F2A3B4-5C6D-7E8F-9012-345678ABCDEF}
