@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Agente de Inventario
+    |--------------------------------------------------------------------------
+    |
+    | enrollment_secret: clave compartida que el agente Windows envía al endpoint
+    | /api/inventory/register para auto-emitir su token Sanctum. Cambiarla en .env
+    | para invalidar instalaciones futuras (las existentes siguen usando su token).
+    |
+    | token_owner: nombre del usuario GLPI propietario de los tokens emitidos
+    | por auto-registro. Si no existe se usa el primer usuario de la BD.
+    |
+    */
+    'agent' => [
+        'enrollment_secret' => env('AGENT_ENROLLMENT_SECRET', ''),
+        'token_owner' => env('AGENT_TOKEN_OWNER', 'Kechavarro'),
+    ],
+
 ];

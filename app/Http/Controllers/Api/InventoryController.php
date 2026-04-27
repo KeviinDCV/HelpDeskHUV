@@ -37,6 +37,82 @@ class InventoryController extends Controller
     }
 
     /**
+     * Auto-registro: genera un token Sanctum nuevo para un PC.
+     * Protegido por un secret compartido (env AGENT_ENROLLMENT_SECRET) para
+     * evitar que cualquier IP pueda crear tokens.
+     *
+     * Si ya existe un agent_device para ese hardware_uuid devuelve el mismo
+     * dispositivo pero genera un token NUEVO (los previos se mantienen
+     * funcionales — el operador puede revocarlos manualmente si quiere).
+     */
+    public function register(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'enrollment_secret' => 'required|string|max:255',
+            'hardware_uuid' => 'required|string|max:191',
+            'hostname' => 'nullable|string|max:191',
+            'serial' => 'nullable|string|max:191',
+            'windows_username' => 'nullable|string|max:191',
+            'agent_version' => 'nullable|string|max:50',
+        ]);
+
+        $expected = (string) config('services.agent.enrollment_secret', env('AGENT_ENROLLMENT_SECRET', ''));
+        if ($expected === '' || ! hash_equals($expected, $data['enrollment_secret'])) {
+            Log::warning('Agent register: enrollment_secret inválido', [
+                'ip' => $request->ip(),
+                'hostname' => $data['hostname'] ?? null,
+            ]);
+            return response()->json([
+                'ok' => false,
+                'error' => 'invalid_enrollment_secret',
+            ], 401);
+        }
+
+        // Usuario "técnico" propietario de los tokens emitidos por auto-registro.
+        $ownerName = (string) config('services.agent.token_owner', env('AGENT_TOKEN_OWNER', 'Kechavarro'));
+        $owner = \App\Models\User::where('name', $ownerName)->first();
+        if (! $owner) {
+            $owner = \App\Models\User::query()->orderBy('id')->first();
+        }
+        if (! $owner) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'no_user_available',
+                'message' => 'No hay usuarios en la base de datos para asociar el token.',
+            ], 500);
+        }
+
+        $tokenName = sprintf('agent:%s', $data['hostname'] ?? substr($data['hardware_uuid'], 0, 12));
+        $newToken = $owner->createToken($tokenName, ['agent:sync']);
+
+        $device = AgentDevice::updateOrCreate(
+            ['hardware_uuid' => $data['hardware_uuid']],
+            [
+                'hostname' => $data['hostname'] ?? null,
+                'serial' => $data['serial'] ?? null,
+                'windows_username' => $data['windows_username'] ?? null,
+                'token_id' => $newToken->accessToken->id,
+                'status' => 'active',
+                'agent_version' => $data['agent_version'] ?? null,
+                'last_ip' => $request->ip(),
+            ]
+        );
+
+        Log::info('Agent registered', [
+            'device_id' => $device->id,
+            'hostname' => $device->hostname,
+            'hardware_uuid' => $device->hardware_uuid,
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'token' => $newToken->plainTextToken,
+            'device_id' => $device->id,
+        ]);
+    }
+
+    /**
      * Verifica si un equipo ya existe (por hardware_uuid o serial).
      * Permite al agente decidir si "Crear" o "Enviar datos".
      */

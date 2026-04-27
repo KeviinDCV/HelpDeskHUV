@@ -130,7 +130,7 @@ public sealed class InventoryCollector
     // Bloques individuales
     // -----------------------------------------------------------
 
-    private GeneralInfo CollectGeneral()
+    public GeneralInfo CollectGeneral()
     {
         var info = new GeneralInfo
         {

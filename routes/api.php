@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Route;
 // Endpoints públicos (no autenticados) - solo para verificar disponibilidad
 Route::prefix('inventory')->group(function () {
     Route::get('/health', [InventoryController::class, 'health'])->name('api.inventory.health');
+
+    // Auto-registro de un PC nuevo. Requiere enrollment_secret para evitar abuso.
+    // Devuelve un token Sanctum con la habilidad agent:sync.
+    Route::post('/register', [InventoryController::class, 'register'])->name('api.inventory.register');
 });
 
 // Endpoints autenticados con token Sanctum

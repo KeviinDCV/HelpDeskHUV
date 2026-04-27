@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("© Hospital Universitario del Valle")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Agente que recolecta inventario del PC y lo sincroniza con HelpDesk HUV.")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d2f22c12fc616e685748cfc0c83b763c7426d6f7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+56e70210ea83fb36fd9724b57ca24ae12c2b70e2")]
 [assembly: System.Reflection.AssemblyProductAttribute("HelpDesk HUV - Agente de Inventario")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HelpDeskHuv.Agent")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
