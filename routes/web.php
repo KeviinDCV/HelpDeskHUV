@@ -139,6 +139,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/administracion/usuarios/{id}/toggle-active', [App\Http\Controllers\UserController::class, 'toggleActive'])->name('administracion.usuarios.toggle-active');
     Route::put('/administracion/usuarios/{id}', [App\Http\Controllers\UserController::class, 'update'])->name('administracion.usuarios.update');
 
+    // Tokens del agente de inventario (Sanctum personal_access_tokens con habilidad agent:sync)
+    Route::get('/administracion/agente-tokens', [App\Http\Controllers\AgentTokenController::class, 'index'])->name('administracion.agente-tokens');
+    Route::post('/administracion/agente-tokens', [App\Http\Controllers\AgentTokenController::class, 'store'])->name('administracion.agente-tokens.store');
+    Route::delete('/administracion/agente-tokens/{id}', [App\Http\Controllers\AgentTokenController::class, 'destroy'])->name('administracion.agente-tokens.destroy');
+    Route::post('/administracion/agente-dispositivos/{id}/toggle', [App\Http\Controllers\AgentTokenController::class, 'toggleDevice'])->name('administracion.agente-dispositivos.toggle');
+
     // Archivos de GLPI
     Route::get('/glpi-files/{path}', [App\Http\Controllers\TicketController::class, 'serveGlpiFile'])->where('path', '.*')->name('glpi.file');
 

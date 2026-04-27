@@ -927,6 +927,14 @@ class ComputerController extends Controller
         $infocom = DB::table('glpi_infocoms')
             ->where('itemtype', 'Computer')->where('items_id', $id)->first();
 
+        // Dropdowns adicionales (networks_id, autoupdatesystems_id) — disponibles tambi\u00e9n en edici\u00f3n
+        try {
+            $networks = DB::table('glpi_networks')->select('id', 'name')->orderBy('name')->get();
+        } catch (\Exception $e) {
+            $networks = collect();
+        }
+        $autoupdatesystems = DB::table('glpi_autoupdatesystems')->select('id', 'name')->orderBy('name')->get();
+
         return Inertia::render('inventario/editar-computador', [
             'computer' => $computer,
             'states' => $states,
@@ -938,6 +946,8 @@ class ComputerController extends Controller
             'users' => $users,
             'groups' => $groups,
             'domains' => $domains,
+            'networks' => $networks,
+            'autoupdatesystems' => $autoupdatesystems,
             'operatingSystems' => $operatingSystems,
             'osList' => $osList,
             'osVersions' => $osVersions,
@@ -999,6 +1009,9 @@ class ComputerController extends Controller
             'users_id' => 'nullable|integer',
             'groups_id' => 'nullable|integer',
             'domains_id' => 'nullable|integer',
+            'networks_id' => 'nullable|integer',
+            'autoupdatesystems_id' => 'nullable|integer',
+            'uuid' => 'nullable|string|max:255',
             'comment' => 'nullable|string',
         ]);
 
@@ -1019,6 +1032,9 @@ class ComputerController extends Controller
             'users_id' => $validated['users_id'] ?? 0,
             'groups_id' => $validated['groups_id'] ?? 0,
             'domains_id' => $validated['domains_id'] ?? 0,
+            'networks_id' => $validated['networks_id'] ?? 0,
+            'autoupdatesystems_id' => $validated['autoupdatesystems_id'] ?? 0,
+            'uuid' => !empty($validated['uuid']) ? $validated['uuid'] : DB::raw('uuid'),
             'comment' => $validated['comment'] ?? null,
             'date_mod' => now(),
         ]);

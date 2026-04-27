@@ -58,6 +58,7 @@ const utilesItems = [
 
 const administracionItems = [
   { name: 'Usuarios', href: '/administracion/usuarios' },
+  { name: 'Tokens de Agente', href: '/administracion/agente-tokens' },
   { name: 'Grupos', href: '/administracion/grupos' },
   { name: 'Entidades', href: '/administracion/entidades' },
   { name: 'Reglas', href: '/administracion/reglas' },
