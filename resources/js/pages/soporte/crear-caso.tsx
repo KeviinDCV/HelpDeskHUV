@@ -291,7 +291,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     <div>
                                         <Label htmlFor="locations_id" className="text-xs">Localización</Label>
                                         <SearchableSelect
-                                            options={locations.map(loc => ({ value: loc.id.toString(), label: loc.short_name }))}
+                                            options={locations.map(loc => ({ value: loc.id.toString(), label: loc.completename || loc.short_name }))}
                                             value={data.locations_id}
                                             onValueChange={(value) => setData('locations_id', value)}
                                             placeholder="Seleccione..."

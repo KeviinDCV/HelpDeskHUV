@@ -317,7 +317,7 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                     <div>
                                         <Label htmlFor="locations_id" className="text-xs">Localización</Label>
                                         <SearchableSelect
-                                            options={locations.map(loc => ({ value: loc.id.toString(), label: loc.short_name || loc.completename }))}
+                                            options={locations.map(loc => ({ value: loc.id.toString(), label: loc.completename || loc.short_name || loc.name }))}
                                             value={data.locations_id}
                                             onValueChange={(value) => setData('locations_id', value)}
                                             placeholder="Seleccione..."

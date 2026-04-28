@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
     Save, Monitor as MonitorIcon, Cpu, HardDrive, Package,
     Plus, Trash2, Pencil, X, Check, Shield, Server, FileText,
@@ -124,21 +125,26 @@ const tabConfig: { key: TabKey; label: string; icon: React.ElementType }[] = [
     { key: 'infocom', label: 'Info. Financiera', icon: Info },
 ];
 
-// ============ HELPER: Select dropdown ============
-function SearchSelect({ value, onValueChange, options, placeholder }: {
+// ============ HELPER: Select dropdown con búsqueda ============
+function SearchSelect({ value, onValueChange, options, placeholder, hideNoneOption }: {
     value: string; onValueChange: (v: string) => void; options: { id: number; label: string }[];
-    placeholder: string;
+    placeholder: string; hideNoneOption?: boolean;
 }) {
+    // Si hideNoneOption=true o ya existe una opción con id=0, no mostrar "-- Ninguno --"
+    const hasZeroOption = options.some(o => o.id === 0);
+    const showNone = !hideNoneOption && !hasZeroOption;
+    const finalOptions = [
+        ...(showNone ? [{ value: '0', label: '-- Ninguno --' }] : []),
+        ...options.map(o => ({ value: o.id.toString(), label: o.label })),
+    ];
     return (
-        <Select value={value} onValueChange={onValueChange}>
-            <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder={placeholder} /></SelectTrigger>
-            <SelectContent>
-                <SelectItem value="0">-- Ninguno --</SelectItem>
-                {options.map((o) => (
-                    <SelectItem key={o.id} value={o.id.toString()}>{o.label}</SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+        <SearchableSelect
+            options={finalOptions}
+            value={value}
+            onValueChange={onValueChange}
+            placeholder={placeholder}
+            searchPlaceholder="Buscar..."
+        />
     );
 }
 
