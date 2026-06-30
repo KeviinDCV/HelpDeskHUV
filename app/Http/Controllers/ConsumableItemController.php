@@ -58,6 +58,14 @@ class ConsumableItemController extends Controller
         if ($typeFilter && $typeFilter !== 'all') { $query->where('ci.consumableitemtypes_id', $typeFilter); }
         if ($manufacturerFilter && $manufacturerFilter !== 'all') { $query->where('ci.manufacturers_id', $manufacturerFilter); }
 
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getConsumableFieldMap());
+            }
+        }
+
         $query->groupBy('ci.id', 'ci.name', 'ci.ref', 't.name', 'mf.name', 'u.name', 'ci.comment', 'e.name');
 
         // Aplicar búsqueda si existe
@@ -96,6 +104,7 @@ class ConsumableItemController extends Controller
         $search = $request->input('search', '');
         $typeFilter = $request->input('type', '');
         $manufacturerFilter = $request->input('manufacturer', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         $sortableFields = [
             'name' => 'ci.name',
@@ -131,6 +140,14 @@ class ConsumableItemController extends Controller
 
         if ($typeFilter && $typeFilter !== 'all') { $query->where('ci.consumableitemtypes_id', $typeFilter); }
         if ($manufacturerFilter && $manufacturerFilter !== 'all') { $query->where('ci.manufacturers_id', $manufacturerFilter); }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getConsumableFieldMap());
+            }
+        }
 
         $query->groupBy('ci.id', 'ci.name', 'e.name', 'ci.ref', 't.name', 'mf.name', 'ci.comment', 'u.name');
 

@@ -172,6 +172,8 @@ class NetworkEquipmentController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
+        $deviceCategory = $request->input('device_category', 'all');
 
         $sortableFields = [
             'name' => 'n.name',
@@ -185,7 +187,7 @@ class NetworkEquipmentController extends Controller
         ];
 
         $orderByField = $sortableFields[$sortField] ?? 'n.name';
-        
+
         $query = DB::table('glpi_networkequipments as n')
             ->select(
                 'n.name',
@@ -235,6 +237,24 @@ class NetworkEquipmentController extends Controller
         }
         if ($dateTo) {
             $query->whereDate('n.date_mod', '<=', $dateTo);
+        }
+
+        // Filtro de categoría de dispositivo
+        if ($deviceCategory === 'wifi') {
+            $query->where('mf.name', 'LIKE', '%Ubiquiti%');
+        } elseif ($deviceCategory === 'switches') {
+            $query->where(function($q) {
+                $q->where('mf.name', 'NOT LIKE', '%Ubiquiti%')
+                  ->orWhereNull('mf.name');
+            });
+        }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getNetworkEquipmentFieldMap());
+            }
         }
 
         $networkequipments = $query->orderBy($orderByField, $sortDirection)->get();

@@ -152,6 +152,7 @@ class PrinterController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         $sortableFields = [
             'name' => 'p.name',
@@ -165,7 +166,7 @@ class PrinterController extends Controller
         ];
 
         $orderByField = $sortableFields[$sortField] ?? 'p.name';
-        
+
         $query = DB::table('glpi_printers as p')
             ->select(
                 'p.name',
@@ -203,6 +204,14 @@ class PrinterController extends Controller
         if ($locationFilter && $locationFilter !== 'all') { $query->where('p.locations_id', $locationFilter); }
         if ($dateFrom) { $query->whereDate('p.date_mod', '>=', $dateFrom); }
         if ($dateTo) { $query->whereDate('p.date_mod', '<=', $dateTo); }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getPrinterFieldMap());
+            }
+        }
 
         $printers = $query->orderBy($orderByField, $sortDirection)->get();
 

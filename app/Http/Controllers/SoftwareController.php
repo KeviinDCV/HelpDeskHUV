@@ -112,6 +112,7 @@ class SoftwareController extends Controller
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');
         $manufacturerFilter = $request->input('manufacturer', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         $sortableFields = [
             'name' => 's.name',
@@ -143,6 +144,14 @@ class SoftwareController extends Controller
         // Aplicar filtro de fabricante antes del groupBy
         if ($manufacturerFilter && $manufacturerFilter !== 'all') {
             $query->where('s.manufacturers_id', $manufacturerFilter);
+        }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getSoftwareFieldMap());
+            }
         }
 
         $query->groupBy('s.id', 's.name', 'm.name', 'e.name');

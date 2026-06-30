@@ -126,6 +126,7 @@ class PhoneController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         $sortableFields = [
             'name' => 'p.name',
@@ -140,7 +141,7 @@ class PhoneController extends Controller
         ];
 
         $orderByField = $sortableFields[$sortField] ?? 'p.name';
-        
+
         $query = DB::table('glpi_phones as p')
             ->select(
                 'p.name',
@@ -180,6 +181,14 @@ class PhoneController extends Controller
         if ($locationFilter && $locationFilter !== 'all') { $query->where('p.locations_id', $locationFilter); }
         if ($dateFrom) { $query->whereDate('p.date_mod', '>=', $dateFrom); }
         if ($dateTo) { $query->whereDate('p.date_mod', '<=', $dateTo); }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $advancedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($advancedFilters) && count($advancedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $advancedFilters, $this->getPhoneFieldMap());
+            }
+        }
 
         $phones = $query->orderBy($orderByField, $sortDirection)->get();
 

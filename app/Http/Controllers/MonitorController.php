@@ -162,6 +162,7 @@ class MonitorController extends Controller
         $locationFilter = $request->input('location', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         $sortableFields = [
             'name' => 'm.name',
@@ -228,6 +229,14 @@ class MonitorController extends Controller
         }
         if ($dateTo) {
             $query->whereDate('m.date_mod', '<=', $dateTo);
+        }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $parsedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters, $this->getMonitorFieldMap());
+            }
         }
 
         $monitors = $query->orderBy($orderByField, $sortDirection)->get();

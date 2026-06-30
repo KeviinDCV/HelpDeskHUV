@@ -172,6 +172,7 @@ class GlobalInventoryController extends Controller
         $search = $request->input('search', '');
         $stateFilter = $request->input('state', '');
         $itemTypeFilter = $request->input('item_type', '');
+        $advancedFiltersJson = $request->input('advanced_filters', '');
 
         // Construir query UNION de todos los tipos de activos
         $computersQuery = DB::table('glpi_computers as c')
@@ -277,6 +278,14 @@ class GlobalInventoryController extends Controller
             $stateName = DB::table('glpi_states')->where('id', $stateFilter)->value('name');
             if ($stateName) {
                 $query->where('state_name', $stateName);
+            }
+        }
+
+        // Filtros avanzados
+        if ($advancedFiltersJson) {
+            $advancedFilters = json_decode($advancedFiltersJson, true);
+            if (is_array($advancedFilters) && count($advancedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $advancedFilters, $this->getGlobalFieldMap());
             }
         }
 
