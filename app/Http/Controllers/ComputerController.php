@@ -17,7 +17,7 @@ class ComputerController extends Controller
     use AdvancedFilterable;
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 15);
+        $perPage = min((int) $request->input('per_page', 15), 100);
         $sortField = $request->input('sort', 'date_mod');
         $sortDirection = $request->input('direction', 'desc');
         $search = $request->input('search', '');
