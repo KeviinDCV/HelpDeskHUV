@@ -26,7 +26,8 @@ Route::get('/reportar', [App\Http\Controllers\PublicTicketController::class, 'cr
 Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 'store'])->middleware('throttle:10,1')->name('reportar.store');
 Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->middleware('throttle:30,1')->name('chatbot');
 Route::post('/chatbot-puter', [App\Http\Controllers\ChatbotController::class, 'chatPuter'])->middleware('throttle:30,1')->name('chatbot.puter');
-Route::get('/chatbot-system-data', [App\Http\Controllers\ChatbotController::class, 'getSystemData'])->name('chatbot.system-data');
+// Requiere autenticación: expone nombres de equipos (ECOMs); no debe ser público.
+Route::get('/chatbot-system-data', [App\Http\Controllers\ChatbotController::class, 'getSystemData'])->middleware('auth')->name('chatbot.system-data');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Búsqueda global
