@@ -450,6 +450,7 @@ export default function ReportarCaso() {
                                 <input
                                     ref={inputRef}
                                     type="text"
+                                    aria-label="Escribe tu mensaje"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyPress={handleKeyPress}
@@ -461,6 +462,7 @@ export default function ReportarCaso() {
                                     <button
                                         ref={sendButtonRef}
                                         type="submit"
+                                        aria-label="Enviar mensaje"
                                         onClick={() => { sendMessage(); inputRef.current?.focus(); }}
                                         disabled={!input.trim() || isLoading}
                                         className="text-[#2d3e5e] hover:bg-blue-50 p-2 rounded-full transition-colors flex items-center justify-center disabled:opacity-40"
