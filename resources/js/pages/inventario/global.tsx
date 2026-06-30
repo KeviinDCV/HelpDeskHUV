@@ -120,7 +120,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
 
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) {
-            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
+            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
         }
         return filters.direction === 'asc'
             ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />

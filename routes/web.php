@@ -21,10 +21,11 @@ Route::get('/salir', function () {
 })->name('salir');
 
 // Rutas públicas (sin autenticación)
+// Rate-limiting para evitar abuso anónimo (spam de tickets y gasto de la API de IA).
 Route::get('/reportar', [App\Http\Controllers\PublicTicketController::class, 'create'])->name('reportar');
-Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 'store'])->name('reportar.store');
-Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->name('chatbot');
-Route::post('/chatbot-puter', [App\Http\Controllers\ChatbotController::class, 'chatPuter'])->name('chatbot.puter');
+Route::post('/reportar', [App\Http\Controllers\PublicTicketController::class, 'store'])->middleware('throttle:10,1')->name('reportar.store');
+Route::post('/chatbot', [App\Http\Controllers\ChatbotController::class, 'chat'])->middleware('throttle:30,1')->name('chatbot');
+Route::post('/chatbot-puter', [App\Http\Controllers\ChatbotController::class, 'chatPuter'])->middleware('throttle:30,1')->name('chatbot.puter');
 Route::get('/chatbot-system-data', [App\Http\Controllers\ChatbotController::class, 'getSystemData'])->name('chatbot.system-data');
 
 Route::middleware(['auth', 'verified'])->group(function () {

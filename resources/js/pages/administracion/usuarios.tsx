@@ -151,7 +151,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
 
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) {
-            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
+            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
         }
         return filters.direction === 'asc' 
             ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
@@ -465,9 +465,9 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                             <TableCell className="text-xs">
                                                 <div className="flex items-center gap-2">
                                                     {user.avatar ? (
-                                                        <img 
-                                                            src={`/storage/${user.avatar}`} 
-                                                            alt={user.name} 
+                                                        <img
+                                                            src={`/storage/${user.avatar}`}
+                                                            alt=""
                                                             className="w-6 h-6 object-cover"
                                                         />
                                                     ) : (

@@ -18,7 +18,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function Appearance() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Appearance settings" />
+            <Head title="Apariencia - HelpDesk HUV" />
 
             <SettingsLayout>
                 <div className="space-y-6">

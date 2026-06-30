@@ -17,7 +17,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
             title="Forgot password"
             description="Enter your email to receive a password reset link"
         >
-            <Head title="Forgot password" />
+            <Head title="Recuperar contraseña - HelpDesk HUV" />
 
             {status && (
                 <div className="mb-4 text-center text-sm font-medium text-green-600">

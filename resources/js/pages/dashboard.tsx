@@ -320,9 +320,9 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                         ) : (
                                             <FileText className="w-5 h-5 text-[#2c4370] shrink-0" />
                                         )}
-                                        <h2 className="text-base sm:text-lg font-semibold text-gray-800">
+                                        <h1 className="text-base sm:text-lg font-semibold text-gray-800">
                                             {isPublicView ? 'Reportes Públicos' : 'Mis Reportes'}
-                                        </h2>
+                                        </h1>
                                         <span className={`text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full ${
                                             isPublicView ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                                         }`}>

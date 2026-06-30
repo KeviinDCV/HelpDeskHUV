@@ -26,7 +26,7 @@ export default function Password() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Password settings" />
+            <Head title="Contraseña - HelpDesk HUV" />
 
             <SettingsLayout>
                 <div className="space-y-6">

@@ -42,7 +42,7 @@ export default function TwoFactor({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Two-Factor Authentication" />
+            <Head title="Autenticación en dos pasos - HelpDesk HUV" />
             <SettingsLayout>
                 <div className="space-y-6">
                     <HeadingSmall

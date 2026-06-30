@@ -217,7 +217,7 @@ export default function Impresoras({ printers, states, manufacturers, types, loc
 
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) {
-            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-400" />;
+            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
         }
         return filters.direction === 'asc'
             ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />

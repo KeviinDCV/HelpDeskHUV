@@ -5,6 +5,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
+        {{-- App interna: evitar indexación accidental por buscadores --}}
+        <meta name="robots" content="noindex, nofollow">
+
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
             (function() {
@@ -31,7 +34,7 @@
             }
         </style>
 
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ config('app.name', 'HelpDesk HUV') }}</title>
 
         <link rel="icon" href="/images/favicon.png" type="image/png">
         <link rel="apple-touch-icon" href="/images/favicon.png">

@@ -13,7 +13,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
             title="Verify email"
             description="Please verify your email address by clicking on the link we just emailed to you."
         >
-            <Head title="Email verification" />
+            <Head title="Verificación de correo - HelpDesk HUV" />
 
             {status === 'verification-link-sent' && (
                 <div className="mb-4 text-center text-sm font-medium text-green-600">

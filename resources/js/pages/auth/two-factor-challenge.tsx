@@ -50,7 +50,7 @@ export default function TwoFactorChallenge() {
             title={authConfigContent.title}
             description={authConfigContent.description}
         >
-            <Head title="Two-Factor Authentication" />
+            <Head title="Autenticación en dos pasos - HelpDesk HUV" />
 
             <div className="space-y-6">
                 <Form

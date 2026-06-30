@@ -608,7 +608,7 @@ class ComputerController extends Controller
             ->where('items_id', $id)
             ->orderBy('changed_at', 'desc')
             ->orderBy('id', 'desc')
-            ->limit(500)
+            ->limit(100)
             ->get(['id', 'category', 'action', 'field', 'old_value', 'new_value', 'summary', 'changed_at']);
 
         return Inertia::render('inventario/ver-computador', [

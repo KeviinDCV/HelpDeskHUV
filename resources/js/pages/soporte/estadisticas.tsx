@@ -156,6 +156,8 @@ export default function Estadisticas({
                 } />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+                    <h1 className="text-xl font-semibold text-gray-900">Estadísticas</h1>
+
                     {/* Filtros */}
                     <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-3 sm:mb-4">
