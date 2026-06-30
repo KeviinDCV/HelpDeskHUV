@@ -115,8 +115,8 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div className="md:col-span-2">
                                             <Label htmlFor="name" className="text-xs">Nombre *</Label>
-                                            <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Ej: IMPRESORA-HP-PISO2" required className="mt-1 h-8 text-sm" />
-                                            {errors.name && <p className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
+                                            <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Ej: IMPRESORA-HP-PISO2" required aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} className="mt-1 h-8 text-sm" />
+                                            {errors.name && <p id="name-error" role="alert" className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
                                         </div>
                                         <div>
                                             <Label htmlFor="serial" className="text-xs">Número de Serie</Label>
@@ -133,30 +133,30 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Clasificación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
-                                            <Label className="text-xs">Estado</Label>
+                                            <Label htmlFor="states_id" className="text-xs">Estado</Label>
                                             <Select value={formData.states_id} onValueChange={(v) => setFormData({ ...formData, states_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="states_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{states.map((s) => (<SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Tipo</Label>
+                                            <Label htmlFor="printertypes_id" className="text-xs">Tipo</Label>
                                             <Select value={formData.printertypes_id} onValueChange={(v) => setFormData({ ...formData, printertypes_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="printertypes_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{types.map((t) => (<SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Fabricante</Label>
+                                            <Label htmlFor="manufacturers_id" className="text-xs">Fabricante</Label>
                                             <Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="manufacturers_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{manufacturers.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Modelo</Label>
+                                            <Label htmlFor="printermodels_id" className="text-xs">Modelo</Label>
                                             <Select value={formData.printermodels_id} onValueChange={(v) => setFormData({ ...formData, printermodels_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="printermodels_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{models.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
@@ -167,30 +167,30 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación y Responsables</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
-                                            <Label className="text-xs">Ubicación</Label>
+                                            <Label htmlFor="locations_id" className="text-xs">Ubicación</Label>
                                             <Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="locations_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Entidad</Label>
+                                            <Label htmlFor="entities_id" className="text-xs">Entidad</Label>
                                             <Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="entities_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{entities.map((e) => (<SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Técnico a cargo</Label>
+                                            <Label htmlFor="users_id_tech" className="text-xs">Técnico a cargo</Label>
                                             <Select value={formData.users_id_tech} onValueChange={(v) => setFormData({ ...formData, users_id_tech: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="users_id_tech" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{users?.map((u) => (<SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Grupo a cargo</Label>
+                                            <Label htmlFor="groups_id_tech" className="text-xs">Grupo a cargo</Label>
                                             <Select value={formData.groups_id_tech} onValueChange={(v) => setFormData({ ...formData, groups_id_tech: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="groups_id_tech" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>{groups?.map((g) => (<SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>))}</SelectContent>
                                             </Select>
                                         </div>
@@ -271,6 +271,7 @@ export default function CrearImpresora({ states, manufacturers, types, models, l
 
                                 <div className="mb-4">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notas</h3>
+                                    <Label htmlFor="comment" className="text-xs">Comentarios</Label>
                                     <Textarea id="comment" value={formData.comment} onChange={(e) => setFormData({ ...formData, comment: e.target.value })} placeholder="Información adicional..." rows={2} className="text-sm" />
                                 </div>
 

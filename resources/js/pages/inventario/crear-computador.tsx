@@ -114,9 +114,11 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                                 placeholder="Ej: PC-CONTABILIDAD-001"
                                                 required
+                                                aria-invalid={!!errors.name}
+                                                aria-describedby={errors.name ? 'name-error' : undefined}
                                                 className="mt-1 h-8 text-sm"
                                             />
-                                            {errors.name && <p className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
+                                            {errors.name && <p id="name-error" role="alert" className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
                                         </div>
                                         <div>
                                             <Label htmlFor="serial" className="text-xs">Número de Serie</Label>
@@ -146,9 +148,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Clasificación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
-                                            <Label className="text-xs">Estado</Label>
+                                            <Label htmlFor="states_id" className="text-xs">Estado</Label>
                                             <Select value={formData.states_id} onValueChange={(v) => setFormData({ ...formData, states_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="states_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {states.map((s) => (
                                                         <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
@@ -157,9 +159,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Tipo</Label>
+                                            <Label htmlFor="computertypes_id" className="text-xs">Tipo</Label>
                                             <Select value={formData.computertypes_id} onValueChange={(v) => setFormData({ ...formData, computertypes_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="computertypes_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {types.map((t) => (
                                                         <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
@@ -168,9 +170,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Fabricante</Label>
+                                            <Label htmlFor="manufacturers_id" className="text-xs">Fabricante</Label>
                                             <Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="manufacturers_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {manufacturers.map((m) => (
                                                         <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
@@ -179,9 +181,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Modelo</Label>
+                                            <Label htmlFor="computermodels_id" className="text-xs">Modelo</Label>
                                             <Select value={formData.computermodels_id} onValueChange={(v) => setFormData({ ...formData, computermodels_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="computermodels_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {models.map((m) => (
                                                         <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
@@ -197,9 +199,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <Label className="text-xs">Localización</Label>
+                                            <Label htmlFor="locations_id" className="text-xs">Localización</Label>
                                             <Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar ubicación..." /></SelectTrigger>
+                                                <SelectTrigger id="locations_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar ubicación..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {locations.map((l) => (
                                                         <SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>
@@ -208,9 +210,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Entidad</Label>
+                                            <Label htmlFor="entities_id" className="text-xs">Entidad</Label>
                                             <Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar entidad..." /></SelectTrigger>
+                                                <SelectTrigger id="entities_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar entidad..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {entities.map((e) => (
                                                         <SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>
@@ -226,9 +228,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Gestión</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
-                                            <Label className="text-xs">Técnico a cargo del hardware</Label>
+                                            <Label htmlFor="users_id_tech" className="text-xs">Técnico a cargo del hardware</Label>
                                             <Select value={formData.users_id_tech} onValueChange={(v) => setFormData({ ...formData, users_id_tech: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="users_id_tech" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {users.map((u) => (
                                                         <SelectItem key={u.id} value={u.id.toString()}>
@@ -239,9 +241,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Grupo a cargo del hardware</Label>
+                                            <Label htmlFor="groups_id_tech" className="text-xs">Grupo a cargo del hardware</Label>
                                             <Select value={formData.groups_id_tech} onValueChange={(v) => setFormData({ ...formData, groups_id_tech: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="groups_id_tech" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {groups.map((g) => (
                                                         <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
@@ -250,9 +252,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Usuario</Label>
+                                            <Label htmlFor="users_id" className="text-xs">Usuario</Label>
                                             <Select value={formData.users_id} onValueChange={(v) => setFormData({ ...formData, users_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="users_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {users.map((u) => (
                                                         <SelectItem key={u.id} value={u.id.toString()}>
@@ -263,9 +265,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Grupo</Label>
+                                            <Label htmlFor="groups_id" className="text-xs">Grupo</Label>
                                             <Select value={formData.groups_id} onValueChange={(v) => setFormData({ ...formData, groups_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="groups_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {groups.map((g) => (
                                                         <SelectItem key={g.id} value={g.id.toString()}>{g.name}</SelectItem>
@@ -303,9 +305,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Red y Sistema</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
-                                            <Label className="text-xs">Red</Label>
+                                            <Label htmlFor="networks_id" className="text-xs">Red</Label>
                                             <Select value={formData.networks_id} onValueChange={(v) => setFormData({ ...formData, networks_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="networks_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {networks.map((n) => (
                                                         <SelectItem key={n.id} value={n.id.toString()}>{n.name}</SelectItem>
@@ -314,9 +316,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Dominio</Label>
+                                            <Label htmlFor="domains_id" className="text-xs">Dominio</Label>
                                             <Select value={formData.domains_id} onValueChange={(v) => setFormData({ ...formData, domains_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="domains_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {domains.map((d) => (
                                                         <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
@@ -335,9 +337,9 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                             />
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Fuente de actualización</Label>
+                                            <Label htmlFor="autoupdatesystems_id" className="text-xs">Fuente de actualización</Label>
                                             <Select value={formData.autoupdatesystems_id} onValueChange={(v) => setFormData({ ...formData, autoupdatesystems_id: v })}>
-                                                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                                <SelectTrigger id="autoupdatesystems_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {autoupdatesystems.map((a) => (
                                                         <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
@@ -351,6 +353,7 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                 {/* Comentarios */}
                                 <div className="mb-4">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Comentarios</h3>
+                                    <Label htmlFor="comment" className="sr-only">Comentarios</Label>
                                     <Textarea
                                         id="comment"
                                         value={formData.comment}

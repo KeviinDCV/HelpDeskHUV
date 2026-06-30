@@ -136,7 +136,17 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
-  
+
+  // Cerrar el menú móvil con la tecla Escape
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [mobileMenuOpen]);
+
   const handleLogout = () => {
     window.location.href = '/salir';
   }
@@ -152,6 +162,22 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
   return (
     <header className="bg-[#2c4370] text-white sticky top-0 z-50">
+      {/* Skip link: primer elemento enfocable para saltar la navegación con teclado */}
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          const main = document.querySelector('main');
+          if (main) {
+            main.setAttribute('tabindex', '-1');
+            (main as HTMLElement).focus();
+            main.scrollIntoView();
+          }
+        }}
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[100] focus:bg-white focus:text-[#2c4370] focus:px-3 focus:py-2 focus:shadow focus:outline-none focus:ring-2 focus:ring-white"
+      >
+        Saltar al contenido
+      </a>
       {/* Top Navigation Bar */}
       <div className={`flex items-center justify-between px-3 sm:px-4 py-2 ${mobileMenuOpen ? 'lg:border-b lg:border-[#3d5583]' : 'border-b border-[#3d5583]'}`}>
         <div className="flex items-center gap-2 sm:gap-6">
@@ -177,7 +203,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
             <NavigationMenuList className="gap-1">
               {/* Inventario Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Inventario
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -197,7 +223,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Soporte Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Soporte
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -217,7 +243,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Gestión Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Gestión
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -237,7 +263,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Útiles Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Útiles
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -257,7 +283,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Administración Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Administración
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -277,7 +303,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Configuración Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Configuración
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -317,6 +343,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           {/* Search Button - Opens Global Search */}
           <button
             onClick={() => setSearchOpen(true)}
+            aria-label="Buscar"
             className="hidden sm:flex items-center gap-2 h-9 px-3 bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white"
           >
             <Search className="h-4 w-4" />
@@ -328,6 +355,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           {/* Mobile Search Button */}
           <button
             onClick={() => setSearchOpen(true)}
+            aria-label="Buscar"
             className="sm:hidden p-2 hover:bg-[#3d5583] transition-colors"
           >
             <Search className="h-5 w-5" />
@@ -339,11 +367,11 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-white hover:bg-[#3d5583] text-sm flex items-center gap-2 px-2 sm:px-3">
+              <Button variant="ghost" aria-label={`Menú de usuario${user?.name ? ': ' + user.name : ''}`} className="text-white hover:bg-[#3d5583] text-sm flex items-center gap-2 px-2 sm:px-3">
                 {user?.avatar ? (
-                  <img 
-                    src={`/storage/${user.avatar}`} 
-                    alt={user.name} 
+                  <img
+                    src={`/storage/${user.avatar}`}
+                    alt=""
                     className="w-7 h-7 object-cover border border-white/30"
                   />
                 ) : (
@@ -378,7 +406,9 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
+        <button
+          type="button"
+          aria-label="Cerrar menú"
           className="lg:hidden fixed inset-0 top-14 bg-black/50 z-40"
           onClick={() => setMobileMenuOpen(false)}
         />
@@ -448,7 +478,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
         <div className="px-3 py-3 border-t border-[#3d5583] bg-[#1e3255] shrink-0">
           <div className="flex items-center gap-2">
             {user?.avatar ? (
-              <img src={`/storage/${user.avatar}`} alt={user.name} className="w-8 h-8 object-cover shrink-0" />
+              <img src={`/storage/${user.avatar}`} alt="" className="w-8 h-8 object-cover shrink-0" />
             ) : (
               <div className="w-8 h-8 bg-white/20 flex items-center justify-center text-sm font-medium text-white shrink-0">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}

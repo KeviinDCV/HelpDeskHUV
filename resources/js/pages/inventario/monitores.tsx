@@ -324,6 +324,7 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         <Button
                                             size="sm"
                                             variant="ghost"
+                                            aria-label="Buscar"
                                             className="absolute right-0 top-0 h-full px-3"
                                             onClick={handleSearch}
                                         >
@@ -376,9 +377,9 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
                                         <Select value={stateFilter} onValueChange={setStateFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -392,9 +393,9 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Fabricante</label>
+                                        <label htmlFor="filtro-fabricante" className="text-xs text-gray-600 mb-1 block">Fabricante</label>
                                         <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-fabricante" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -408,9 +409,9 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Tipo</label>
+                                        <label htmlFor="filtro-tipo" className="text-xs text-gray-600 mb-1 block">Tipo</label>
                                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-tipo" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -424,9 +425,9 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Localización</label>
+                                        <label htmlFor="filtro-localizacion" className="text-xs text-gray-600 mb-1 block">Localización</label>
                                         <Select value={locationFilter} onValueChange={setLocationFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-localizacion" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todas" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -440,8 +441,9 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
                                         <Input
+                                            id="filtro-desde"
                                             type="date"
                                             value={dateFrom}
                                             onChange={(e) => setDateFrom(e.target.value)}
@@ -449,8 +451,9 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <label htmlFor="filtro-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
                                         <Input
+                                            id="filtro-hasta"
                                             type="date"
                                             value={dateTo}
                                             onChange={(e) => setDateTo(e.target.value)}
@@ -521,85 +524,85 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Nombre
                                                 {getSortIcon('name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('entity_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Entidad
                                                 {getSortIcon('entity_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('state_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'state_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('state_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Estado
                                                 {getSortIcon('state_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturer_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'manufacturer_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('manufacturer_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Fabricante
                                                 {getSortIcon('manufacturer_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('location_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'location_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('location_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Localización
                                                 {getSortIcon('location_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('type_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'type_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('type_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Tipo
                                                 {getSortIcon('type_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('model_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'model_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('model_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Modelo
                                                 {getSortIcon('model_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('date_mod')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'date_mod' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('date_mod')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Última actualización
                                                 {getSortIcon('date_mod')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('otherserial')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'otherserial' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('otherserial')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Nombre de usuario alternativo
                                                 {getSortIcon('otherserial')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         {isAdmin && (
                                             <TableHead className="font-semibold text-gray-900 text-xs text-center">
@@ -635,10 +638,10 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                             {isAdmin && (
                                                 <TableCell className="text-center">
                                                     <div className="flex items-center justify-center gap-1">
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/monitores/${monitor.id}/editar`)} title="Editar">
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/monitores/${monitor.id}/editar`)} title="Editar" aria-label="Editar">
                                                             <Pencil className="h-3.5 w-3.5" />
                                                         </Button>
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(monitor.id, monitor.name || '')} title="Eliminar">
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(monitor.id, monitor.name || '')} title="Eliminar" aria-label="Eliminar">
                                                             <Trash2 className="h-3.5 w-3.5" />
                                                         </Button>
                                                     </div>
@@ -664,6 +667,7 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                                 key={index}
                                                 variant="outline"
                                                 size="sm"
+                                                aria-label="Página anterior"
                                                 disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}
@@ -678,6 +682,7 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                                                 key={index}
                                                 variant="outline"
                                                 size="sm"
+                                                aria-label="Página siguiente"
                                                 disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}

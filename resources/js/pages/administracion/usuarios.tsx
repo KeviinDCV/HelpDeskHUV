@@ -285,7 +285,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
-                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
+                                        <Button aria-label="Buscar" size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -312,9 +312,9 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                             <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Rol</label>
+                                        <label htmlFor="filtro-rol" className="text-xs text-gray-600 mb-1 block">Rol</label>
                                         <Select value={roleFilter} onValueChange={setRoleFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-rol" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
                                                 <SelectItem value="Administrador">Administrador</SelectItem>
@@ -324,9 +324,9 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
                                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
                                                 <SelectItem value="1">Activo</SelectItem>
@@ -335,12 +335,12 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-xs" />
+                                        <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <Input id="filtro-desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-xs" />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs" />
+                                        <label htmlFor="filtro-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <Input id="filtro-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs" />
                                     </div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
@@ -392,62 +392,62 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100 w-16"
-                                            onClick={() => handleSort('id')}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs w-16"
+                                            aria-sort={filters.sort === 'id' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('id')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 ID
                                                 {getSortIcon('id')}
-                                            </div>
+                                            </button>
                                         </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('username')}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'username' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('username')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Usuario
                                                 {getSortIcon('username')}
-                                            </div>
+                                            </button>
                                         </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Nombre Completo
                                                 {getSortIcon('name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('email')}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'email' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('email')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Email
                                                 {getSortIcon('email')}
-                                            </div>
+                                            </button>
                                         </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('role')}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'role' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('role')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Rol
                                                 {getSortIcon('role')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead className="font-semibold text-gray-900 text-xs">
                                             Activo
                                         </TableHead>
-                                        <TableHead 
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('created_at')}
+                                        <TableHead
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'created_at' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('created_at')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Fecha de Creación
                                                 {getSortIcon('created_at')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -531,7 +531,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                     const isMobileVisible = index === 0 || index === users.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button aria-label="Página anterior" key={index} variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
@@ -540,7 +540,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                     }
                                     if (index === users.links.length - 1) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button aria-label="Página siguiente" key={index} variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />

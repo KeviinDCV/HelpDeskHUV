@@ -350,7 +350,7 @@ export default function ReportarCaso() {
                             <p className="text-3xl font-bold">#{flash.success.ticket_id}</p>
                         </div>
 
-                        <p className="text-xs text-slate-400 mb-6">
+                        <p className="text-xs text-slate-500 mb-6">
                             Guarda este número para hacer seguimiento de tu caso.
                         </p>
 
@@ -379,7 +379,7 @@ export default function ReportarCaso() {
                     />
                     <div className="text-center">
                         <h1 className="text-base sm:text-lg lg:text-xl font-bold text-[#2d3e5e] tracking-tight leading-none">Reporte Sistemas HUV</h1>
-                        <p className="text-slate-400 text-[10px] sm:text-xs font-medium mt-0.5 sm:mt-1 hidden sm:block">Chatbot de Soporte Técnico</p>
+                        <p className="text-slate-500 text-[10px] sm:text-xs font-medium mt-0.5 sm:mt-1 hidden sm:block">Chatbot de Soporte Técnico</p>
                     </div>
                 </header>
 
@@ -415,7 +415,7 @@ export default function ReportarCaso() {
                         <div id="chat-messages" ref={messagesContainerRef} className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
                             {/* Timestamp */}
                             <div className="flex justify-center">
-                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
+                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
                                     {new Date().toLocaleDateString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
@@ -469,7 +469,7 @@ export default function ReportarCaso() {
                                     </button>
                                 </div>
                             </form>
-                            <p className="text-[10px] text-slate-300 text-center mt-1.5 sm:mt-2 hidden sm:block">Presiona Enter para enviar</p>
+                            <p className="text-[10px] text-slate-500 text-center mt-1.5 sm:mt-2 hidden sm:block">Presiona Enter para enviar</p>
                         </div>
                     </section>
 
@@ -497,13 +497,13 @@ export default function ReportarCaso() {
                             <div className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
                                 {/* Mobile: Compact horizontal layout */}
                                 <div className="lg:hidden flex flex-wrap gap-2 text-xs">
-                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_name ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_name ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                                         {formData.reporter_name || 'Nombre'}
                                     </div>
-                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_position ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_position ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                                         {formData.reporter_position || 'Cargo'}
                                     </div>
-                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_service ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_service ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                                         {formData.reporter_service || 'Servicio'}
                                     </div>
                                     {formData.name && (
@@ -517,7 +517,7 @@ export default function ReportarCaso() {
                                 <div className="hidden lg:block space-y-8">
                                 {/* Quien Reporta */}
                                 <div>
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quien Reporta</h4>
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Quien Reporta</h4>
                                     <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
                                         <TimelineItem 
                                             label="Nombre" 
@@ -545,15 +545,15 @@ export default function ReportarCaso() {
 
                                 {/* El Problema */}
                                 <div>
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">El Problema</h4>
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">El Problema</h4>
                                     <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <FileText className="w-4 h-4 text-slate-300 mt-0.5" />
+                                        <FileText className="w-4 h-4 text-slate-500 mt-0.5" />
                                         <div className="flex-1">
-                                            <span className="block text-xs text-slate-400 mb-1">Descripción</span>
+                                            <span className="block text-xs text-slate-500 mb-1">Descripción</span>
                                             {formData.name ? (
                                                 <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
                                             ) : (
-                                                <span className="block text-sm text-slate-300 italic">Título pendiente...</span>
+                                                <span className="block text-sm text-slate-500 italic">Título pendiente...</span>
                                             )}
                                             {formData.content && (
                                                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
@@ -584,12 +584,12 @@ export default function ReportarCaso() {
                                     className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
                                         isFormComplete() && !processing
                                             ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
-                                            : 'bg-white border border-slate-200 text-slate-300 cursor-not-allowed opacity-80'
+                                            : 'bg-white border border-slate-200 text-slate-500 cursor-not-allowed opacity-80'
                                     }`}
                                 >
                                     {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
                                 </Button>
-                                <p className="text-center text-[10px] text-slate-400 mt-2 lg:mt-3 px-2 lg:px-4 leading-relaxed hidden sm:block">
+                                <p className="text-center text-[10px] text-slate-500 mt-2 lg:mt-3 px-2 lg:px-4 leading-relaxed hidden sm:block">
                                     {isFormComplete() 
                                         ? 'Revisa los datos y envía tu reporte.'
                                         : 'Interactúa con el asistente para habilitar el envío del reporte.'
@@ -670,9 +670,9 @@ function TimelineItem({ label, value, placeholder, isActive }: { label: string; 
                 filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
             }`}></span>
             <div className="flex flex-col">
-                <span className="text-xs text-slate-400 font-medium mb-1">{label}</span>
+                <span className="text-xs text-slate-500 font-medium mb-1">{label}</span>
                 <span className={`text-sm font-medium ${
-                    filled ? 'text-slate-800' : 'text-slate-300 italic'
+                    filled ? 'text-slate-800' : 'text-slate-500 italic'
                 }`}>
                     {value || placeholder}
                 </span>

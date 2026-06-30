@@ -565,6 +565,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             variant="ghost"
                                             className="absolute right-0 top-0 h-full px-3"
                                             onClick={handleSearch}
+                                            aria-label="Buscar"
                                         >
                                             <Search className="h-4 w-4" />
                                         </Button>
@@ -614,9 +615,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                             <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
                                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -631,9 +632,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Prioridad</label>
+                                        <label htmlFor="filtro-prioridad" className="text-xs text-gray-600 mb-1 block">Prioridad</label>
                                         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-prioridad" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todas" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -648,9 +649,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Asignado a</label>
+                                        <label htmlFor="filtro-asignado" className="text-xs text-gray-600 mb-1 block">Asignado a</label>
                                         <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-asignado" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -664,9 +665,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Categoría</label>
+                                        <label htmlFor="filtro-categoria" className="text-xs text-gray-600 mb-1 block">Categoría</label>
                                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-categoria" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todas" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -680,8 +681,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
                                         <Input
+                                            id="filtro-desde"
                                             type="date"
                                             value={dateFrom}
                                             onChange={(e) => setDateFrom(e.target.value)}
@@ -689,8 +691,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <label htmlFor="filtro-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
                                         <Input
+                                            id="filtro-hasta"
                                             type="date"
                                             value={dateTo}
                                             onChange={(e) => setDateTo(e.target.value)}
@@ -764,67 +767,67 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100 w-16"
-                                            onClick={() => handleSort('id')}
+                                            className="font-semibold text-gray-900 text-xs w-16"
+                                            aria-sort={filters.sort === 'id' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('id')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 ID
                                                 {getSortIcon('id')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Título
                                                 {getSortIcon('name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('status')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'status' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('status')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Estado
                                                 {getSortIcon('status')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('priority')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'priority' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('priority')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Prioridad
                                                 {getSortIcon('priority')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('entity_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Entidad
                                                 {getSortIcon('entity_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('date')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'date' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('date')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Fecha de apertura
                                                 {getSortIcon('date')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('date_mod')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'date_mod' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('date_mod')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Última actualización
                                                 {getSortIcon('date_mod')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead className="font-semibold text-gray-900 text-xs">
                                             Solicitante
@@ -917,6 +920,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                                 className="h-7 w-7 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
                                                                 onClick={() => openSolveDialog(ticket)}
                                                                 title="Resolver"
+                                                                aria-label="Resolver"
                                                             >
                                                                 <CheckSquare className="h-3.5 w-3.5" />
                                                             </Button>
@@ -927,6 +931,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                             className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                                                             onClick={() => router.visit(`/soporte/casos/${ticket.id}/editar`)}
                                                             title="Editar"
+                                                            aria-label="Editar"
                                                         >
                                                             <Edit className="h-3.5 w-3.5" />
                                                         </Button>
@@ -937,6 +942,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                                 className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
                                                                 onClick={() => handleDeleteClick(ticket)}
                                                                 title="Eliminar"
+                                                                aria-label="Eliminar"
                                                             >
                                                                 <Trash2 className="h-3.5 w-3.5" />
                                                             </Button>
@@ -967,7 +973,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                     const isMobileVisible = index === 0 || index === tickets.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} aria-label="Página anterior" variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && handlePageChange(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
@@ -976,7 +982,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                     }
                                     if (index === tickets.links.length - 1) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} aria-label="Página siguiente" variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && handlePageChange(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />
@@ -1107,7 +1113,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </div>
                                     ) : ticketSolution ? (
                                         <div className="bg-green-50 p-3 border border-green-200">
-                                            <div className="text-xs text-gray-700 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: ticketSolution.content }} />
+                                            <div className="text-xs text-gray-700 whitespace-pre-wrap">{ticketSolution.content}</div>
                                             <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-[10px] text-green-700">
                                                 <span>Resuelto por: <strong>{ticketSolution.solved_by || 'Usuario del sistema'}</strong></span>
                                                 <span>{ticketSolution.date_creation ? new Date(ticketSolution.date_creation).toLocaleString('es-CO') : '-'}</span>

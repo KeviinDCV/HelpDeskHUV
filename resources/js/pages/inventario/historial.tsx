@@ -124,7 +124,7 @@ export default function Historial({ history, categories, filters }: HistorialPro
                                         <Input type="text" placeholder="Buscar equipo o cambio..." className="w-full sm:w-72 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
-                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
+                                        <Button aria-label="Buscar" size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -141,9 +141,9 @@ export default function Historial({ history, categories, filters }: HistorialPro
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Categoría</label>
+                                        <label htmlFor="filtro-categoria" className="text-xs text-gray-600 mb-1 block">Categoría</label>
                                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-categoria" className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todas</SelectItem>
                                                 {categories?.map((c) => <SelectItem key={c} value={c}>{categoryLabel(c)}</SelectItem>)}
@@ -151,9 +151,9 @@ export default function Historial({ history, categories, filters }: HistorialPro
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Acción</label>
+                                        <label htmlFor="filtro-accion" className="text-xs text-gray-600 mb-1 block">Acción</label>
                                         <Select value={actionFilter} onValueChange={setActionFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-accion" className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todas</SelectItem>
                                                 {ACTIONS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
@@ -161,12 +161,12 @@ export default function Historial({ history, categories, filters }: HistorialPro
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                        <Input type="date" className="h-8 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                                        <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                        <Input id="filtro-desde" type="date" className="h-8 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                        <Input type="date" className="h-8 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                                        <label htmlFor="filtro-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                        <Input id="filtro-hasta" type="date" className="h-8 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                                     </div>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-3">
@@ -263,7 +263,7 @@ export default function Historial({ history, categories, filters }: HistorialPro
                                     const isMobileVisible = index === 0 || index === history.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} aria-label="Página anterior" variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
@@ -272,7 +272,7 @@ export default function Historial({ history, categories, filters }: HistorialPro
                                     }
                                     if (index === history.links.length - 1) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} aria-label="Página siguiente" variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />

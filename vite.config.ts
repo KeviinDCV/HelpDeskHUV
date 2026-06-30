@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
@@ -23,5 +23,7 @@ export default defineConfig({
     ],
     esbuild: {
         jsx: 'automatic',
+        // Elimina console.* y debugger en el build de producción (no en dev).
+        drop: command === 'build' ? ['console', 'debugger'] : [],
     },
-});
+}));

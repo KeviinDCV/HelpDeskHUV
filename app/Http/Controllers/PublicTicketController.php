@@ -39,6 +39,12 @@ class PublicTicketController extends Controller
             'itilcategories_id' => 'nullable',
         ]);
 
+        // Defensa en profundidad (XSS): esta ruta es PÚBLICA y anónima. El contenido es texto plano
+        // (el frontend lo renderiza como texto), así que eliminamos cualquier markup antes de persistir.
+        $validated['content'] = strip_tags($validated['content']);
+        $validated['name'] = strip_tags($validated['name']);
+        $validated['reporter_name'] = strip_tags($validated['reporter_name']);
+
         // ANÁLISIS PROFUNDO CON IA - Clasificar categoría y elemento correctamente
         $analysis = $this->analyzeAndClassify($validated);
         

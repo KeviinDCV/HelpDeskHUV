@@ -200,16 +200,16 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3">
                     <div className="md:col-span-2">
                         <Label htmlFor="name" className="text-xs">Nombre *</Label>
-                        <Input id="name" value={formData.name} onChange={e => set('name', e.target.value)} required className="mt-1 h-8 text-sm" />
-                        {errors.name && <p className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
+                        <Input id="name" value={formData.name} onChange={e => set('name', e.target.value)} required aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} className="mt-1 h-8 text-sm" />
+                        {errors.name && <p id="name-error" role="alert" className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
                     </div>
                     <div>
-                        <Label className="text-xs">Número de Serie</Label>
-                        <Input value={formData.serial} onChange={e => set('serial', e.target.value)} className="mt-1 h-8 text-sm" />
+                        <Label htmlFor="serial" className="text-xs">Número de Serie</Label>
+                        <Input id="serial" value={formData.serial} onChange={e => set('serial', e.target.value)} className="mt-1 h-8 text-sm" />
                     </div>
                     <div>
-                        <Label className="text-xs">Nº Inventario</Label>
-                        <Input value={formData.otherserial} onChange={e => set('otherserial', e.target.value)} className="mt-1 h-8 text-sm" />
+                        <Label htmlFor="otherserial" className="text-xs">Nº Inventario</Label>
+                        <Input id="otherserial" value={formData.otherserial} onChange={e => set('otherserial', e.target.value)} className="mt-1 h-8 text-sm" />
                     </div>
                 </div>
             </div>
@@ -283,12 +283,12 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                             options={groups.map(g => ({ id: g.id, label: g.name }))} placeholder="Seleccionar grupo..." />
                     </div>
                     <div>
-                        <Label className="text-xs">Nombre de contacto</Label>
-                        <Input value={formData.contact} onChange={e => set('contact', e.target.value)} className="mt-1 h-8 text-sm" />
+                        <Label htmlFor="contact" className="text-xs">Nombre de contacto</Label>
+                        <Input id="contact" value={formData.contact} onChange={e => set('contact', e.target.value)} className="mt-1 h-8 text-sm" />
                     </div>
                     <div>
-                        <Label className="text-xs">Número de contacto</Label>
-                        <Input value={formData.contact_num} onChange={e => set('contact_num', e.target.value)} className="mt-1 h-8 text-sm" />
+                        <Label htmlFor="contact_num" className="text-xs">Número de contacto</Label>
+                        <Input id="contact_num" value={formData.contact_num} onChange={e => set('contact_num', e.target.value)} className="mt-1 h-8 text-sm" />
                     </div>
                     <div>
                         <Label className="text-xs">Dominio</Label>
@@ -301,7 +301,8 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
             {/* Comentarios */}
             <div className="mb-5">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Comentarios</h3>
-                <Textarea value={formData.comment} onChange={e => set('comment', e.target.value)} rows={2} className="text-sm" />
+                <Label htmlFor="comment" className="sr-only">Comentarios</Label>
+                <Textarea id="comment" value={formData.comment} onChange={e => set('comment', e.target.value)} rows={2} className="text-sm" />
             </div>
 
             {/* Fechas (solo lectura) */}
@@ -418,12 +419,12 @@ function TabOS({ computerId, items, osList, osVersions, osArchitectures, osServi
                         options={osEditions.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar..." />
                 </div>
                 <div>
-                    <Label className="text-xs">Número de serie</Label>
-                    <Input value={form.license_number} onChange={e => set('license_number', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="license_number" className="text-xs">Número de serie</Label>
+                    <Input id="license_number" value={form.license_number} onChange={e => set('license_number', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
-                    <Label className="text-xs">ID del producto</Label>
-                    <Input value={form.licenseid} onChange={e => set('licenseid', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="licenseid" className="text-xs">ID del producto</Label>
+                    <Input id="licenseid" value={form.licenseid} onChange={e => set('licenseid', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
             </div>
             <div className="flex justify-end gap-2 mt-3">
@@ -540,16 +541,16 @@ function TabVolumes({ computerId, items, filesystems }: { computerId: number; it
             <h4 className="text-sm font-medium text-gray-700 mb-3">{isEditing ? 'Editar' : 'Nuevo'} Volumen</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
                 <div>
-                    <Label className="text-xs">Nombre</Label>
-                    <Input value={form.name} onChange={e => set('name', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="name" className="text-xs">Nombre</Label>
+                    <Input id="name" value={form.name} onChange={e => set('name', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
-                    <Label className="text-xs">Partición</Label>
-                    <Input value={form.device} onChange={e => set('device', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="device" className="text-xs">Partición</Label>
+                    <Input id="device" value={form.device} onChange={e => set('device', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
-                    <Label className="text-xs">Punto de montaje</Label>
-                    <Input value={form.mountpoint} onChange={e => set('mountpoint', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="mountpoint" className="text-xs">Punto de montaje</Label>
+                    <Input id="mountpoint" value={form.mountpoint} onChange={e => set('mountpoint', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
                     <Label className="text-xs">Sistema de archivos</Label>
@@ -557,12 +558,12 @@ function TabVolumes({ computerId, items, filesystems }: { computerId: number; it
                         options={filesystems.map(f => ({ id: f.id, label: f.name }))} placeholder="Seleccionar..." />
                 </div>
                 <div>
-                    <Label className="text-xs">Tamaño global (MB)</Label>
-                    <Input type="number" value={form.totalsize} onChange={e => set('totalsize', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="totalsize" className="text-xs">Tamaño global (MB)</Label>
+                    <Input id="totalsize" type="number" value={form.totalsize} onChange={e => set('totalsize', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
-                    <Label className="text-xs">Espacio libre (MB)</Label>
-                    <Input type="number" value={form.freesize} onChange={e => set('freesize', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="freesize" className="text-xs">Espacio libre (MB)</Label>
+                    <Input id="freesize" type="number" value={form.freesize} onChange={e => set('freesize', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
             </div>
             <div className="flex justify-end gap-2 mt-3">
@@ -968,8 +969,8 @@ function TabAntivirus({ computerId, items, antivirusManufacturers }: {
             <h4 className="text-sm font-medium text-gray-700 mb-3">{isEditing ? 'Editar' : 'Nuevo'} Antivirus</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
                 <div>
-                    <Label className="text-xs">Nombre</Label>
-                    <Input value={form.name} onChange={e => set('name', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="name" className="text-xs">Nombre</Label>
+                    <Input id="name" value={form.name} onChange={e => set('name', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
                     <Label className="text-xs">Fabricante</Label>
@@ -977,17 +978,17 @@ function TabAntivirus({ computerId, items, antivirusManufacturers }: {
                         options={antivirusManufacturers.map(m => ({ id: m.id, label: m.name }))} placeholder="Seleccionar..." />
                 </div>
                 <div>
-                    <Label className="text-xs">Versión antivirus</Label>
-                    <Input value={form.antivirus_version} onChange={e => set('antivirus_version', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="antivirus_version" className="text-xs">Versión antivirus</Label>
+                    <Input id="antivirus_version" value={form.antivirus_version} onChange={e => set('antivirus_version', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
-                    <Label className="text-xs">Versión firma</Label>
-                    <Input value={form.signature_version} onChange={e => set('signature_version', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="signature_version" className="text-xs">Versión firma</Label>
+                    <Input id="signature_version" value={form.signature_version} onChange={e => set('signature_version', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
                 <div>
-                    <Label className="text-xs">Activo</Label>
+                    <Label htmlFor="is_active" className="text-xs">Activo</Label>
                     <Select value={form.is_active} onValueChange={v => set('is_active', v)}>
-                        <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger id="is_active" className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="1">Sí</SelectItem>
                             <SelectItem value="0">No</SelectItem>
@@ -995,9 +996,9 @@ function TabAntivirus({ computerId, items, antivirusManufacturers }: {
                     </Select>
                 </div>
                 <div>
-                    <Label className="text-xs">Actualizado</Label>
+                    <Label htmlFor="is_uptodate" className="text-xs">Actualizado</Label>
                     <Select value={form.is_uptodate} onValueChange={v => set('is_uptodate', v)}>
-                        <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger id="is_uptodate" className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="1">Sí</SelectItem>
                             <SelectItem value="0">No</SelectItem>
@@ -1005,8 +1006,8 @@ function TabAntivirus({ computerId, items, antivirusManufacturers }: {
                     </Select>
                 </div>
                 <div>
-                    <Label className="text-xs">Fecha expiración</Label>
-                    <Input type="date" value={form.date_expiration} onChange={e => set('date_expiration', e.target.value)} className="mt-1 h-8 text-sm" />
+                    <Label htmlFor="date_expiration" className="text-xs">Fecha expiración</Label>
+                    <Input id="date_expiration" type="date" value={form.date_expiration} onChange={e => set('date_expiration', e.target.value)} className="mt-1 h-8 text-sm" />
                 </div>
             </div>
             <div className="flex justify-end gap-2 mt-3">
@@ -1332,33 +1333,34 @@ function TabInfocom({ computerId, infocom }: { computerId: number; infocom: Info
                 <div className="bg-gray-50 border rounded-lg p-4">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Fechas</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3 mb-5">
-                        <div><Label className="text-xs">Fecha de compra</Label><Input type="date" value={form.buy_date} onChange={e => set('buy_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Fecha puesta en uso</Label><Input type="date" value={form.use_date} onChange={e => set('use_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Fecha de pedido</Label><Input type="date" value={form.order_date} onChange={e => set('order_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Fecha de entrega</Label><Input type="date" value={form.delivery_date} onChange={e => set('delivery_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Fecha de inventario</Label><Input type="date" value={form.inventory_date} onChange={e => set('inventory_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Fecha baja</Label><Input type="date" value={form.decommission_date} onChange={e => set('decommission_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="buy_date" className="text-xs">Fecha de compra</Label><Input id="buy_date" type="date" value={form.buy_date} onChange={e => set('buy_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="use_date" className="text-xs">Fecha puesta en uso</Label><Input id="use_date" type="date" value={form.use_date} onChange={e => set('use_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="order_date" className="text-xs">Fecha de pedido</Label><Input id="order_date" type="date" value={form.order_date} onChange={e => set('order_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="delivery_date" className="text-xs">Fecha de entrega</Label><Input id="delivery_date" type="date" value={form.delivery_date} onChange={e => set('delivery_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="inventory_date" className="text-xs">Fecha de inventario</Label><Input id="inventory_date" type="date" value={form.inventory_date} onChange={e => set('inventory_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="decommission_date" className="text-xs">Fecha baja</Label><Input id="decommission_date" type="date" value={form.decommission_date} onChange={e => set('decommission_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
                     </div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Garantía</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3 mb-5">
-                        <div><Label className="text-xs">Inicio de garantía</Label><Input type="date" value={form.warranty_date} onChange={e => set('warranty_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Duración (meses)</Label><Input type="number" value={form.warranty_duration} onChange={e => set('warranty_duration', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div className="md:col-span-2"><Label className="text-xs">Info garantía</Label><Input value={form.warranty_info} onChange={e => set('warranty_info', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="warranty_date" className="text-xs">Inicio de garantía</Label><Input id="warranty_date" type="date" value={form.warranty_date} onChange={e => set('warranty_date', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="warranty_duration" className="text-xs">Duración (meses)</Label><Input id="warranty_duration" type="number" value={form.warranty_duration} onChange={e => set('warranty_duration', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div className="md:col-span-2"><Label htmlFor="warranty_info" className="text-xs">Info garantía</Label><Input id="warranty_info" value={form.warranty_info} onChange={e => set('warranty_info', e.target.value)} className="mt-1 h-8 text-sm" /></div>
                     </div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Valores</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3 mb-5">
-                        <div><Label className="text-xs">Valor</Label><Input type="number" step="0.01" value={form.value} onChange={e => set('value', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Valor garantía</Label><Input type="number" step="0.01" value={form.warranty_value} onChange={e => set('warranty_value', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="value" className="text-xs">Valor</Label><Input id="value" type="number" step="0.01" value={form.value} onChange={e => set('value', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="warranty_value" className="text-xs">Valor garantía</Label><Input id="warranty_value" type="number" step="0.01" value={form.warranty_value} onChange={e => set('warranty_value', e.target.value)} className="mt-1 h-8 text-sm" /></div>
                     </div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Números y referencias</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3 mb-5">
-                        <div><Label className="text-xs">Nº de pedido</Label><Input value={form.order_number} onChange={e => set('order_number', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Nº de entrega</Label><Input value={form.delivery_number} onChange={e => set('delivery_number', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Nº de inmovilización</Label><Input value={form.immo_number} onChange={e => set('immo_number', e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                        <div><Label className="text-xs">Factura</Label><Input value={form.bill} onChange={e => set('bill', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="order_number" className="text-xs">Nº de pedido</Label><Input id="order_number" value={form.order_number} onChange={e => set('order_number', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="delivery_number" className="text-xs">Nº de entrega</Label><Input id="delivery_number" value={form.delivery_number} onChange={e => set('delivery_number', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="immo_number" className="text-xs">Nº de inmovilización</Label><Input id="immo_number" value={form.immo_number} onChange={e => set('immo_number', e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                        <div><Label htmlFor="bill" className="text-xs">Factura</Label><Input id="bill" value={form.bill} onChange={e => set('bill', e.target.value)} className="mt-1 h-8 text-sm" /></div>
                     </div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Comentarios</h3>
-                    <Textarea value={form.comment} onChange={e => set('comment', e.target.value)} rows={2} className="text-sm mb-4" />
+                    <Label htmlFor="comment" className="sr-only">Comentarios</Label>
+                    <Textarea id="comment" value={form.comment} onChange={e => set('comment', e.target.value)} rows={2} className="text-sm mb-4" />
                     <div className="flex justify-end gap-2">
                         {infocom && <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}><X className="h-3 w-3 mr-1" />Cancelar</Button>}
                         <Button type="button" size="sm" disabled={processing} onClick={submit} className="bg-[#2c4370] hover:bg-[#3d5583] text-white">

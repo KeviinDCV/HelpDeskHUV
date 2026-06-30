@@ -210,7 +210,7 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                         <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
-                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
+                                        <Button size="sm" variant="ghost" aria-label="Buscar" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -242,9 +242,9 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Tipo</label>
+                                        <label htmlFor="filtro-tipo" className="text-xs text-gray-600 mb-1 block">Tipo</label>
                                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-tipo" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
                                                 {types?.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
@@ -252,9 +252,9 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Fabricante</label>
+                                        <label htmlFor="filtro-fabricante" className="text-xs text-gray-600 mb-1 block">Fabricante</label>
                                         <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-fabricante" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
                                                 {manufacturers?.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}
@@ -315,70 +315,70 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Nombre
                                                 {getSortIcon('name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('entity_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Entidad
                                                 {getSortIcon('entity_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('ref')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'ref' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('ref')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Referencia
                                                 {getSortIcon('ref')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('type_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'type_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('type_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Tipo
                                                 {getSortIcon('type_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturer_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'manufacturer_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('manufacturer_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Fabricante
                                                 {getSortIcon('manufacturer_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('total')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'total' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('total')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Consumibles
                                                 {getSortIcon('total')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead className="font-semibold text-gray-900 text-xs">
                                             Comentarios
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('tech_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'tech_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('tech_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Técnico a cargo
                                                 {getSortIcon('tech_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         {isAdmin && (<TableHead className="font-semibold text-gray-900 text-xs text-center">Acciones</TableHead>)}
                                     </TableRow>
@@ -405,8 +405,8 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                             {isAdmin && (
                                                 <TableCell className="text-center">
                                                     <div className="flex items-center justify-center gap-1">
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/consumibles/${consumable.id}/editar`)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(consumable.id, consumable.name || '')} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="sm" aria-label="Editar" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/consumibles/${consumable.id}/editar`)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="sm" aria-label="Eliminar" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(consumable.id, consumable.name || '')} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
                                                     </div>
                                                 </TableCell>
                                             )}
@@ -426,7 +426,7 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                     const isMobileVisible = index === 0 || index === consumables.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} variant="outline" size="sm" aria-label="Página anterior" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
@@ -435,7 +435,7 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                     }
                                     if (index === consumables.links.length - 1) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} variant="outline" size="sm" aria-label="Página siguiente" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />

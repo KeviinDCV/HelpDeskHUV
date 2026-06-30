@@ -360,10 +360,20 @@ class InventoryHistoryRecorder
             ->where('itemtype', 'Computer')->where('items_id', $id)->where('is_dynamic', 1)->where('is_deleted', 0)
             ->get(['id', 'name', 'mac']);
 
-        return $ports->map(function ($p) {
-            $ips = DB::table('glpi_ipaddresses')
-                ->where('items_id', $p->id)->where('itemtype', 'NetworkName')->where('is_deleted', 0)
-                ->pluck('name')->all();
+        if ($ports->isEmpty()) {
+            return $ports;
+        }
+
+        // Una sola consulta para todas las IPs de todos los puertos (evita N+1).
+        $ipsByPort = DB::table('glpi_ipaddresses')
+            ->whereIn('items_id', $ports->pluck('id')->all())
+            ->where('itemtype', 'NetworkName')
+            ->where('is_deleted', 0)
+            ->get(['items_id', 'name'])
+            ->groupBy('items_id');
+
+        return $ports->map(function ($p) use ($ipsByPort) {
+            $ips = isset($ipsByPort[$p->id]) ? $ipsByPort[$p->id]->pluck('name')->all() : [];
             return (object) ['name' => $p->name, 'mac' => $p->mac, 'ips' => $ips];
         });
     }

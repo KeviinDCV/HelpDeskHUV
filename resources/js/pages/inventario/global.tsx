@@ -180,7 +180,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                         <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
                                             onChange={(e) => setSearchValue(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
-                                        <Button size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
+                                        <Button aria-label="Buscar" size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
                                             <Search className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -209,9 +209,9 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
                                         <Select value={stateFilter} onValueChange={setStateFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
                                                 {states?.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
@@ -219,9 +219,9 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Tipo de elemento</label>
+                                        <label htmlFor="filtro-tipo-elemento" className="text-xs text-gray-600 mb-1 block">Tipo de elemento</label>
                                         <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectTrigger id="filtro-tipo-elemento" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
                                                 {itemTypes?.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
@@ -282,40 +282,40 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Nombre
                                                 {getSortIcon('name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('entity_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Entidad
                                                 {getSortIcon('entity_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('state_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'state_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('state_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Estado
                                                 {getSortIcon('state_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('item_type')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'item_type' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('item_type')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Tipo de elemento
                                                 {getSortIcon('item_type')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -344,7 +344,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                     const isMobileVisible = index === 0 || index === items.links.length - 1 || link.active;
                                     if (index === 0) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} aria-label="Página anterior" variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronLeft className="h-4 w-4" />
@@ -353,7 +353,7 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                     }
                                     if (index === items.links.length - 1) {
                                         return (
-                                            <Button key={index} variant="outline" size="sm" disabled={!link.url}
+                                            <Button key={index} aria-label="Página siguiente" variant="outline" size="sm" disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}>
                                                 <ChevronRight className="h-4 w-4" />

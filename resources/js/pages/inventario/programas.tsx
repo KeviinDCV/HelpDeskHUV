@@ -243,6 +243,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                         <Button
                                             size="sm"
                                             variant="ghost"
+                                            aria-label="Buscar"
                                             className="absolute right-0 top-0 h-full px-3"
                                             onClick={handleSearch}
                                         >
@@ -295,9 +296,9 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                             <div className="px-6 py-4 bg-gray-50 border-b">
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Editor</label>
+                                        <label htmlFor="filtro-editor" className="text-xs text-gray-600 mb-1 block">Editor</label>
                                         <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-                                            <SelectTrigger className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-editor" className="h-8 text-xs">
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -374,58 +375,58 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                 <TableHeader>
                                     <TableRow className="bg-gray-50">
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Nombre
                                                 {getSortIcon('name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('entity_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Entidad
                                                 {getSortIcon('entity_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('manufacturer_name')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'manufacturer_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('manufacturer_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Editor
                                                 {getSortIcon('manufacturer_name')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('num_versions')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'num_versions' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('num_versions')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Número de versiones
                                                 {getSortIcon('num_versions')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('num_installations')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'num_installations' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('num_installations')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Número de instalaciones
                                                 {getSortIcon('num_installations')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         <TableHead
-                                            className="font-semibold text-gray-900 text-xs cursor-pointer hover:bg-gray-100"
-                                            onClick={() => handleSort('num_licenses')}
+                                            className="font-semibold text-gray-900 text-xs"
+                                            aria-sort={filters.sort === 'num_licenses' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                                         >
-                                            <div className="flex items-center">
+                                            <button type="button" onClick={() => handleSort('num_licenses')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
                                                 Número de licencias
                                                 {getSortIcon('num_licenses')}
-                                            </div>
+                                            </button>
                                         </TableHead>
                                         {isAdmin && (
                                             <TableHead className="font-semibold text-gray-900 text-xs text-center">Acciones</TableHead>
@@ -448,8 +449,8 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                             {isAdmin && (
                                                 <TableCell className="text-center">
                                                     <div className="flex items-center justify-center gap-1">
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/programas/${software.id}/editar`)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(software.id, software.name || '')} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/programas/${software.id}/editar`)} title="Editar" aria-label="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(software.id, software.name || '')} title="Eliminar" aria-label="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
                                                     </div>
                                                 </TableCell>
                                             )}
@@ -473,6 +474,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                                 key={index}
                                                 variant="outline"
                                                 size="sm"
+                                                aria-label="Página anterior"
                                                 disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}
@@ -487,6 +489,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                                 key={index}
                                                 variant="outline"
                                                 size="sm"
+                                                aria-label="Página siguiente"
                                                 disabled={!link.url}
                                                 className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
                                                 onClick={() => link.url && router.visit(link.url)}

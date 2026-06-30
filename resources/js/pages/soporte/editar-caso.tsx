@@ -530,7 +530,7 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                         <div className="md:col-span-4">
                                             <Label className="text-xs flex items-center gap-1 text-green-700">Solución del Caso</Label>
                                             <div className="mt-1 p-3 bg-green-50 rounded border border-green-200">
-                                                <div className="text-sm whitespace-pre-wrap text-gray-700" dangerouslySetInnerHTML={{ __html: solution.content }} />
+                                                <div className="text-sm whitespace-pre-wrap text-gray-700">{solution.content}</div>
                                                 <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
                                                     <span>Resuelto por: <strong>{solution.solved_by || 'Usuario del sistema'}</strong></span>
                                                     <span>{solution.date_creation ? new Date(solution.date_creation).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</span>

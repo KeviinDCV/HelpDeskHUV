@@ -491,7 +491,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
 
                                 <div className="border-t pt-4">
                                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Descripción</h4>
-                                    <div className="prose prose-sm max-w-none text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-200" dangerouslySetInnerHTML={{ __html: detailModal.ticket.content }} />
+                                    <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-200">{detailModal.ticket.content}</div>
                                 </div>
 
                                 {/* Solución del caso */}
@@ -499,7 +499,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                     <div className="border-t pt-4">
                                         <h4 className="text-sm font-semibold text-green-700 mb-2">Solución</h4>
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                                            <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: detailModal.ticket.solution.content }} />
+                                            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">{detailModal.ticket.solution.content}</div>
                                             <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
                                                 <span>Resuelto por: <strong>{detailModal.ticket.solution.solved_by || 'Usuario del sistema'}</strong></span>
                                                 <span>{new Date(detailModal.ticket.solution.date_creation).toLocaleString('es-CO')}</span>
