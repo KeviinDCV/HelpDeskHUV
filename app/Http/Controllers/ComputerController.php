@@ -602,6 +602,15 @@ class ComputerController extends Controller
             ->where('items_id', $id)
             ->first();
 
+        // === HISTORIAL DE CAMBIOS (detectado por el agente) ===
+        $history = DB::table('inventory_history')
+            ->where('itemtype', 'Computer')
+            ->where('items_id', $id)
+            ->orderBy('changed_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->limit(500)
+            ->get(['id', 'category', 'action', 'field', 'old_value', 'new_value', 'summary', 'changed_at']);
+
         return Inertia::render('inventario/ver-computador', [
             'computer' => $computer,
             'operatingSystems' => $operatingSystems,
@@ -631,6 +640,7 @@ class ComputerController extends Controller
             'certificates' => $certificates,
             'contracts' => $contracts,
             'infocom' => $infocom,
+            'history' => $history,
         ]);
     }
 

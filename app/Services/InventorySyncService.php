@@ -23,6 +23,10 @@ use Illuminate\Support\Str;
  */
 class InventorySyncService
 {
+    public function __construct(private InventoryHistoryRecorder $history)
+    {
+    }
+
     public function sync(array $payload, AgentDevice $device, ?string $ipAddress = null): array
     {
         $stats = [
@@ -31,11 +35,28 @@ class InventorySyncService
             'components_synced' => [],
         ];
 
-        DB::transaction(function () use ($payload, $device, $ipAddress, &$stats) {
-            $general = Arr::get($payload, 'general', []);
+        $general = Arr::get($payload, 'general', []);
 
+        // 0) Capturar el estado previo del equipo ANTES de la transacción (snapshot de sólo lectura
+        //    para el historial). Fuera de la transacción para no ampliar su ventana de bloqueos.
+        //    Es best-effort: si algo falla, sólo se omite el historial de esta corrida, el sync sigue.
+        $existingComputer = $this->findExistingComputer($general, $payload);
+        $deviceFirstSync = ((int) ($device->sync_count ?? 0)) < 1;
+        $historyBefore = [];
+        try {
+            if ($existingComputer) {
+                $historyBefore = $this->history->captureBefore((int) $existingComputer->id);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Historial de inventario: captura previa falló', ['error' => $e->getMessage()]);
+        }
+        // "Primera sincronización real": dispositivo nuevo Y sin estado dinámico previo del equipo
+        // (evita marcar baseline cuando un equipo ya inventariado es adoptado por un agente nuevo).
+        $firstSync = $deviceFirstSync && $this->history->isHistoryBeforeEmpty($historyBefore);
+
+        DB::transaction(function () use ($payload, $device, $ipAddress, $general, $existingComputer, &$stats) {
             // 1) Resolver o crear computer
-            [$computerId, $created] = $this->upsertComputer($general, $payload);
+            [$computerId, $created] = $this->upsertComputer($general, $payload, $existingComputer);
             $stats['computer_id'] = $computerId;
             $stats['created'] = $created;
 
@@ -76,6 +97,15 @@ class InventorySyncService
             ]);
         });
 
+        // 4) Registrar el historial DESPUÉS de confirmar la transacción del sync.
+        //    Así un fallo (incluido un deadlock) al escribir el historial nunca puede revertir
+        //    ni dejar a medias el inventario ya confirmado: sólo se omite el historial de esta corrida.
+        try {
+            $this->history->record($stats['computer_id'], $existingComputer, $historyBefore, $payload, $device, $firstSync);
+        } catch (\Throwable $e) {
+            Log::warning('Historial de inventario: registro falló', ['computer_id' => $stats['computer_id'], 'error' => $e->getMessage()]);
+        }
+
         return $stats;
     }
 
@@ -84,15 +114,15 @@ class InventorySyncService
     // ---------------------------------------------------------------
 
     /**
-     * @return array{0: int, 1: bool} [computer_id, created]
+     * Resuelve el computer existente por UUID -> serial -> hostname (sin mutarlo).
+     * Se usa tanto para el upsert como para capturar el estado previo del historial.
      */
-    private function upsertComputer(array $general, array $payload): array
+    private function findExistingComputer(array $general, array $payload): ?object
     {
         $hardwareUuid = Arr::get($payload, 'hardware_uuid');
         $serial = Arr::get($general, 'serial');
         $hostname = Arr::get($general, 'hostname');
 
-        // Buscar por UUID primero, luego serial, luego hostname.
         $existing = null;
         if ($hardwareUuid) {
             $existing = DB::table('glpi_computers')
@@ -112,6 +142,21 @@ class InventorySyncService
                 ->where('is_deleted', 0)
                 ->first();
         }
+
+        return $existing;
+    }
+
+    /**
+     * @return array{0: int, 1: bool} [computer_id, created]
+     */
+    private function upsertComputer(array $general, array $payload, ?object $existing = null): array
+    {
+        // Reusar el existente ya resuelto (capturado para el historial) o buscarlo ahora.
+        $existing = $existing ?? $this->findExistingComputer($general, $payload);
+
+        $hardwareUuid = Arr::get($payload, 'hardware_uuid');
+        $serial = Arr::get($general, 'serial');
+        $hostname = Arr::get($general, 'hostname');
 
         // Resolver dropdowns
         $manufacturerId = $this->dropdownIdByName('glpi_manufacturers', Arr::get($general, 'manufacturer'));

@@ -117,6 +117,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/inventario/telefonos/{id}', [App\Http\Controllers\PhoneController::class, 'destroy'])->name('inventario.telefonos.destroy');
     Route::get('/inventario/global', [App\Http\Controllers\GlobalInventoryController::class, 'index'])->name('inventario.global');
     Route::get('/inventario/global/export', [App\Http\Controllers\GlobalInventoryController::class, 'export'])->name('inventario.global.export');
+    Route::get('/inventario/historial', [App\Http\Controllers\InventoryHistoryController::class, 'index'])->name('inventario.historial');
     
     // Rutas de Soporte
     Route::get('/soporte/casos', [App\Http\Controllers\TicketController::class, 'index'])->name('soporte.casos');

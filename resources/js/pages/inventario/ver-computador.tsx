@@ -2,12 +2,13 @@ import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, Link, router } from '@inertiajs/react';
 import { Button } from "@/components/ui/button";
+import { HistoryEntry, categoryLabel, actionStyle, formatHistoryDate } from '@/lib/inventory-history';
 import { useState } from 'react';
 import {
     ArrowLeft, Pencil, Monitor as MonitorIcon, Package, Cpu, Ticket,
     HardDrive, MemoryStick, Wifi, MonitorSpeaker, CircuitBoard, Shield,
     Server, FileText, AlertTriangle, RefreshCw, Award, ScrollText,
-    Info, Disc3, Grip, Volume2, Waypoints, Printer, Phone, Network
+    Info, Disc3, Grip, Volume2, Waypoints, Printer, Phone, Network, History
 } from 'lucide-react';
 
 // ============ INTERFACES ============
@@ -113,6 +114,7 @@ interface Props {
     certificates: CertificateItem[];
     contracts: ContractItem[];
     infocom: InfocomItem | null;
+    history: HistoryEntry[];
 }
 
 // ============ HELPERS ============
@@ -163,7 +165,7 @@ const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) =>
 
 // ============ TAB DEFINITIONS ============
 
-type TabKey = 'general' | 'os' | 'components' | 'volumes' | 'software' | 'connections' | 'networkPorts' | 'tickets' | 'antivirus' | 'virtualization' | 'documents' | 'problems' | 'changes' | 'certificates' | 'contracts' | 'infocom';
+type TabKey = 'general' | 'os' | 'components' | 'volumes' | 'software' | 'connections' | 'networkPorts' | 'tickets' | 'antivirus' | 'virtualization' | 'documents' | 'problems' | 'changes' | 'certificates' | 'contracts' | 'infocom' | 'history';
 
 interface TabDef {
     key: TabKey;
@@ -180,7 +182,7 @@ export default function VerComputador(props: Props) {
         networkCards, graphicCards, soundCards, controllers, drives,
         firmwares, motherboards, volumes, software, monitors, peripherals,
         printers, phones, tickets, networkPorts, antivirus, virtualMachines,
-        documents, problems, changes, certificates, contracts, infocom,
+        documents, problems, changes, certificates, contracts, infocom, history,
     } = props;
 
     const [activeTab, setActiveTab] = useState<TabKey>('general');
@@ -208,6 +210,7 @@ export default function VerComputador(props: Props) {
         { key: 'certificates', label: 'Certificados', icon: <Award className="h-4 w-4" />, count: certificates.length },
         { key: 'contracts', label: 'Contratos', icon: <ScrollText className="h-4 w-4" />, count: contracts.length },
         { key: 'infocom', label: 'Info. Financiera', icon: <Info className="h-4 w-4" />, count: infocom ? 1 : 0 },
+        { key: 'history', label: 'Historial', icon: <History className="h-4 w-4" />, count: history.length },
     ];
 
     return (
@@ -305,6 +308,7 @@ export default function VerComputador(props: Props) {
                                     {activeTab === 'certificates' && <TabCertificates data={certificates} />}
                                     {activeTab === 'contracts' && <TabContracts data={contracts} />}
                                     {activeTab === 'infocom' && <TabInfocom data={infocom} />}
+                                    {activeTab === 'history' && <TabHistorial data={history} />}
                                 </div>
                             </div>
                         </div>
@@ -980,6 +984,45 @@ function TabInfocom({ data }: { data: InfocomItem | null }) {
                 </div>
             ) : (
                 <EmptyState message="No hay información financiera registrada" />
+            )}
+        </>
+    );
+}
+
+function TabHistorial({ data }: { data: HistoryEntry[] }) {
+    return (
+        <>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <History className="h-5 w-5 text-[#2c4370]" />
+                Historial de cambios
+                <span className="text-sm font-normal text-gray-500">({data.length})</span>
+            </h2>
+            {data.length > 0 ? (
+                <div className="space-y-3">
+                    {data.map((h) => {
+                        const st = actionStyle(h.action);
+                        return (
+                            <div key={h.id} className="flex gap-3">
+                                <div className="flex flex-col items-center pt-1.5">
+                                    <span className={`h-2.5 w-2.5 rounded-full ${st.dot}`} />
+                                    <span className="flex-1 w-px bg-gray-200 mt-1" />
+                                </div>
+                                <div className="flex-1 p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                                        <p className="text-sm text-gray-900">{h.summary}</p>
+                                        <span className={`shrink-0 px-2 py-0.5 text-xs rounded-full ${st.badge}`}>{st.label}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500">
+                                        <span className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-700">{categoryLabel(h.category)}</span>
+                                        <span>{formatHistoryDate(h.changed_at)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <EmptyState message="Sin cambios registrados todavía. El agente irá registrando aquí los cambios de hardware, software y configuración que detecte en cada sincronización." />
             )}
         </>
     );

@@ -31,6 +31,7 @@ const inventarioItems = [
   { name: 'Gabinetes', href: '/inventario/gabinetes' },
   { name: 'Multitomas', href: '/inventario/multitomas' },
   { name: 'Global', href: '/inventario/global' },
+  { name: 'Historial', href: '/inventario/historial' },
 ]
 
 const soporteItems = [
