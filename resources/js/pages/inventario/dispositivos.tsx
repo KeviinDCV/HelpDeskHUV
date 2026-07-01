@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 
 interface Peripheral {
@@ -320,43 +321,47 @@ export default function Dispositivos({ peripherals, states, manufacturers, types
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
                                         <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
-                                        <Select value={stateFilter} onValueChange={setStateFilter}>
-                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {states?.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-estado"
+                                            value={stateFilter}
+                                            onValueChange={setStateFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(states || []).map((s) => ({ value: s.id.toString(), label: s.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="filtro-fabricante" className="text-xs text-gray-600 mb-1 block">Fabricante</label>
-                                        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-                                            <SelectTrigger id="filtro-fabricante" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {manufacturers?.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-fabricante"
+                                            value={manufacturerFilter}
+                                            onValueChange={setManufacturerFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(manufacturers || []).map((m) => ({ value: m.id.toString(), label: m.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="filtro-tipo" className="text-xs text-gray-600 mb-1 block">Tipo</label>
-                                        <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                            <SelectTrigger id="filtro-tipo" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {types?.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-tipo"
+                                            value={typeFilter}
+                                            onValueChange={setTypeFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(types || []).map((t) => ({ value: t.id.toString(), label: t.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="filtro-localizacion" className="text-xs text-gray-600 mb-1 block">Localización</label>
-                                        <Select value={locationFilter} onValueChange={setLocationFilter}>
-                                            <SelectTrigger id="filtro-localizacion" className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todas</SelectItem>
-                                                {locations?.map((l) => <SelectItem key={l.id} value={l.id.toString()}>{l.completename}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-localizacion"
+                                            value={locationFilter}
+                                            onValueChange={setLocationFilter}
+                                            options={[{ value: 'all', label: 'Todas' }, ...(locations || []).map((l) => ({ value: l.id.toString(), label: l.completename || l.name }))]}
+                                            placeholder="Todas"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>

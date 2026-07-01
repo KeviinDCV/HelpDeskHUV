@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
 
 interface Software {
@@ -303,19 +304,14 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
                                         <label htmlFor="filtro-editor" className="text-xs text-gray-600 mb-1 block">Editor</label>
-                                        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-                                            <SelectTrigger id="filtro-editor" className="h-8 text-xs">
-                                                <SelectValue placeholder="Todos" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {manufacturers?.map((manufacturer) => (
-                                                    <SelectItem key={manufacturer.id} value={manufacturer.id.toString()}>
-                                                        {manufacturer.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-editor"
+                                            value={manufacturerFilter}
+                                            onValueChange={setManufacturerFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(manufacturers || []).map((manufacturer) => ({ value: manufacturer.id.toString(), label: manufacturer.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-3">

@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface GlobalItem {
     name: string;
@@ -216,23 +217,25 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
                                         <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
-                                        <Select value={stateFilter} onValueChange={setStateFilter}>
-                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {states?.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-estado"
+                                            value={stateFilter}
+                                            onValueChange={setStateFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(states || []).map((s) => ({ value: s.id.toString(), label: s.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="filtro-tipo-elemento" className="text-xs text-gray-600 mb-1 block">Tipo de elemento</label>
-                                        <Select value={itemTypeFilter} onValueChange={setItemTypeFilter}>
-                                            <SelectTrigger id="filtro-tipo-elemento" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {itemTypes?.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-tipo-elemento"
+                                            value={itemTypeFilter}
+                                            onValueChange={setItemTypeFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(itemTypes || []).map((type) => ({ value: type, label: type }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-3">

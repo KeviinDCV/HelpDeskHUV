@@ -22,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface Consumable {
     id: number;
@@ -249,23 +250,25 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
                                         <label htmlFor="filtro-tipo" className="text-xs text-gray-600 mb-1 block">Tipo</label>
-                                        <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                            <SelectTrigger id="filtro-tipo" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {types?.map((t) => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-tipo"
+                                            value={typeFilter}
+                                            onValueChange={setTypeFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(types || []).map((t) => ({ value: t.id.toString(), label: t.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                     <div>
                                         <label htmlFor="filtro-fabricante" className="text-xs text-gray-600 mb-1 block">Fabricante</label>
-                                        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-                                            <SelectTrigger id="filtro-fabricante" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {manufacturers?.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            id="filtro-fabricante"
+                                            value={manufacturerFilter}
+                                            onValueChange={setManufacturerFilter}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(manufacturers || []).map((m) => ({ value: m.id.toString(), label: m.name }))]}
+                                            placeholder="Todos"
+                                            triggerClassName="h-8 text-xs"
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-3">
