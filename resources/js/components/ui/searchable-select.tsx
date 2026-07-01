@@ -16,6 +16,10 @@ interface SearchableSelectProps {
     disabled?: boolean;
     loading?: boolean;
     className?: string;
+    /** id para el botón disparador (permite asociar un <Label htmlFor>) */
+    id?: string;
+    /** clases extra para el botón disparador */
+    triggerClassName?: string;
 }
 
 export function SearchableSelect({
@@ -26,7 +30,9 @@ export function SearchableSelect({
     searchPlaceholder = "Buscar...",
     disabled = false,
     loading = false,
-    className
+    className,
+    id,
+    triggerClassName
 }: SearchableSelectProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [search, setSearch] = React.useState("");
@@ -69,13 +75,15 @@ export function SearchableSelect({
         <div ref={containerRef} className={cn("relative", className)}>
             <button
                 type="button"
+                id={id}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 disabled={disabled}
                 className={cn(
                     "flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background",
                     "focus:outline-none focus:ring-1 focus:ring-ring",
                     "disabled:cursor-not-allowed disabled:opacity-50",
-                    isOpen && "ring-1 ring-ring"
+                    isOpen && "ring-1 ring-ring",
+                    triggerClassName
                 )}
             >
                 <span className={cn(!selectedOption && "text-muted-foreground")}>

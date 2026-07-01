@@ -221,19 +221,19 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3">
                     <div>
                         <Label className="text-xs">Estado</Label>
-                        <SelectWithCreate value={formData.states_id} onValueChange={v => set('states_id', v)} options={states} dropdownType="states" createLabel="Nuevo estado" className="mt-1" triggerClassName="h-8 text-xs" />
+                        <SelectWithCreate allowNone value={formData.states_id} onValueChange={v => set('states_id', v)} options={states} dropdownType="states" createLabel="Nuevo estado" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Tipo</Label>
-                        <SelectWithCreate value={formData.computertypes_id} onValueChange={v => set('computertypes_id', v)} options={types} dropdownType="computertypes" createLabel="Nuevo tipo" className="mt-1" triggerClassName="h-8 text-xs" />
+                        <SelectWithCreate allowNone value={formData.computertypes_id} onValueChange={v => set('computertypes_id', v)} options={types} dropdownType="computertypes" createLabel="Nuevo tipo" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Fabricante</Label>
-                        <SelectWithCreate value={formData.manufacturers_id} onValueChange={v => set('manufacturers_id', v)} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
+                        <SelectWithCreate allowNone value={formData.manufacturers_id} onValueChange={v => set('manufacturers_id', v)} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Modelo</Label>
-                        <SelectWithCreate value={formData.computermodels_id} onValueChange={v => set('computermodels_id', v)} options={models} dropdownType="computermodels" createLabel="Nuevo modelo" className="mt-1" triggerClassName="h-8 text-xs" />
+                        <SelectWithCreate allowNone value={formData.computermodels_id} onValueChange={v => set('computermodels_id', v)} options={models} dropdownType="computermodels" createLabel="Nuevo modelo" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                 </div>
             </div>
@@ -244,7 +244,7 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
                     <div>
                         <Label className="text-xs">Ubicación</Label>
-                        <SelectWithCreate value={formData.locations_id} onValueChange={v => set('locations_id', v)} options={locations} dropdownType="locations" createLabel="Nueva localización" useCompletename placeholder="Seleccionar ubicación..." className="mt-1" triggerClassName="h-8 text-xs" />
+                        <SelectWithCreate allowNone value={formData.locations_id} onValueChange={v => set('locations_id', v)} options={locations} dropdownType="locations" createLabel="Nueva localización" useCompletename placeholder="Seleccionar ubicación..." className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Entidad</Label>
@@ -288,7 +288,7 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                     </div>
                     <div>
                         <Label className="text-xs">Dominio</Label>
-                        <SelectWithCreate value={formData.domains_id} onValueChange={v => set('domains_id', v)} options={domains} dropdownType="domains" createLabel="Nuevo dominio" placeholder="Seleccionar dominio..." className="mt-1" triggerClassName="h-8 text-xs" />
+                        <SelectWithCreate allowNone value={formData.domains_id} onValueChange={v => set('domains_id', v)} options={domains} dropdownType="domains" createLabel="Nuevo dominio" placeholder="Seleccionar dominio..." className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                 </div>
             </div>
@@ -385,27 +385,27 @@ function TabOS({ computerId, items, osList, osVersions, osArchitectures, osServi
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
                 <div>
                     <Label className="text-xs">Nombre</Label>
-                    <SelectWithCreate value={form.operatingsystems_id} onValueChange={v => set('operatingsystems_id', v)} options={osList} dropdownType="operatingsystems" createLabel="Nuevo sistema operativo" placeholder="Seleccionar OS..." className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.operatingsystems_id} onValueChange={v => set('operatingsystems_id', v)} options={osList} dropdownType="operatingsystems" createLabel="Nuevo sistema operativo" placeholder="Seleccionar OS..." className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Versión</Label>
-                    <SelectWithCreate value={form.operatingsystemversions_id} onValueChange={v => set('operatingsystemversions_id', v)} options={osVersions} dropdownType="operatingsystemversions" createLabel="Nueva versión" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.operatingsystemversions_id} onValueChange={v => set('operatingsystemversions_id', v)} options={osVersions} dropdownType="operatingsystemversions" createLabel="Nueva versión" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Arquitectura</Label>
-                    <SelectWithCreate value={form.operatingsystemarchitectures_id} onValueChange={v => set('operatingsystemarchitectures_id', v)} options={osArchitectures} dropdownType="operatingsystemarchitectures" createLabel="Nueva arquitectura" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.operatingsystemarchitectures_id} onValueChange={v => set('operatingsystemarchitectures_id', v)} options={osArchitectures} dropdownType="operatingsystemarchitectures" createLabel="Nueva arquitectura" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Paquete de servicio</Label>
-                    <SelectWithCreate value={form.operatingsystemservicepacks_id} onValueChange={v => set('operatingsystemservicepacks_id', v)} options={osServicePacks} dropdownType="operatingsystemservicepacks" createLabel="Nuevo paquete de servicio" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.operatingsystemservicepacks_id} onValueChange={v => set('operatingsystemservicepacks_id', v)} options={osServicePacks} dropdownType="operatingsystemservicepacks" createLabel="Nuevo paquete de servicio" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Núcleo</Label>
-                    <SelectWithCreate value={form.operatingsystemkernelversions_id} onValueChange={v => set('operatingsystemkernelversions_id', v)} options={osKernelVersions} dropdownType="operatingsystemkernelversions" createLabel="Nuevo núcleo" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.operatingsystemkernelversions_id} onValueChange={v => set('operatingsystemkernelversions_id', v)} options={osKernelVersions} dropdownType="operatingsystemkernelversions" createLabel="Nuevo núcleo" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Edición</Label>
-                    <SelectWithCreate value={form.operatingsystemeditions_id} onValueChange={v => set('operatingsystemeditions_id', v)} options={osEditions} dropdownType="operatingsystemeditions" createLabel="Nueva edición" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.operatingsystemeditions_id} onValueChange={v => set('operatingsystemeditions_id', v)} options={osEditions} dropdownType="operatingsystemeditions" createLabel="Nueva edición" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label htmlFor="license_number" className="text-xs">Número de serie</Label>
@@ -543,7 +543,7 @@ function TabVolumes({ computerId, items, filesystems }: { computerId: number; it
                 </div>
                 <div>
                     <Label className="text-xs">Sistema de archivos</Label>
-                    <SelectWithCreate value={form.filesystems_id} onValueChange={v => set('filesystems_id', v)} options={filesystems} dropdownType="filesystems" createLabel="Nuevo sistema de archivos" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.filesystems_id} onValueChange={v => set('filesystems_id', v)} options={filesystems} dropdownType="filesystems" createLabel="Nuevo sistema de archivos" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label htmlFor="totalsize" className="text-xs">Tamaño global (MB)</Label>
@@ -962,7 +962,7 @@ function TabAntivirus({ computerId, items, antivirusManufacturers }: {
                 </div>
                 <div>
                     <Label className="text-xs">Fabricante</Label>
-                    <SelectWithCreate value={form.manufacturers_id} onValueChange={v => set('manufacturers_id', v)} options={antivirusManufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
+                    <SelectWithCreate allowNone value={form.manufacturers_id} onValueChange={v => set('manufacturers_id', v)} options={antivirusManufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label htmlFor="antivirus_version" className="text-xs">Versión antivirus</Label>

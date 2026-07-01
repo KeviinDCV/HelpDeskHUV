@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState, useMemo } from 'react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ export interface DropdownOption {
 }
 
 interface SelectWithCreateProps {
-    /** id para el SelectTrigger (para asociar el <Label htmlFor>) */
+    /** id para el disparador (para asociar el <Label htmlFor>) */
     id?: string;
     value: string;
     onValueChange: (value: string) => void;
@@ -22,7 +22,7 @@ interface SelectWithCreateProps {
     /** Clave del tipo de desplegable en el backend (ej: "computermodels") */
     dropdownType: string;
     placeholder?: string;
-    /** Clases para el SelectTrigger (además de las base) */
+    /** Clases para el disparador (además de las base) */
     triggerClassName?: string;
     /** Clases para el contenedor (ej: "mt-1") */
     className?: string;
@@ -31,11 +31,14 @@ interface SelectWithCreateProps {
     disabled?: boolean;
     /** Mostrar la etiqueta completa (para árboles como ubicaciones) */
     useCompletename?: boolean;
+    /** Mostrar la opción "-- Ninguno --" (value "0") para poder desasignar */
+    allowNone?: boolean;
 }
 
 /**
- * Selector con botón "+" para crear opciones de catálogo al vuelo.
- * Llama a POST /inventario/desplegables/{dropdownType} y agrega la opción creada.
+ * Selector CON BÚSQUEDA y botón "+" para crear opciones de catálogo al vuelo.
+ * Se apoya en SearchableSelect (filtro por texto) y llama a
+ * POST /inventario/desplegables/{dropdownType} para agregar la opción creada.
  */
 export function SelectWithCreate({
     id,
@@ -49,6 +52,7 @@ export function SelectWithCreate({
     createLabel = 'Nueva opción',
     disabled,
     useCompletename = false,
+    allowNone = false,
 }: SelectWithCreateProps) {
     const [options, setOptions] = useState<DropdownOption[]>(initialOptions);
     const [open, setOpen] = useState(false);
@@ -57,6 +61,16 @@ export function SelectWithCreate({
     const [error, setError] = useState<string | null>(null);
 
     const labelOf = (o: DropdownOption) => (useCompletename && o.completename ? o.completename : o.name);
+
+    const searchableOptions = useMemo(() => {
+        const mapped = options.map((o) => ({ value: o.id.toString(), label: labelOf(o) }));
+        const hasZero = options.some((o) => o.id === 0);
+        if (allowNone && !hasZero) {
+            return [{ value: '0', label: '-- Ninguno --' }, ...mapped];
+        }
+        return mapped;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [options, allowNone, useCompletename]);
 
     const create = async () => {
         const trimmed = name.trim();
@@ -99,18 +113,16 @@ export function SelectWithCreate({
     return (
         <>
             <div className={cn('flex items-center gap-1', className)}>
-                <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-                    <SelectTrigger id={id} className={cn('flex-1 min-w-0', triggerClassName)}>
-                        <SelectValue placeholder={placeholder} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {options.map((o) => (
-                            <SelectItem key={o.id} value={o.id.toString()}>
-                                {labelOf(o)}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <SearchableSelect
+                    id={id}
+                    options={searchableOptions}
+                    value={value}
+                    onValueChange={onValueChange}
+                    placeholder={placeholder}
+                    disabled={disabled}
+                    className="flex-1 min-w-0"
+                    triggerClassName={triggerClassName}
+                />
                 <Button
                     type="button"
                     variant="outline"
