@@ -190,15 +190,15 @@ class TicketController extends Controller
         }
 
         // Aplicar filtros selectivos
-        if ($statusFilter !== '' && $statusFilter !== 'all') {
+        if ($statusFilter && $statusFilter !== 'all') {
             $query->where('t.status', $statusFilter);
         }
         
-        if ($priorityFilter !== '' && $priorityFilter !== 'all') {
+        if ($priorityFilter && $priorityFilter !== 'all') {
             $query->where('t.priority', $priorityFilter);
         }
         
-        if ($categoryFilter !== '' && $categoryFilter !== 'all') {
+        if ($categoryFilter && $categoryFilter !== 'all') {
             // Obtener el name de la categoría seleccionada
             $selectedCategoryName = DB::table('glpi_itilcategories')
                 ->where('id', $categoryFilter)
@@ -227,7 +227,7 @@ class TicketController extends Controller
             }
         }
         
-        if ($assignedFilter !== '' && $assignedFilter !== 'all') {
+        if ($assignedFilter && $assignedFilter !== 'all') {
             // Buscar por técnico que dio la solución (glpi_itilsolutions) O por técnico asignado (glpi_tickets_users)
             $query->where(function ($q) use ($assignedFilter) {
                 $q->whereExists(function ($sub) use ($assignedFilter) {
@@ -529,13 +529,13 @@ class TicketController extends Controller
             });
         }
 
-        if ($statusFilter !== '' && $statusFilter !== 'all') {
+        if ($statusFilter && $statusFilter !== 'all') {
             $query->where('t.status', $statusFilter);
         }
-        if ($priorityFilter !== '' && $priorityFilter !== 'all') {
+        if ($priorityFilter && $priorityFilter !== 'all') {
             $query->where('t.priority', $priorityFilter);
         }
-        if ($categoryFilter !== '' && $categoryFilter !== 'all') {
+        if ($categoryFilter && $categoryFilter !== 'all') {
             // Usar la misma lógica de búsqueda por palabras que en index()
             $selectedCategoryName = DB::table('glpi_itilcategories')
                 ->where('id', $categoryFilter)
@@ -561,7 +561,7 @@ class TicketController extends Controller
                 $query->where('t.itilcategories_id', $categoryFilter);
             }
         }
-        if ($assignedFilter !== '' && $assignedFilter !== 'all') {
+        if ($assignedFilter && $assignedFilter !== 'all') {
             $query->where(function ($q) use ($assignedFilter) {
                 $q->whereExists(function ($sub) use ($assignedFilter) {
                     $sub->select(DB::raw(1))
