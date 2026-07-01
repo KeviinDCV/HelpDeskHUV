@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus, Wrench } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import AdvancedFilterBar, { FilterRow } from '@/components/AdvancedFilterBar';
@@ -467,6 +467,17 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         window.location.href = `/soporte/casos/export?${params}`;
     };
 
+    // Reporte de Mantenimiento Preventivo + Repotenciación/Actualización de computadores.
+    // Por defecto abarca desde el 1 de enero del año actual hasta hoy; respeta el rango
+    // de fechas si el usuario lo definió en los filtros.
+    const handleExportMantenimiento = () => {
+        const params = new URLSearchParams();
+        if (filters.date_from) params.append('date_from', filters.date_from);
+        if (filters.date_to) params.append('date_to', filters.date_to);
+        const qs = params.toString();
+        window.location.href = `/soporte/casos/export-mantenimiento${qs ? `?${qs}` : ''}`;
+    };
+
     const getSortIcon = (field: string) => {
         if (filters.sort !== field) return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
         return filters.direction === 'asc'
@@ -568,6 +579,16 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         >
                                             <span className="hidden sm:inline">Exportar</span>
                                             <span className="sm:hidden">Excel</span>
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 flex-1 sm:flex-initial border-[#2c4370] text-[#2c4370] hover:bg-[#2c4370] hover:text-white"
+                                            onClick={handleExportMantenimiento}
+                                            title="Descargar Excel: Mantenimiento Preventivo y Repotenciación/Actualización de computadores (equipos activos, del 1 de enero a hoy)"
+                                        >
+                                            <Wrench className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">Mant./Repot.</span>
                                         </Button>
                                         <Link href="/soporte/crear-caso">
                                             <Button

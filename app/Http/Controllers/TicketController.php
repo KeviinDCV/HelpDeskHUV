@@ -738,6 +738,151 @@ class TicketController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    /**
+     * Exporta a Excel el reporte de casos de Mantenimiento Preventivo y
+     * Repotenciación/Actualización de computadores (equipos activos), cruzando
+     * cada ECOM con su caso. Rango por defecto: 1 de enero del año actual → hoy.
+     */
+    public function exportMantenimiento(Request $request)
+    {
+        $dateFrom = $request->input('date_from') ?: date('Y') . '-01-01';
+        $dateTo = $request->input('date_to') ?: date('Y-m-d');
+
+        $statusMap = [
+            1 => 'Nuevo',
+            2 => 'En curso (asignado)',
+            3 => 'En curso (planificado)',
+            4 => 'En espera',
+            5 => 'Resuelto',
+            6 => 'Cerrado',
+        ];
+
+        $rows = DB::table('glpi_tickets as t')
+            ->join('glpi_items_tickets as it', function ($j) {
+                $j->on('it.tickets_id', '=', 't.id')->where('it.itemtype', '=', 'Computer');
+            })
+            ->join('glpi_computers as c', 'c.id', '=', 'it.items_id')
+            ->join('glpi_itilcategories as cat', 'cat.id', '=', 't.itilcategories_id')
+            ->leftJoin('glpi_states as st', 'st.id', '=', 'c.states_id')
+            ->leftJoin('glpi_locations as loc', 'loc.id', '=', 'c.locations_id')
+            ->where('t.is_deleted', 0)
+            ->where('c.is_deleted', 0)
+            ->whereDate('t.date', '>=', $dateFrom)
+            ->whereDate('t.date', '<=', $dateTo)
+            ->where(function ($q) {
+                $q->where('cat.completename', 'LIKE', '%Mantenimiento > Preventivo%')
+                    ->orWhere('cat.completename', '=', 'Mantenimiento Preventivo')
+                    ->orWhere('cat.completename', 'LIKE', '%Repotenciar Equipo%');
+            })
+            ->select(
+                't.id as caso',
+                'c.name as ecom',
+                'c.serial as serial',
+                'st.name as estado_equipo',
+                'loc.completename as ubicacion',
+                'cat.completename as categoria',
+                't.name as titulo',
+                't.date as fecha',
+                't.status as status'
+            )
+            ->selectRaw("(SELECT TRIM(CONCAT(COALESCE(u.realname,''),' ',COALESCE(u.firstname,''))) FROM glpi_tickets_users tu JOIN glpi_users u ON u.id = tu.users_id WHERE tu.tickets_id = t.id AND tu.type = 2 LIMIT 1) as tecnico")
+            ->orderBy('c.name')
+            ->orderByDesc('t.date')
+            ->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Mantenimiento y Repotenciacion');
+
+        $spreadsheet->getProperties()
+            ->setCreator('HelpDesk HUV')
+            ->setTitle('Mantenimiento Preventivo y Repotenciación')
+            ->setSubject('Reporte de mantenimiento y repotenciación de computadores');
+
+        // Título del reporte
+        $sheet->setCellValue('A1', 'HOSPITAL UNIVERSITARIO DEL VALLE - HelpDesk');
+        $sheet->setCellValue('A2', 'Reporte: Mantenimiento Preventivo y Repotenciación/Actualización de computadores (activos)');
+        $sheet->setCellValue('A3', 'Periodo: ' . date('d/m/Y', strtotime($dateFrom)) . ' a ' . date('d/m/Y', strtotime($dateTo)) . '   |   Total casos: ' . count($rows));
+        $sheet->mergeCells('A1:J1');
+        $sheet->mergeCells('A2:J2');
+        $sheet->mergeCells('A3:J3');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11);
+        $sheet->getStyle('A3')->getFont()->setSize(10)->getColor()->setRGB('555555');
+
+        // Encabezados de columna
+        $headerRow = 5;
+        $headers = ['N° Caso', 'ECOM', 'Serial', 'Estado del equipo', 'Ubicación', 'Tipo de caso', 'Título del caso', 'Fecha', 'Estado del caso', 'Técnico asignado'];
+        $col = 'A';
+        foreach ($headers as $h) {
+            $sheet->setCellValue("{$col}{$headerRow}", $h);
+            $col++;
+        }
+        $sheet->getStyle("A{$headerRow}:J{$headerRow}")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        // Datos
+        $r = $headerRow + 1;
+        foreach ($rows as $row) {
+            $esRepotenciar = stripos($row->categoria, 'Repotenciar') !== false;
+            $tipo = $esRepotenciar ? 'Repotenciación / Actualización de computador' : 'Mantenimiento Preventivo';
+
+            $sheet->setCellValue("A{$r}", (int) $row->caso);
+            $sheet->setCellValueExplicit("B{$r}", $row->ecom, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("C{$r}", (string) $row->serial, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue("D{$r}", $row->estado_equipo ?: '—');
+            $sheet->setCellValue("E{$r}", $row->ubicacion ?: '—');
+            $sheet->setCellValue("F{$r}", $tipo);
+            $sheet->setCellValue("G{$r}", $row->titulo);
+            $sheet->setCellValue("H{$r}", $row->fecha ? date('d/m/Y H:i', strtotime($row->fecha)) : '—');
+            $sheet->setCellValue("I{$r}", $statusMap[$row->status] ?? (string) $row->status);
+            $sheet->setCellValue("J{$r}", $row->tecnico ?: '—');
+
+            $fillColor = $esRepotenciar ? 'FCE4D6' : 'E2EFDA';
+            $sheet->getStyle("A{$r}:J{$r}")->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB($fillColor);
+            $r++;
+        }
+        $lastRow = max($r - 1, $headerRow);
+
+        // Bordes y alineación
+        $sheet->getStyle("A{$headerRow}:J{$lastRow}")->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'BFBFBF']]],
+        ]);
+        if ($lastRow > $headerRow) {
+            $sheet->getStyle("A6:A{$lastRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("H6:H{$lastRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("B6:B{$lastRow}")->getFont()->setBold(true);
+            $sheet->getStyle("G6:G{$lastRow}")->getAlignment()->setWrapText(true);
+        }
+
+        // Anchos de columna
+        $widths = ['A' => 9, 'B' => 13, 'C' => 18, 'D' => 16, 'E' => 30, 'F' => 34, 'G' => 55, 'H' => 18, 'I' => 20, 'J' => 26];
+        foreach ($widths as $c => $w) {
+            $sheet->getColumnDimension($c)->setWidth($w);
+        }
+
+        // Filtros automáticos y encabezado congelado
+        $sheet->setAutoFilter("A{$headerRow}:J{$headerRow}");
+        $sheet->freezePane('A' . ($headerRow + 1));
+
+        $filename = 'Mantenimiento_Repotenciacion_ECOM_' . date('Y-m-d_His') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_mant_');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
     public function create()
     {
         // Obtener usuarios activos de Laravel con su glpi_user_id
