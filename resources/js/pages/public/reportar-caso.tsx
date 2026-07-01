@@ -63,9 +63,10 @@ export default function ReportarCaso() {
 
     // Tour para usuarios nuevos
     const startTour = () => {
+        const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const driverObj = driver({
             showProgress: false,
-            animate: true,
+            animate: !prefersReducedMotion,
             allowClose: true,
             overlayColor: 'rgba(0, 0, 0, 0.7)',
             stagePadding: 8,
@@ -392,7 +393,7 @@ export default function ReportarCaso() {
                             <div className="flex items-center space-x-3">
                                 <div className="relative">
                                     <div className="w-10 h-10 bg-white/20 rounded-full overflow-hidden">
-                                        <img src="/images/Evaris.png" alt="Evarisbot" className="w-full h-full object-cover" />
+                                        <img src="/images/Evaris.png" alt="" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#2d3e5e] rounded-full"></div>
                                 </div>
@@ -404,7 +405,8 @@ export default function ReportarCaso() {
                             <button
                                 id="help-button"
                                 onClick={startTour}
-                                className="text-white/50 hover:text-white transition-colors rounded-full p-2"
+                                aria-label="Ver tutorial"
+                                className="text-white/70 hover:text-white transition-colors rounded-full p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                                 title="Ver tutorial"
                             >
                                 <HelpCircle className="w-5 h-5" />
@@ -412,7 +414,7 @@ export default function ReportarCaso() {
                         </div>
 
                         {/* Chat Messages */}
-                        <div id="chat-messages" ref={messagesContainerRef} className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                        <div id="chat-messages" ref={messagesContainerRef} role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="Conversación con Evarisbot" className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
                             {/* Timestamp */}
                             <div className="flex justify-center">
                                 <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
@@ -430,10 +432,11 @@ export default function ReportarCaso() {
                             {isLoading && (
                                 <div className="flex items-start space-x-3 max-w-[90%]">
                                     <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden">
-                                        <img src="/images/Evaris.png" alt="Evarisbot" className="w-full h-full object-cover" />
+                                        <img src="/images/Evaris.png" alt="" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="bg-slate-50 px-4 py-3 rounded-2xl rounded-tl-none">
-                                        <span className="flex items-center gap-1.5">
+                                        <span className="sr-only">Evarisbot está escribiendo…</span>
+                                        <span aria-hidden="true" className="flex items-center gap-1.5">
                                             <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                                             <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                                             <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
@@ -455,7 +458,7 @@ export default function ReportarCaso() {
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyPress={handleKeyPress}
                                     placeholder="Escribe tu mensaje..."
-                                    className="w-full bg-slate-50 text-slate-700 text-sm rounded-full py-3.5 pl-5 pr-14 focus:outline-none focus:ring-1 focus:ring-[#2d3e5e]/20 focus:bg-white transition-all border border-slate-200 placeholder-slate-400"
+                                    className="w-full bg-slate-50 text-slate-700 text-sm rounded-full py-3.5 pl-5 pr-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus:bg-white transition-all border border-slate-200 placeholder-slate-500"
                                     autoFocus
                                 />
                                 <div className="absolute right-2 flex items-center">
@@ -465,7 +468,7 @@ export default function ReportarCaso() {
                                         aria-label="Enviar mensaje"
                                         onClick={() => { sendMessage(); inputRef.current?.focus(); }}
                                         disabled={!input.trim() || isLoading}
-                                        className="text-[#2d3e5e] hover:bg-blue-50 p-2 rounded-full transition-colors flex items-center justify-center disabled:opacity-40"
+                                        className="text-[#2d3e5e] hover:bg-blue-50 p-2 rounded-full transition-colors flex items-center justify-center disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e]"
                                     >
                                         <Send className="w-5 h-5" />
                                     </button>
@@ -617,6 +620,10 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
     useEffect(() => {
         if (messageRef.current && isNew && !hasAnimated.current) {
             hasAnimated.current = true;
+            // Respetar la preferencia del sistema de reducir movimiento (WCAG 2.3.3)
+            if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return;
+            }
             const el = messageRef.current;
             const isUser = message.role === 'user';
 
@@ -652,7 +659,7 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
     return (
         <div ref={messageRef} className="flex items-start space-x-3 max-w-[90%]">
             <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden mt-1">
-                <img src="/images/Evaris.png" alt="Evarisbot" className="w-full h-full object-cover" />
+                <img src="/images/Evaris.png" alt="" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col space-y-2">
                 <div className="bg-slate-50 p-3.5 rounded-2xl rounded-tl-none text-slate-600 text-sm leading-relaxed whitespace-pre-line">

@@ -63,6 +63,14 @@ export function AccessibilityMenu() {
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, [settings.readingGuide]);
 
+    // Cerrar el panel con la tecla Escape
+    useEffect(() => {
+        if (!isOpen) return;
+        const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false); };
+        document.addEventListener('keydown', onEsc);
+        return () => document.removeEventListener('keydown', onEsc);
+    }, [isOpen]);
+
     const applySettings = (s: AccessibilitySettings) => {
         const root = document.documentElement;
         
@@ -500,7 +508,7 @@ export function AccessibilityMenu() {
                         </button>
 
                         {/* Info */}
-                        <p className="text-xs text-gray-400 text-center">
+                        <p className="text-xs text-gray-500 text-center">
                             Las preferencias se guardan automáticamente
                         </p>
                     </div>
