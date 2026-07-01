@@ -1,4 +1,4 @@
-import { LogOut, Search, Menu, X, ChevronDown, Command, Moon, Sun } from 'lucide-react'
+import { LogOut, Search, Menu, X, ChevronDown, Moon, Sun } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { router, usePage } from '@inertiajs/react'
 import { ReactNode, useState, useEffect } from 'react'
@@ -96,6 +96,8 @@ const mobileMenuSections = [
 export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   const { auth } = usePage<{ auth: { user: AuthUser } }>().props;
   const user = auth?.user;
+  // Mostrar "Ctrl" en Windows/Linux y "⌘" solo en Mac
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -349,7 +351,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
             <Search className="h-4 w-4" />
             <span className="text-sm hidden md:inline">Buscar...</span>
             <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 border border-white/20 bg-white/10 px-1.5 text-[10px] font-medium">
-              <Command className="h-2.5 w-2.5" />K
+              {isMac ? '⌘' : 'Ctrl'} K
             </kbd>
           </button>
           {/* Mobile Search Button */}
