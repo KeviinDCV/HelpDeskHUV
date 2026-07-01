@@ -177,11 +177,16 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         { key: 'nombre', label: 'Nombre', type: 'text' },
         { key: 'entidad', label: 'Entidad', type: 'text' },
         { key: 'referencia', label: 'Referencia', type: 'text' },
-        { key: 'tipo', label: 'Tipo', type: 'text' },
-        { key: 'fabricante', label: 'Fabricante', type: 'text' },
+        { key: 'tipo', label: 'Tipo', type: 'select' },
+        { key: 'fabricante', label: 'Fabricante', type: 'select' },
         { key: 'tecnico', label: 'Técnico a cargo', type: 'text' },
         { key: 'id', label: 'ID', type: 'number' },
     ];
+
+    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+        tipo: (types || []).filter(t => t.name).map(t => ({ value: t.name, label: t.name })),
+        fabricante: (manufacturers || []).filter(m => m.name).map(m => ({ value: m.name, label: m.name })),
+    };
 
     return (
         <>
@@ -232,10 +237,11 @@ export default function Consumibles({ consumables, types, manufacturers, filters
                         </div>
 
                         <AdvancedFilterBar
-                            filters={advancedFilters}
+                            initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
                             onSearch={handleAdvancedSearch}
                             onReset={handleAdvancedReset}
                             fields={CONSUMABLE_FIELDS}
+                            selectOptions={FILTER_SELECT_OPTIONS}
                         />
 
                         {showFilters && (

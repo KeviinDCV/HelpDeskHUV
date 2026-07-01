@@ -280,13 +280,21 @@ export default function DispositivosRed({ networkequipments, states, manufacture
         { key: 'nombre', label: 'Nombre', type: 'text' },
         { key: 'id', label: 'ID', type: 'number' },
         { key: 'entidad', label: 'Entidad', type: 'text' },
-        { key: 'estado', label: 'Estado', type: 'text' },
-        { key: 'fabricante', label: 'Fabricante', type: 'text' },
-        { key: 'localizacion', label: 'Localización', type: 'text' },
-        { key: 'tipo', label: 'Tipo', type: 'text' },
+        { key: 'estado', label: 'Estado', type: 'select' },
+        { key: 'fabricante', label: 'Fabricante', type: 'select' },
+        { key: 'localizacion', label: 'Localización', type: 'select' },
+        { key: 'tipo', label: 'Tipo', type: 'select' },
         { key: 'modelo', label: 'Modelo', type: 'text' },
         { key: 'fecha_mod', label: 'Última actualización', type: 'date' },
     ];
+
+    // Opciones de catálogos para el filtro avanzado (value = nombre, para comparación por texto en backend)
+    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+        estado: (states || []).filter(s => s.name).map(s => ({ value: s.name, label: s.name })),
+        fabricante: (manufacturers || []).filter(m => m.name).map(m => ({ value: m.name, label: m.name })),
+        tipo: (types || []).filter(t => t.name).map(t => ({ value: t.name, label: t.name })),
+        localizacion: (locations || []).map(l => ({ value: (l.completename || l.name), label: (l.completename || l.name) })),
+    };
 
     return (
         <>
@@ -412,6 +420,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                             onSearch={handleAdvancedSearch}
                             onReset={handleAdvancedReset}
                             fields={NETWORK_EQUIPMENT_FIELDS}
+                            selectOptions={FILTER_SELECT_OPTIONS}
                             defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
                         />
 

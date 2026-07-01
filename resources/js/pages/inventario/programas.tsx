@@ -201,8 +201,13 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         { key: 'nombre', label: 'Nombre', type: 'text' },
         { key: 'id', label: 'ID', type: 'number' },
         { key: 'entidad', label: 'Entidad', type: 'text' },
-        { key: 'editor', label: 'Editor', type: 'text' },
+        { key: 'editor', label: 'Editor', type: 'select' },
     ];
+
+    // ─── Select Options for Advanced Filter (catalog fields) ─────────
+    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+        editor: (manufacturers || []).filter(m => m.name).map(m => ({ value: m.name, label: m.name })),
+    };
 
     return (
         <>
@@ -288,6 +293,7 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
                             onSearch={handleAdvancedSearch}
                             onReset={handleAdvancedReset}
                             fields={SOFTWARE_FIELDS}
+                            selectOptions={FILTER_SELECT_OPTIONS}
                             defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
                         />
 

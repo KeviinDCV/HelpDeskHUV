@@ -149,9 +149,14 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
     const GLOBAL_FIELDS: FieldDef[] = [
         { key: 'nombre', label: 'Nombre', type: 'text' },
         { key: 'entidad', label: 'Entidad', type: 'text' },
-        { key: 'estado', label: 'Estado', type: 'text' },
-        { key: 'tipo_elemento', label: 'Tipo de elemento', type: 'text' },
+        { key: 'estado', label: 'Estado', type: 'select' },
+        { key: 'tipo_elemento', label: 'Tipo de elemento', type: 'select' },
     ];
+
+    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+        estado: (states || []).filter(s => s.name).map(s => ({ value: s.name, label: s.name })),
+        tipo_elemento: (itemTypes || []).map(t => ({ value: t, label: t })),
+    };
 
     return (
         <>
@@ -199,10 +204,11 @@ export default function Global({ items, states, itemTypes, filters }: GlobalInve
                         </div>
 
                         <AdvancedFilterBar
-                            filters={advancedFilters}
+                            initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
                             onSearch={handleAdvancedSearch}
                             onReset={handleAdvancedReset}
                             fields={GLOBAL_FIELDS}
+                            selectOptions={FILTER_SELECT_OPTIONS}
                         />
 
                         {showFilters && (

@@ -252,12 +252,12 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
         { key: 'nombre', label: 'Nombre', type: 'text' },
         { key: 'id', label: 'ID', type: 'number' },
         { key: 'entidad', label: 'Entidad', type: 'text' },
-        { key: 'estado', label: 'Estado', type: 'text' },
-        { key: 'fabricante', label: 'Fabricante', type: 'text' },
+        { key: 'estado', label: 'Estado', type: 'select' },
+        { key: 'fabricante', label: 'Fabricante', type: 'select' },
         { key: 'serial', label: 'Número de serie', type: 'text' },
-        { key: 'tipo', label: 'Tipo', type: 'text' },
+        { key: 'tipo', label: 'Tipo', type: 'select' },
         { key: 'modelo', label: 'Modelo', type: 'text' },
-        { key: 'localizacion', label: 'Localización', type: 'text' },
+        { key: 'localizacion', label: 'Localización', type: 'select' },
         { key: 'fecha_mod', label: 'Última actualización', type: 'date' },
         { key: 'otherserial', label: 'Nombre de usuario alternativo', type: 'text' },
         { key: 'contacto', label: 'Contacto', type: 'text' },
@@ -283,6 +283,14 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
             router.delete(`/inventario/monitores/${deleteModal.id}`);
         }
         setDeleteModal({ open: false, id: null, name: '' });
+    };
+
+    // ─── Opciones de catálogos para el filtro avanzado (comparación por nombre) ──
+    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+        estado: (states || []).filter(s => s.name).map(s => ({ value: s.name, label: s.name })),
+        fabricante: (manufacturers || []).filter(m => m.name).map(m => ({ value: m.name, label: m.name })),
+        tipo: (types || []).filter(t => t.name).map(t => ({ value: t.name, label: t.name })),
+        localizacion: (locations || []).map(l => ({ value: (l.completename || l.name), label: (l.completename || l.name) })),
     };
 
     return (
@@ -369,6 +377,7 @@ export default function Monitores({ monitors, states, manufacturers, types, loca
                             onSearch={handleAdvancedSearch}
                             onReset={handleAdvancedReset}
                             fields={MONITOR_FIELDS}
+                            selectOptions={FILTER_SELECT_OPTIONS}
                             defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
                         />
 

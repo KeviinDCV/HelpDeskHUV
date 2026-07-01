@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Search, Star, RotateCcw } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -501,19 +502,20 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
             return null;
         }
 
-        // Select fields with es/no_es → show dropdown
+        // Select fields with es/no_es → show searchable dropdown (usable con listas largas)
         if (fieldDef?.type === 'select' && (row.operator === 'es' || row.operator === 'no_es')) {
             const options = activeSelectOptions[row.field] || [];
             return (
-                <select
-                    value={row.value}
-                    onChange={(e) => updateRow(row.id, { value: e.target.value })}
-                    className="h-[26px] text-[11px] rounded-sm border border-gray-300 bg-white px-1 min-w-[140px] focus:outline-none focus:ring-1 focus:ring-[#2c4370]"
-                >
-                    {options.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
+                <div className="min-w-[180px]">
+                    <SearchableSelect
+                        options={options}
+                        value={row.value}
+                        onValueChange={(v) => updateRow(row.id, { value: v })}
+                        placeholder="Seleccionar..."
+                        searchPlaceholder="Buscar..."
+                        triggerClassName="h-[26px] text-[11px]"
+                    />
+                </div>
             );
         }
 
