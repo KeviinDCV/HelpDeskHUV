@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectWithCreate } from '@/components/select-with-create';
 import { Save } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -51,13 +52,13 @@ export default function EditarConsumible({ consumable, types, manufacturers, ent
                                 </div>
                                 <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Clasificación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><Label htmlFor="consumableitemtypes_id" className="text-xs">Tipo</Label><Select value={formData.consumableitemtypes_id} onValueChange={(v) => setFormData({ ...formData, consumableitemtypes_id: v })}><SelectTrigger id="consumableitemtypes_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{types.map((t) => (<SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>))}</SelectContent></Select></div>
-                                        <div><Label htmlFor="manufacturers_id" className="text-xs">Fabricante</Label><Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}><SelectTrigger id="manufacturers_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{manufacturers.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>))}</SelectContent></Select></div>
+                                        <div><Label htmlFor="consumableitemtypes_id" className="text-xs">Tipo</Label><SelectWithCreate id="consumableitemtypes_id" value={formData.consumableitemtypes_id} onValueChange={(v) => setFormData({ ...formData, consumableitemtypes_id: v })} options={types} dropdownType="consumableitemtypes" createLabel="Nuevo tipo" className="mt-1" triggerClassName="h-8 text-xs" /></div>
+                                        <div><Label htmlFor="manufacturers_id" className="text-xs">Fabricante</Label><SelectWithCreate id="manufacturers_id" value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" /></div>
                                     </div>
                                 </div>
                                 <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><Label htmlFor="locations_id" className="text-xs">Ubicación</Label><Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}><SelectTrigger id="locations_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{locations.map((l) => (<SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>))}</SelectContent></Select></div>
+                                        <div><Label htmlFor="locations_id" className="text-xs">Ubicación</Label><SelectWithCreate id="locations_id" value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })} options={locations} dropdownType="locations" useCompletename createLabel="Nueva localización" placeholder="Seleccionar ubicación..." className="mt-1" triggerClassName="h-8 text-xs" /></div>
                                         <div><Label htmlFor="entities_id" className="text-xs">Entidad</Label><Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}><SelectTrigger id="entities_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{entities.map((e) => (<SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>))}</SelectContent></Select></div>
                                     </div>
                                 </div>

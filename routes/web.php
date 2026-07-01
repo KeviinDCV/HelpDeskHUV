@@ -41,6 +41,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('dashboard/solve-ticket/{id}', [App\Http\Controllers\DashboardController::class, 'solveTicket'])->name('dashboard.solve-ticket');
 
     // Rutas de Inventario
+    // Crear opciones de desplegables al vuelo (botón "+" de cada selector)
+    Route::post('/inventario/desplegables/{type}', [App\Http\Controllers\DropdownController::class, 'store'])->name('inventario.dropdowns.store');
     Route::get('/inventario/computadores', [App\Http\Controllers\ComputerController::class, 'index'])->name('inventario.computadores');
     Route::get('/inventario/computadores/export', [App\Http\Controllers\ComputerController::class, 'export'])->name('inventario.computadores.export');
     Route::get('/inventario/computadores/crear', [App\Http\Controllers\ComputerController::class, 'create'])->name('inventario.computadores.crear');

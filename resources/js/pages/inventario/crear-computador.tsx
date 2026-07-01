@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SelectWithCreate } from '@/components/select-with-create';
 import { Save } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -149,47 +150,19 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label htmlFor="states_id" className="text-xs">Estado</Label>
-                                            <Select value={formData.states_id} onValueChange={(v) => setFormData({ ...formData, states_id: v })}>
-                                                <SelectTrigger id="states_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {states.map((s) => (
-                                                        <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="states_id" value={formData.states_id} onValueChange={(v) => setFormData({ ...formData, states_id: v })} options={states} dropdownType="states" createLabel="Nuevo estado" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="computertypes_id" className="text-xs">Tipo</Label>
-                                            <Select value={formData.computertypes_id} onValueChange={(v) => setFormData({ ...formData, computertypes_id: v })}>
-                                                <SelectTrigger id="computertypes_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {types.map((t) => (
-                                                        <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="computertypes_id" value={formData.computertypes_id} onValueChange={(v) => setFormData({ ...formData, computertypes_id: v })} options={types} dropdownType="computertypes" createLabel="Nuevo tipo" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="manufacturers_id" className="text-xs">Fabricante</Label>
-                                            <Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}>
-                                                <SelectTrigger id="manufacturers_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {manufacturers.map((m) => (
-                                                        <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="manufacturers_id" value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="computermodels_id" className="text-xs">Modelo</Label>
-                                            <Select value={formData.computermodels_id} onValueChange={(v) => setFormData({ ...formData, computermodels_id: v })}>
-                                                <SelectTrigger id="computermodels_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {models.map((m) => (
-                                                        <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="computermodels_id" value={formData.computermodels_id} onValueChange={(v) => setFormData({ ...formData, computermodels_id: v })} options={models} dropdownType="computermodels" createLabel="Nuevo modelo" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                     </div>
                                 </div>
@@ -200,14 +173,7 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <Label htmlFor="locations_id" className="text-xs">Localización</Label>
-                                            <Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}>
-                                                <SelectTrigger id="locations_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar ubicación..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {locations.map((l) => (
-                                                        <SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="locations_id" value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })} options={locations} dropdownType="locations" createLabel="Nueva localización" placeholder="Seleccionar ubicación..." useCompletename className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="entities_id" className="text-xs">Entidad</Label>
@@ -306,25 +272,11 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label htmlFor="networks_id" className="text-xs">Red</Label>
-                                            <Select value={formData.networks_id} onValueChange={(v) => setFormData({ ...formData, networks_id: v })}>
-                                                <SelectTrigger id="networks_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {networks.map((n) => (
-                                                        <SelectItem key={n.id} value={n.id.toString()}>{n.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="networks_id" value={formData.networks_id} onValueChange={(v) => setFormData({ ...formData, networks_id: v })} options={networks} dropdownType="networks" createLabel="Nueva red" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="domains_id" className="text-xs">Dominio</Label>
-                                            <Select value={formData.domains_id} onValueChange={(v) => setFormData({ ...formData, domains_id: v })}>
-                                                <SelectTrigger id="domains_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {domains.map((d) => (
-                                                        <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="domains_id" value={formData.domains_id} onValueChange={(v) => setFormData({ ...formData, domains_id: v })} options={domains} dropdownType="domains" createLabel="Nuevo dominio" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="uuid" className="text-xs">UUID</Label>
@@ -338,14 +290,7 @@ export default function CrearComputador({ states, manufacturers, types, models, 
                                         </div>
                                         <div>
                                             <Label htmlFor="autoupdatesystems_id" className="text-xs">Fuente de actualización</Label>
-                                            <Select value={formData.autoupdatesystems_id} onValueChange={(v) => setFormData({ ...formData, autoupdatesystems_id: v })}>
-                                                <SelectTrigger id="autoupdatesystems_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {autoupdatesystems.map((a) => (
-                                                        <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="autoupdatesystems_id" value={formData.autoupdatesystems_id} onValueChange={(v) => setFormData({ ...formData, autoupdatesystems_id: v })} options={autoupdatesystems} dropdownType="autoupdatesystems" createLabel="Nueva fuente de actualización" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                     </div>
                                 </div>
