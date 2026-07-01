@@ -769,6 +769,13 @@ class TicketController extends Controller
                     ->orWhere('l.completename', 'LIKE', '%Cartago%')
                     ->orWhere('l.completename', 'LIKE', '%HUV%');
             })
+            // Excluir AGESOC (por ubicación o por entidad): no va en este reporte
+            ->where(function ($q) {
+                $q->whereNull('l.completename')->orWhere('l.completename', 'NOT LIKE', '%Agesoc%');
+            })
+            ->where(function ($q) {
+                $q->whereNull('e.completename')->orWhere('e.completename', 'NOT LIKE', '%AGESOC%');
+            })
             ->select(
                 'c.id',
                 'c.name as ecom',
