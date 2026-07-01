@@ -393,6 +393,11 @@ export default function Dispositivos({ peripherals, states, manufacturers, types
                                         <SelectItem value="25">25</SelectItem>
                                         <SelectItem value="50">50</SelectItem>
                                         <SelectItem value="100">100</SelectItem>
+                                        <SelectItem value="500">500</SelectItem>
+                                        <SelectItem value="1000">1.000</SelectItem>
+                                        <SelectItem value="5000">5.000</SelectItem>
+                                        <SelectItem value="10000">10.000</SelectItem>
+                                        <SelectItem value="50000">50.000</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>

@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SelectWithCreate } from '@/components/select-with-create';
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
     Save, Monitor as MonitorIcon, Cpu, HardDrive, Package,
@@ -220,23 +221,19 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3">
                     <div>
                         <Label className="text-xs">Estado</Label>
-                        <SearchSelect value={formData.states_id} onValueChange={v => set('states_id', v)}
-                            options={states.map(s => ({ id: s.id, label: s.name }))} placeholder="Seleccionar..." />
+                        <SelectWithCreate value={formData.states_id} onValueChange={v => set('states_id', v)} options={states} dropdownType="states" createLabel="Nuevo estado" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Tipo</Label>
-                        <SearchSelect value={formData.computertypes_id} onValueChange={v => set('computertypes_id', v)}
-                            options={types.map(t => ({ id: t.id, label: t.name }))} placeholder="Seleccionar..." />
+                        <SelectWithCreate value={formData.computertypes_id} onValueChange={v => set('computertypes_id', v)} options={types} dropdownType="computertypes" createLabel="Nuevo tipo" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Fabricante</Label>
-                        <SearchSelect value={formData.manufacturers_id} onValueChange={v => set('manufacturers_id', v)}
-                            options={manufacturers.map(m => ({ id: m.id, label: m.name }))} placeholder="Seleccionar..." />
+                        <SelectWithCreate value={formData.manufacturers_id} onValueChange={v => set('manufacturers_id', v)} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Modelo</Label>
-                        <SearchSelect value={formData.computermodels_id} onValueChange={v => set('computermodels_id', v)}
-                            options={models.map(m => ({ id: m.id, label: m.name }))} placeholder="Seleccionar..." />
+                        <SelectWithCreate value={formData.computermodels_id} onValueChange={v => set('computermodels_id', v)} options={models} dropdownType="computermodels" createLabel="Nuevo modelo" className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                 </div>
             </div>
@@ -247,8 +244,7 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
                     <div>
                         <Label className="text-xs">Ubicación</Label>
-                        <SearchSelect value={formData.locations_id} onValueChange={v => set('locations_id', v)}
-                            options={locations.map(l => ({ id: l.id, label: l.completename || l.name }))} placeholder="Seleccionar ubicación..." />
+                        <SelectWithCreate value={formData.locations_id} onValueChange={v => set('locations_id', v)} options={locations} dropdownType="locations" createLabel="Nueva localización" useCompletename placeholder="Seleccionar ubicación..." className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                     <div>
                         <Label className="text-xs">Entidad</Label>
@@ -292,8 +288,7 @@ function TabGeneral({ computer, states, manufacturers, types, models, locations,
                     </div>
                     <div>
                         <Label className="text-xs">Dominio</Label>
-                        <SearchSelect value={formData.domains_id} onValueChange={v => set('domains_id', v)}
-                            options={domains.map(d => ({ id: d.id, label: d.name }))} placeholder="Seleccionar dominio..." />
+                        <SelectWithCreate value={formData.domains_id} onValueChange={v => set('domains_id', v)} options={domains} dropdownType="domains" createLabel="Nuevo dominio" placeholder="Seleccionar dominio..." className="mt-1" triggerClassName="h-8 text-xs" />
                     </div>
                 </div>
             </div>
@@ -390,33 +385,27 @@ function TabOS({ computerId, items, osList, osVersions, osArchitectures, osServi
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
                 <div>
                     <Label className="text-xs">Nombre</Label>
-                    <SearchSelect value={form.operatingsystems_id} onValueChange={v => set('operatingsystems_id', v)}
-                        options={osList.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar OS..." />
+                    <SelectWithCreate value={form.operatingsystems_id} onValueChange={v => set('operatingsystems_id', v)} options={osList} dropdownType="operatingsystems" createLabel="Nuevo sistema operativo" placeholder="Seleccionar OS..." className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Versión</Label>
-                    <SearchSelect value={form.operatingsystemversions_id} onValueChange={v => set('operatingsystemversions_id', v)}
-                        options={osVersions.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.operatingsystemversions_id} onValueChange={v => set('operatingsystemversions_id', v)} options={osVersions} dropdownType="operatingsystemversions" createLabel="Nueva versión" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Arquitectura</Label>
-                    <SearchSelect value={form.operatingsystemarchitectures_id} onValueChange={v => set('operatingsystemarchitectures_id', v)}
-                        options={osArchitectures.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.operatingsystemarchitectures_id} onValueChange={v => set('operatingsystemarchitectures_id', v)} options={osArchitectures} dropdownType="operatingsystemarchitectures" createLabel="Nueva arquitectura" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Paquete de servicio</Label>
-                    <SearchSelect value={form.operatingsystemservicepacks_id} onValueChange={v => set('operatingsystemservicepacks_id', v)}
-                        options={osServicePacks.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.operatingsystemservicepacks_id} onValueChange={v => set('operatingsystemservicepacks_id', v)} options={osServicePacks} dropdownType="operatingsystemservicepacks" createLabel="Nuevo paquete de servicio" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Núcleo</Label>
-                    <SearchSelect value={form.operatingsystemkernelversions_id} onValueChange={v => set('operatingsystemkernelversions_id', v)}
-                        options={osKernelVersions.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.operatingsystemkernelversions_id} onValueChange={v => set('operatingsystemkernelversions_id', v)} options={osKernelVersions} dropdownType="operatingsystemkernelversions" createLabel="Nuevo núcleo" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label className="text-xs">Edición</Label>
-                    <SearchSelect value={form.operatingsystemeditions_id} onValueChange={v => set('operatingsystemeditions_id', v)}
-                        options={osEditions.map(o => ({ id: o.id, label: o.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.operatingsystemeditions_id} onValueChange={v => set('operatingsystemeditions_id', v)} options={osEditions} dropdownType="operatingsystemeditions" createLabel="Nueva edición" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label htmlFor="license_number" className="text-xs">Número de serie</Label>
@@ -554,8 +543,7 @@ function TabVolumes({ computerId, items, filesystems }: { computerId: number; it
                 </div>
                 <div>
                     <Label className="text-xs">Sistema de archivos</Label>
-                    <SearchSelect value={form.filesystems_id} onValueChange={v => set('filesystems_id', v)}
-                        options={filesystems.map(f => ({ id: f.id, label: f.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.filesystems_id} onValueChange={v => set('filesystems_id', v)} options={filesystems} dropdownType="filesystems" createLabel="Nuevo sistema de archivos" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label htmlFor="totalsize" className="text-xs">Tamaño global (MB)</Label>
@@ -974,8 +962,7 @@ function TabAntivirus({ computerId, items, antivirusManufacturers }: {
                 </div>
                 <div>
                     <Label className="text-xs">Fabricante</Label>
-                    <SearchSelect value={form.manufacturers_id} onValueChange={v => set('manufacturers_id', v)}
-                        options={antivirusManufacturers.map(m => ({ id: m.id, label: m.name }))} placeholder="Seleccionar..." />
+                    <SelectWithCreate value={form.manufacturers_id} onValueChange={v => set('manufacturers_id', v)} options={antivirusManufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
                 </div>
                 <div>
                     <Label htmlFor="antivirus_version" className="text-xs">Versión antivirus</Label>

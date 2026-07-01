@@ -156,14 +156,7 @@ export default function CrearMonitor({ states, manufacturers, types, models, loc
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <Label htmlFor="locations_id" className="text-xs">Ubicación</Label>
-                                            <Select value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })}>
-                                                <SelectTrigger id="locations_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar ubicación..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {locations.map((l) => (
-                                                        <SelectItem key={l.id} value={l.id.toString()}>{l.completename || l.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="locations_id" value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })} options={locations} dropdownType="locations" useCompletename createLabel="Nueva localización" placeholder="Seleccionar ubicación..." className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="entities_id" className="text-xs">Entidad</Label>

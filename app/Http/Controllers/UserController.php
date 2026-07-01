@@ -17,7 +17,7 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $perPage = min((int) $request->input('per_page', 15), 100);
+        $perPage = min((int) $request->input('per_page', 15), 50000);
         $sortField = $request->input('sort', 'username');
         $sortDirection = $request->input('direction', 'asc');
         $search = $request->input('search', '');

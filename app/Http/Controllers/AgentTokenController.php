@@ -16,7 +16,7 @@ class AgentTokenController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = min((int) $request->input('per_page', 15), 100);
+        $perPage = min((int) $request->input('per_page', 15), 50000);
         $search = (string) $request->input('search', '');
 
         // Tokens del personal_access_tokens cuyo nombre indica que son del agente:

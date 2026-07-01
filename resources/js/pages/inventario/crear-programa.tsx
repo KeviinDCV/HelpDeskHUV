@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SelectWithCreate } from '@/components/select-with-create';
 import { Save } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -96,25 +97,11 @@ export default function CrearPrograma({ manufacturers, categories, entities }: C
                                         </div>
                                         <div>
                                             <Label htmlFor="manufacturers_id" className="text-xs">Editor</Label>
-                                            <Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}>
-                                                <SelectTrigger id="manufacturers_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {manufacturers.map((m) => (
-                                                        <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="manufacturers_id" value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="softwarecategories_id" className="text-xs">Categoría</Label>
-                                            <Select value={formData.softwarecategories_id} onValueChange={(v) => setFormData({ ...formData, softwarecategories_id: v })}>
-                                                <SelectTrigger id="softwarecategories_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                                <SelectContent>
-                                                    {categories.map((c) => (
-                                                        <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <SelectWithCreate id="softwarecategories_id" value={formData.softwarecategories_id} onValueChange={(v) => setFormData({ ...formData, softwarecategories_id: v })} options={categories} dropdownType="softwarecategories" createLabel="Nueva categoría" className="mt-1" triggerClassName="h-8 text-xs" />
                                         </div>
                                         <div>
                                             <Label htmlFor="entities_id" className="text-xs">Entidad</Label>

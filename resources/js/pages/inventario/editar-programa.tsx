@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectWithCreate } from '@/components/select-with-create';
 import { Save } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -43,12 +44,12 @@ export default function EditarPrograma({ software, manufacturers, categories, en
                                 <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Información Básica</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="md:col-span-2"><Label htmlFor="name" className="text-xs">Nombre *</Label><Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} className="mt-1 h-8 text-sm" />{errors.name && <p id="name-error" role="alert" className="text-red-600 text-xs mt-0.5">{errors.name}</p>}</div>
-                                        <div><Label htmlFor="manufacturers_id" className="text-xs">Editor</Label><Select value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })}><SelectTrigger id="manufacturers_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{manufacturers.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>))}</SelectContent></Select></div>
+                                        <div><Label htmlFor="manufacturers_id" className="text-xs">Editor</Label><SelectWithCreate id="manufacturers_id" value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" /></div>
                                     </div>
                                 </div>
                                 <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Clasificación</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><Label htmlFor="softwarecategories_id" className="text-xs">Categoría</Label><Select value={formData.softwarecategories_id} onValueChange={(v) => setFormData({ ...formData, softwarecategories_id: v })}><SelectTrigger id="softwarecategories_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{categories.map((c) => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}</SelectContent></Select></div>
+                                        <div><Label htmlFor="softwarecategories_id" className="text-xs">Categoría</Label><SelectWithCreate id="softwarecategories_id" value={formData.softwarecategories_id} onValueChange={(v) => setFormData({ ...formData, softwarecategories_id: v })} options={categories} dropdownType="softwarecategories" createLabel="Nueva categoría" className="mt-1" triggerClassName="h-8 text-xs" /></div>
                                         <div><Label htmlFor="entities_id" className="text-xs">Entidad</Label><Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}><SelectTrigger id="entities_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{entities.map((e) => (<SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>))}</SelectContent></Select></div>
                                     </div>
                                 </div>
