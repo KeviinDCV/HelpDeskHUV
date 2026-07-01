@@ -803,7 +803,8 @@ class TicketController extends Controller
                         ->orWhere('cat.completename', '=', 'Mantenimiento Preventivo')
                         ->orWhere('cat.completename', 'LIKE', '%Repotenciar Equipo%');
                 })
-                ->select('it.items_id as computer_id', 't.id as caso', 't.date as fecha', 'cat.completename as categoria')
+                ->select('it.items_id as computer_id', 't.id as caso', 't.date as fecha', 'cat.completename as categoria', 't.name as titulo')
+                ->selectRaw("(SELECT sol.content FROM glpi_itilsolutions sol WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket' ORDER BY sol.id DESC LIMIT 1) as solucion")
                 ->selectRaw("(SELECT TRIM(CONCAT(COALESCE(u.realname,''),' ',COALESCE(u.firstname,''))) FROM glpi_tickets_users tu JOIN glpi_users u ON u.id = tu.users_id WHERE tu.tickets_id = t.id AND tu.type = 2 LIMIT 1) as tecnico")
                 ->orderBy('t.date')
                 ->get();
@@ -860,7 +861,20 @@ class TicketController extends Controller
             $tecnicos = [];
             foreach ($list as $cs) {
                 $fecha = $cs->fecha ? date('d/m/Y', strtotime($cs->fecha)) : '';
-                $etiqueta = '#' . $cs->caso . ($fecha ? " ({$fecha})" : '');
+                // Limpiar HTML/espacios del título y de la solución (lo que se hizo)
+                $titulo = trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode((string) ($cs->titulo ?? ''), ENT_QUOTES | ENT_HTML5))));
+                $solucion = trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode((string) ($cs->solucion ?? ''), ENT_QUOTES | ENT_HTML5))));
+                if (mb_strlen($solucion) > 600) {
+                    $solucion = mb_substr($solucion, 0, 600) . '…';
+                }
+                $partes = ['#' . $cs->caso . ($fecha ? " ({$fecha})" : '')];
+                if ($titulo !== '') {
+                    $partes[] = $titulo;
+                }
+                if ($solucion !== '') {
+                    $partes[] = 'Solución: ' . $solucion;
+                }
+                $etiqueta = implode("\n", $partes);
                 if (stripos($cs->categoria, 'Repotenciar') !== false) {
                     $repotParts[] = $etiqueta;
                 } else {
@@ -879,8 +893,8 @@ class TicketController extends Controller
             $sheet->setCellValue("F{$r}", $c->modelo ?: '—');
             $sheet->setCellValue("G{$r}", $c->entidad ?: '—');
             $sheet->setCellValue("H{$r}", $c->ubicacion ?: '—');
-            $sheet->setCellValue("I{$r}", !empty($mantParts) ? implode("\n", $mantParts) : 'No');
-            $sheet->setCellValue("J{$r}", !empty($repotParts) ? implode("\n", $repotParts) : 'No');
+            $sheet->setCellValue("I{$r}", !empty($mantParts) ? implode("\n\n", $mantParts) : 'No');
+            $sheet->setCellValue("J{$r}", !empty($repotParts) ? implode("\n\n", $repotParts) : 'No');
             $sheet->setCellValue("K{$r}", !empty($tecnicos) ? implode("\n", array_keys($tecnicos)) : '—');
             $sheet->setCellValue("L{$r}", $c->date_creation ? date('d/m/Y', strtotime($c->date_creation)) : '—');
             $sheet->setCellValue("M{$r}", $c->date_mod ? date('d/m/Y H:i', strtotime($c->date_mod)) : '—');
@@ -912,7 +926,7 @@ class TicketController extends Controller
         }
 
         // Anchos de columna
-        $widths = ['A' => 13, 'B' => 18, 'C' => 13, 'D' => 16, 'E' => 18, 'F' => 26, 'G' => 20, 'H' => 34, 'I' => 26, 'J' => 30, 'K' => 26, 'L' => 15, 'M' => 17];
+        $widths = ['A' => 13, 'B' => 18, 'C' => 13, 'D' => 16, 'E' => 18, 'F' => 24, 'G' => 18, 'H' => 30, 'I' => 50, 'J' => 55, 'K' => 24, 'L' => 15, 'M' => 17];
         foreach ($widths as $cc => $w) {
             $sheet->getColumnDimension($cc)->setWidth($w);
         }
