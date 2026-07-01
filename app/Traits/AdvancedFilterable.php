@@ -16,7 +16,10 @@ trait AdvancedFilterable
         $currentGroup = 0;
 
         foreach ($filters as $i => $filter) {
-            if ($i > 0 && ($filter['connector'] ?? 'AND') === 'OR') {
+            $connector = $filter['connector'] ?? 'AND';
+            // "O" (OR) y "O NO" (OR_NOT) inician un nuevo grupo (los grupos se unen con OR).
+            // "Y" (AND) y "Y NO" (AND_NOT) se quedan en el grupo actual.
+            if ($i > 0 && ($connector === 'OR' || $connector === 'OR_NOT')) {
                 $currentGroup++;
                 $groups[$currentGroup] = [];
             }
@@ -28,7 +31,26 @@ trait AdvancedFilterable
                 $method = $i === 0 ? 'where' : 'orWhere';
                 $outerQuery->$method(function ($q) use ($group, $fieldMap) {
                     foreach ($group as $filter) {
-                        $this->applyInventoryFilter($q, $filter, $fieldMap);
+                        $connector = $filter['connector'] ?? 'AND';
+                        // "Y NO" (AND_NOT) y "O NO" (OR_NOT) niegan la condición del criterio.
+                        if ($connector === 'AND_NOT' || $connector === 'OR_NOT') {
+                            $mapping = $fieldMap[$filter['field'] ?? ''] ?? null;
+                            $column = $mapping['column'] ?? null;
+                            $operator = $filter['operator'] ?? '';
+                            // Negación inclusiva de nulos: un dato vacío/desconocido cuenta como "no es X"
+                            // (excepto en operadores de vacío/no vacío, donde el nulo ya es significativo).
+                            $includeNull = $column && !in_array($operator, ['vacio', 'no_vacio'], true);
+                            $q->where(function ($sub) use ($filter, $fieldMap, $column, $includeNull) {
+                                $sub->whereNot(function ($inner) use ($filter, $fieldMap) {
+                                    $this->applyInventoryFilter($inner, $filter, $fieldMap);
+                                });
+                                if ($includeNull) {
+                                    $sub->orWhereNull($column);
+                                }
+                            });
+                        } else {
+                            $this->applyInventoryFilter($q, $filter, $fieldMap);
+                        }
                     }
                 });
             }

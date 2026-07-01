@@ -4,9 +4,11 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
+export type FilterConnector = 'AND' | 'OR' | 'AND_NOT' | 'OR_NOT';
+
 export interface FilterRow {
     id: number;
-    connector: 'AND' | 'OR';
+    connector: FilterConnector;
     field: string;
     operator: string;
     value: string;
@@ -616,11 +618,13 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
                             {/* Conector Y/O */}
                             <select
                                 value={row.connector}
-                                onChange={(e) => updateRow(row.id, { connector: e.target.value as 'AND' | 'OR' })}
-                                className="h-[26px] text-[11px] rounded-sm border border-gray-300 bg-white px-1 w-[42px] focus:outline-none focus:ring-1 focus:ring-[#2c4370]"
+                                onChange={(e) => updateRow(row.id, { connector: e.target.value as FilterConnector })}
+                                className="h-[26px] text-[11px] rounded-sm border border-gray-300 bg-white px-1 w-[64px] focus:outline-none focus:ring-1 focus:ring-[#2c4370]"
                             >
                                 <option value="AND">Y</option>
                                 <option value="OR">O</option>
+                                <option value="AND_NOT">Y NO</option>
+                                <option value="OR_NOT">O NO</option>
                             </select>
                         </div>
                     )}
