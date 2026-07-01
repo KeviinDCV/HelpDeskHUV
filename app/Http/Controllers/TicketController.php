@@ -873,6 +873,59 @@ class TicketController extends Controller
         $sheet->setAutoFilter("A{$headerRow}:J{$headerRow}");
         $sheet->freezePane('A' . ($headerRow + 1));
 
+        // ─── Hojas de inventario de computadores activos (operando) ───
+        // Base reutilizable: no eliminados, excluyendo estado INACTIVO ("activos operando").
+        $baseInventory = fn () => DB::table('glpi_computers as c')
+            ->leftJoin('glpi_entities as e', 'c.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_computertypes as tp', 'c.computertypes_id', '=', 'tp.id')
+            ->leftJoin('glpi_computermodels as cm', 'c.computermodels_id', '=', 'cm.id')
+            ->leftJoin('glpi_states as s', 'c.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as m', 'c.manufacturers_id', '=', 'm.id')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
+            ->where('c.is_deleted', 0)
+            ->where(function ($q) {
+                $q->whereNull('s.name')->orWhere('s.name', 'NOT LIKE', '%INACTIV%');
+            })
+            ->select(
+                'c.name as ecom',
+                'c.serial',
+                's.name as estado',
+                'tp.name as tipo',
+                'm.name as fabricante',
+                'cm.name as modelo',
+                'e.name as entidad',
+                'l.completename as ubicacion',
+                'c.date_creation',
+                'c.date_mod'
+            );
+
+        // Hoja 2: activos operando con actividad/sincronización en el periodo (date_mod en rango)
+        $activosRango = $baseInventory()
+            ->whereDate('c.date_mod', '>=', $dateFrom)
+            ->whereDate('c.date_mod', '<=', $dateTo)
+            ->orderBy('c.name')
+            ->get();
+        $this->renderInventorySheet(
+            $spreadsheet,
+            'Activos en periodo',
+            'Computadores activos (operando) con actividad/sincronización en el periodo',
+            'Periodo (última actualización): ' . date('d/m/Y', strtotime($dateFrom)) . ' a ' . date('d/m/Y', strtotime($dateTo)),
+            $activosRango
+        );
+
+        // Hoja 3: censo completo de computadores activos operando (sin filtro de fecha)
+        $activosTotal = $baseInventory()->orderBy('c.name')->get();
+        $this->renderInventorySheet(
+            $spreadsheet,
+            'Todos los activos',
+            'Censo completo de computadores activos (operando) en el inventario',
+            'Snapshot al ' . date('d/m/Y'),
+            $activosTotal
+        );
+
+        // Dejar la primera hoja (casos) activa al abrir el archivo
+        $spreadsheet->setActiveSheetIndex(0);
+
         $filename = 'Mantenimiento_Repotenciacion_ECOM_' . date('Y-m-d_His') . '.xlsx';
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $tempFile = tempnam(sys_get_temp_dir(), 'excel_mant_');
@@ -881,6 +934,72 @@ class TicketController extends Controller
         return response()->download($tempFile, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Crea y llena una hoja de inventario de computadores dentro del libro dado.
+     * Reutilizada para las hojas "Activos en periodo" y "Todos los activos".
+     */
+    private function renderInventorySheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, string $title, string $subtitle, string $periodLabel, $computers): void
+    {
+        $inv = $spreadsheet->createSheet();
+        $inv->setTitle($title);
+
+        $inv->setCellValue('A1', 'HOSPITAL UNIVERSITARIO DEL VALLE - HelpDesk');
+        $inv->setCellValue('A2', $subtitle);
+        $inv->setCellValue('A3', $periodLabel . '   |   Total equipos: ' . count($computers));
+        $inv->mergeCells('A1:J1');
+        $inv->mergeCells('A2:J2');
+        $inv->mergeCells('A3:J3');
+        $inv->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $inv->getStyle('A2')->getFont()->setBold(true)->setSize(11);
+        $inv->getStyle('A3')->getFont()->setSize(10)->getColor()->setRGB('555555');
+
+        $invHeaders = ['ECOM', 'N° Serie', 'Estado', 'Tipo', 'Fabricante', 'Modelo', 'Entidad', 'Localización', 'Fecha de registro', 'Últ. actualización'];
+        $col = 'A';
+        foreach ($invHeaders as $h) {
+            $inv->setCellValue("{$col}5", $h);
+            $col++;
+        }
+        $inv->getStyle('A5:J5')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        $ir = 6;
+        foreach ($computers as $c) {
+            $inv->setCellValueExplicit("A{$ir}", (string) $c->ecom, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $inv->setCellValueExplicit("B{$ir}", (string) $c->serial, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $inv->setCellValue("C{$ir}", $c->estado ?: '—');
+            $inv->setCellValue("D{$ir}", $c->tipo ?: '—');
+            $inv->setCellValue("E{$ir}", $c->fabricante ?: '—');
+            $inv->setCellValue("F{$ir}", $c->modelo ?: '—');
+            $inv->setCellValue("G{$ir}", $c->entidad ?: '—');
+            $inv->setCellValue("H{$ir}", $c->ubicacion ?: '—');
+            $inv->setCellValue("I{$ir}", $c->date_creation ? date('d/m/Y H:i', strtotime($c->date_creation)) : '—');
+            $inv->setCellValue("J{$ir}", $c->date_mod ? date('d/m/Y H:i', strtotime($c->date_mod)) : '—');
+            $inv->getStyle("A{$ir}:J{$ir}")->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('DDEBF7');
+            $ir++;
+        }
+        $invLast = max($ir - 1, 5);
+        $inv->getStyle("A5:J{$invLast}")->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'BFBFBF']]],
+        ]);
+        if ($invLast > 5) {
+            $inv->getStyle("A6:A{$invLast}")->getFont()->setBold(true);
+        }
+        $invWidths = ['A' => 13, 'B' => 18, 'C' => 14, 'D' => 16, 'E' => 18, 'F' => 26, 'G' => 24, 'H' => 32, 'I' => 18, 'J' => 18];
+        foreach ($invWidths as $cc => $w) {
+            $inv->getColumnDimension($cc)->setWidth($w);
+        }
+        $inv->setAutoFilter('A5:J5');
+        $inv->freezePane('A6');
     }
 
     public function create()

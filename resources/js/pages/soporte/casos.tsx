@@ -352,9 +352,29 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const handlePerPageChange = (value: string) => {
-        router.get('/soporte/casos', { ...filters, per_page: value }, {
+        // Construir los parámetros solo con valores reales (igual que handleSort/applyFilters):
+        // así al cambiar "Mostrar" NO se envían filtros vacíos ni 'all' (que un backend
+        // antiguo podría interpretar como WHERE columna = 'all' → 0 resultados). Los filtros
+        // activos se conservan; sin filtros, la petición queda igual que la carga fresca.
+        const params: Record<string, any> = {
+            per_page: value,
+            sort: filters.sort,
+            direction: filters.direction,
+        };
+        if (filters.search) params.search = filters.search;
+        if (filters.status && filters.status !== 'all') params.status = filters.status;
+        if (filters.priority && filters.priority !== 'all') params.priority = filters.priority;
+        if (filters.category && filters.category !== 'all') params.category = filters.category;
+        if (filters.assigned && filters.assigned !== 'all') params.assigned = filters.assigned;
+        if (filters.date_from) params.date_from = filters.date_from;
+        if (filters.date_to) params.date_to = filters.date_to;
+        if (filters.filter) params.filter = filters.filter;
+        if (filters.exclude_maintenance === '1') params.exclude_maintenance = '1';
+        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
+
+        router.get('/soporte/casos', params, {
             preserveState: false,
-            preserveScroll: true
+            preserveScroll: true,
         });
     };
 
