@@ -368,14 +368,7 @@ export default function Telefonos({ phones, states, manufacturers, types, locati
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        const params: Record<string, any> = {
-                                            per_page: value,
-                                            sort: filters.sort,
-                                            direction: filters.direction,
-                                            search: filters.search
-                                        };
-                                        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-                                        router.get('/inventario/telefonos', params, { preserveState: false })
+                                        router.get('/inventario/telefonos', { ...filters, per_page: value }, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

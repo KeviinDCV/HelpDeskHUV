@@ -361,12 +361,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                 <Select 
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/administracion/usuarios', { 
-                                            per_page: value,
-                                            sort: filters.sort,
-                                            direction: filters.direction,
-                                            search: filters.search
-                                        }, { preserveState: false })
+                                        router.get('/administracion/usuarios', { ...filters, per_page: value }, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

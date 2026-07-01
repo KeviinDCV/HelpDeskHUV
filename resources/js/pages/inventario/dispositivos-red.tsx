@@ -543,13 +543,7 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/dispositivos-red', {
-                                            per_page: value,
-                                            sort: filters.sort,
-                                            direction: filters.direction,
-                                            search: filters.search,
-                                            device_category: filters.device_category !== 'all' ? filters.device_category : undefined
-                                        }, { preserveState: false })
+                                        router.get('/inventario/dispositivos-red', { ...filters, per_page: value }, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

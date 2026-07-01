@@ -502,12 +502,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/computadores', {
-                                            per_page: value,
-                                            sort: filters.sort,
-                                            direction: filters.direction,
-                                            search: filters.search
-                                        }, { preserveState: false })
+                                        router.get('/inventario/computadores', { ...filters, per_page: value }, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

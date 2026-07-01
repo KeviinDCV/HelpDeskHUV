@@ -385,12 +385,7 @@ export default function Dispositivos({ peripherals, states, manufacturers, types
                                 <Select
                                     value={filters.per_page.toString()}
                                     onValueChange={(value) => {
-                                        router.get('/inventario/dispositivos', {
-                                            per_page: value,
-                                            sort: filters.sort,
-                                            direction: filters.direction,
-                                            search: filters.search
-                                        }, { preserveState: false })
+                                        router.get('/inventario/dispositivos', { ...filters, per_page: value }, { preserveState: false })
                                     }}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">

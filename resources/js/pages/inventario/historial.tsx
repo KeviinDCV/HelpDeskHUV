@@ -186,7 +186,7 @@ export default function Historial({ history, categories, filters }: HistorialPro
                                 <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
                                 <Select
                                     value={filters.per_page.toString()}
-                                    onValueChange={(value) => go(buildParams({ per_page: value }))}
+                                    onValueChange={(value) => router.get('/inventario/historial', { ...filters, per_page: value }, { preserveState: false })}
                                 >
                                     <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
                                         <SelectValue />
