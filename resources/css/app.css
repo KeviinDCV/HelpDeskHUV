@@ -681,6 +681,41 @@ html.dark {
     color: #93c5fd !important;
 }
 
+/* Clases con sufijo de opacidad (bg-x/NN): los overrides por nombre exacto
+   (.dark .bg-gray-200, etc.) no las alcanzan, por lo que quedaban claras
+   en modo oscuro. */
+
+/* Pestañas del dashboard (Reportes Públicos / Mis Reportes): contenedor */
+.dark .bg-gray-200\/50 {
+    background-color: #1c1c1e !important;
+}
+
+/* Píldora del tab activo: elevada (más clara) sobre el contenedor oscuro,
+   como en modo claro la píldora blanca resalta sobre el gris */
+.dark .bg-gray-200\/50 div.bg-white {
+    background-color: #3f3f46 !important;
+}
+
+/* Contador del tab inactivo: atenuado para no deslumbrar en oscuro */
+.dark .bg-gray-200\/50 .bg-gray-400 {
+    background-color: #52525b !important;
+}
+
+/* Hover del tab inactivo */
+.dark .hover\:bg-white\/40:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Anillo de foco visible sobre fondo oscuro en las pestañas */
+.dark .bg-gray-200\/50 button:focus-visible {
+    --tw-ring-color: #60a5fa !important;
+}
+
+/* Zonas de carga de archivos (crear/editar caso) */
+.dark .bg-gray-50\/50 {
+    background-color: rgba(9, 9, 11, 0.5) !important;
+}
+
 @layer base {
     body {
         @apply bg-background text-foreground;
