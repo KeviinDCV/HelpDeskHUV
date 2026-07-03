@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { AccessibilityMenu } from '@/components/accessibility-menu';
+import { csrfHeaders } from '@/lib/csrf';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -205,11 +206,9 @@ export default function ReportarCaso() {
         animateSendButton();
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
             const response = await fetch('/chatbot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
                 credentials: 'include',
                 body: JSON.stringify({
                     message: userMessage,

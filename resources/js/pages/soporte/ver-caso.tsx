@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Wrench, Edit, Monitor, Paperclip, Download, FileText, FileImage } from 'lucide-react';
 import { useState } from 'react';
+import { csrfHeaders } from '@/lib/csrf';
 
 interface Ticket {
     id: number;
@@ -122,15 +123,13 @@ export default function VerCaso({ ticket, requester, technician, ticketItems, at
         setProcessing(true);
         
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            
             const response = await fetch(`/soporte/casos/${ticket.id}/solucion`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken || '',
                     'X-Requested-With': 'XMLHttpRequest',
+                    ...csrfHeaders(),
                 },
                 credentials: 'include',
                 body: JSON.stringify({ solution }),

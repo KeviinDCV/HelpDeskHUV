@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { csrfHeaders } from '@/lib/csrf';
 
 export interface DropdownOption {
     id: number;
@@ -81,14 +82,13 @@ export function SelectWithCreate({
         setSaving(true);
         setError(null);
         try {
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
             const res = await fetch(`/inventario/desplegables/${dropdownType}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': token,
                     'X-Requested-With': 'XMLHttpRequest',
+                    ...csrfHeaders(),
                 },
                 body: JSON.stringify({ name: trimmed }),
             });

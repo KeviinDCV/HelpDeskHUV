@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { MessageCircle, X, Send, Bot, CheckCircle } from 'lucide-react';
 import gsap from 'gsap';
+import { csrfHeaders } from '@/lib/csrf';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -180,14 +181,12 @@ export function Evarisbot({ onFillField, formData }: EvarisbotProps) {
         setIsLoading(true);
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            
             const response = await fetch('/chatbot-puter', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken || '',
+                    ...csrfHeaders(),
                 },
                 credentials: 'include',
                 body: JSON.stringify({

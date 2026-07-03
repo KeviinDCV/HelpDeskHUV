@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useState, useEffect } from 'react'
 import { router } from '@inertiajs/react'
+import { csrfHeaders } from '@/lib/csrf'
 
 interface Notification {
   id: number
@@ -49,24 +50,24 @@ export function NotificationsDropdown() {
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
 
-  // Obtener CSRF token del meta tag
-  const getCsrfToken = () => {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-  }
-
-  // Helper para fetch con CSRF token
+  // Helper para fetch con CSRF token (cookie XSRF-TOKEN, siempre vigente)
   const fetchWithCsrf = async (url: string, options: RequestInit = {}) => {
-    return fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'X-CSRF-TOKEN': getCsrfToken(),
         'X-Requested-With': 'XMLHttpRequest',
+        ...csrfHeaders(),
         ...options.headers,
       },
       credentials: 'same-origin',
     })
+    // Sesión o token vencidos: recargar restaura ambos y evita clics que "no hacen nada"
+    if (response.status === 419 || response.status === 401) {
+      window.location.reload()
+    }
+    return response
   }
 
   const fetchNotifications = async () => {
