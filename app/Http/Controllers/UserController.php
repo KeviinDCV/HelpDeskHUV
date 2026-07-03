@@ -222,17 +222,66 @@ class UserController extends Controller
             'password.confirmed' => 'Las contraseñas no coinciden.',
         ]);
 
-        User::create([
-            'username' => $request->username,
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'role' => $request->role,
-            'is_active' => $request->is_active,
-            'password' => Hash::make($request->password),
-        ]);
+        DB::transaction(function () use ($request) {
+            $user = User::create([
+                'username' => $request->username,
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'role' => $request->role,
+                'is_active' => $request->is_active,
+                'password' => Hash::make($request->password),
+            ]);
+
+            $this->ensureGlpiUser($user);
+        });
 
         return redirect()->back()->with('success', 'Usuario creado correctamente');
+    }
+
+    /**
+     * Garantiza que el usuario Laravel tenga su espejo en glpi_users y devuelve el id GLPI.
+     * Los selectores de casos (solicitante/observador/asignado) solo listan usuarios con
+     * glpi_user_id, porque los tickets referencian glpi_users.id; sin este vínculo el
+     * usuario nunca aparece en esos selectores.
+     */
+    private function ensureGlpiUser(User $user): int
+    {
+        if ($user->glpi_user_id) {
+            return $user->glpi_user_id;
+        }
+
+        $login = mb_strtolower(trim($user->username));
+
+        // Reutilizar el usuario GLPI si ya existe con ese login (evita duplicados)
+        $glpiId = DB::table('glpi_users')->whereRaw('LOWER(name) = ?', [$login])->value('id');
+
+        if (!$glpiId) {
+            // GLPI separa nombre (firstname) y apellidos (realname); se parte el nombre
+            // completo por la mitad para que CONCAT(firstname, ' ', realname) lo reconstruya.
+            $words = preg_split('/\s+/', trim($user->name)) ?: [];
+            $mid = max(1, intdiv(count($words), 2));
+            $firstname = implode(' ', array_slice($words, 0, $mid));
+            $realname = implode(' ', array_slice($words, $mid));
+
+            $glpiId = DB::table('glpi_users')->insertGetId([
+                'name' => $login,
+                'firstname' => $firstname,
+                'realname' => $realname !== '' ? $realname : null,
+                'is_active' => 1,
+                'is_deleted' => 0,
+                'entities_id' => 0,
+                'profiles_id' => 0,
+                'authtype' => 1,
+                'date_creation' => now(),
+                'date_mod' => now(),
+            ]);
+        }
+
+        $user->glpi_user_id = $glpiId;
+        $user->save();
+
+        return $glpiId;
     }
 
     public function toggleActive($id)
@@ -275,6 +324,9 @@ class UserController extends Controller
         }
         
         $user->save();
+
+        // Reparar el vínculo con GLPI si falta (usuarios creados antes de este fix)
+        $this->ensureGlpiUser($user);
 
         return redirect()->back()->with('success', 'Usuario actualizado correctamente');
     }
