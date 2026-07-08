@@ -1046,6 +1046,125 @@ class TicketController extends Controller
         return response()->json($items);
     }
 
+    /**
+     * Crear una nueva categoría ITIL desde el formulario de creación de casos.
+     *
+     * Devuelve JSON con la categoría creada (o la existente si ya estaba) para que el
+     * frontend la agregue a la lista y la seleccione sin recargar la página.
+     *
+     * Sigue el mismo patrón "column-safe" de la migración de categorías de Redes:
+     * solo inserta en columnas que existan realmente en glpi_itilcategories, para
+     * mantener compatibilidad con distintas versiones del esquema de GLPI.
+     */
+    public function storeCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'parent_id' => 'nullable|integer',
+        ]);
+
+        $name = trim($validated['name']);
+
+        if ($name === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'El nombre de la categoría no puede estar vacío.',
+            ], 422);
+        }
+
+        // Resolver la categoría padre (si se indicó) para construir completename y nivel
+        $parent = null;
+        if (!empty($validated['parent_id'])) {
+            $parent = DB::table('glpi_itilcategories')
+                ->where('id', $validated['parent_id'])
+                ->first();
+
+            if (!$parent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La categoría padre seleccionada no existe.',
+                ], 422);
+            }
+        }
+
+        // completename es la ruta jerárquica completa separada por " > "
+        $completename = $parent
+            ? trim($parent->completename) . ' > ' . $name
+            : $name;
+
+        // Evitar duplicados: si ya existe una categoría con el mismo completename,
+        // devolverla para que el frontend simplemente la seleccione.
+        $existing = DB::table('glpi_itilcategories')
+            ->where('completename', $completename)
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'success' => true,
+                'existed' => true,
+                'message' => 'La categoría ya existía y fue seleccionada.',
+                'category' => [
+                    'id' => $existing->id,
+                    'name' => $existing->name,
+                    'completename' => $existing->completename,
+                ],
+            ]);
+        }
+
+        // Insertar respetando solo las columnas que existen en la tabla (compat. GLPI)
+        $columns = collect(DB::select('SHOW COLUMNS FROM glpi_itilcategories'))
+            ->pluck('Field')
+            ->toArray();
+
+        $data = [
+            'entities_id' => $parent->entities_id ?? 0,
+            'is_recursive' => 1,
+            'itilcategories_id' => $parent->id ?? 0,
+            'name' => $name,
+            'completename' => $completename,
+            'is_helpdeskvisible' => 1,
+            'is_incident' => 1,  // requerido para que aparezca en el selector de crear-caso
+            'is_request' => 1,
+            'is_problem' => 1,
+            'is_change' => 0,
+            'date_mod' => now(),
+        ];
+
+        // Nivel jerárquico: raíz = 1, hijo = nivel del padre + 1
+        if (in_array('level', $columns)) {
+            $data['level'] = ($parent->level ?? 0) + 1;
+        }
+        if (in_array('tickettemplates_id_incident', $columns)) {
+            $data['tickettemplates_id_incident'] = 0;
+        }
+        if (in_array('tickettemplates_id_demand', $columns)) {
+            $data['tickettemplates_id_demand'] = 0;
+        }
+        if (in_array('date_creation', $columns)) {
+            $data['date_creation'] = now();
+        }
+
+        try {
+            $newId = DB::table('glpi_itilcategories')->insertGetId($data);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo crear la categoría. Es posible que ya exista una con ese nombre.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'existed' => false,
+            'message' => 'Categoría creada correctamente.',
+            'category' => [
+                'id' => $newId,
+                'name' => $name,
+                'completename' => $completename,
+            ],
+        ], 201);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

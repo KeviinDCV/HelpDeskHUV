@@ -129,6 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/soporte/casos/export-mantenimiento', [App\Http\Controllers\TicketController::class, 'exportMantenimiento'])->name('soporte.casos.export-mantenimiento');
     Route::get('/soporte/crear-caso', [App\Http\Controllers\TicketController::class, 'create'])->name('soporte.crear-caso');
     Route::post('/soporte/casos', [App\Http\Controllers\TicketController::class, 'store'])->name('soporte.casos.store');
+    Route::post('/soporte/categorias', [App\Http\Controllers\TicketController::class, 'storeCategory'])->name('soporte.categorias.store');
     Route::get('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'show'])->name('soporte.casos.show');
     Route::get('/soporte/casos/{id}/editar', [App\Http\Controllers\TicketController::class, 'edit'])->name('soporte.casos.edit');
     Route::put('/soporte/casos/{id}', [App\Http\Controllers\TicketController::class, 'update'])->name('soporte.casos.update');

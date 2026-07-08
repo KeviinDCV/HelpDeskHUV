@@ -24,8 +24,9 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { csrfHeaders } from '@/lib/csrf';
 import React from 'react';
-import { Upload, X, CheckCircle } from 'lucide-react';
+import { Upload, X, CheckCircle, Plus } from 'lucide-react';
 
 interface User {
     id: number;
@@ -80,6 +81,14 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
     const [selectedItems, setSelectedItems] = React.useState<{ type: string, id: number, name: string }[]>([]);
     const [loadingItems, setLoadingItems] = React.useState(false);
     const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+
+    // Categorías: lista local para poder agregar nuevas sin recargar la página
+    const [categoryList, setCategoryList] = React.useState<Category[]>(categories);
+    const [showCategoryModal, setShowCategoryModal] = React.useState(false);
+    const [newCategoryName, setNewCategoryName] = React.useState('');
+    const [newCategoryParent, setNewCategoryParent] = React.useState('');
+    const [creatingCategory, setCreatingCategory] = React.useState(false);
+    const [categoryError, setCategoryError] = React.useState('');
 
     React.useEffect(() => {
         if (flash.success) {
@@ -187,6 +196,67 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                 setAvailableItems([]);
             }
         });
+    };
+
+    const handleCreateCategory = async () => {
+        const name = newCategoryName.trim();
+        if (!name) {
+            setCategoryError('Ingrese un nombre para la categoría.');
+            return;
+        }
+
+        setCreatingCategory(true);
+        setCategoryError('');
+
+        try {
+            const response = await fetch('/soporte/categorias', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...csrfHeaders(),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    name,
+                    parent_id: newCategoryParent ? parseInt(newCategoryParent) : null,
+                }),
+            });
+
+            // Sesión/token vencidos: recargar restaura ambos
+            if (response.status === 419 || response.status === 401) {
+                window.location.reload();
+                return;
+            }
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                setCategoryError(result.message || 'No se pudo crear la categoría.');
+                return;
+            }
+
+            const cat: Category = result.category;
+
+            // Agregar a la lista (si no está) y ordenar por completename
+            setCategoryList(prev => {
+                if (prev.some(c => c.id === cat.id)) return prev;
+                return [...prev, cat].sort((a, b) => a.completename.localeCompare(b.completename));
+            });
+
+            // Seleccionarla automáticamente en el formulario
+            setData('itilcategories_id', cat.id.toString());
+
+            // Cerrar y limpiar el modal
+            setShowCategoryModal(false);
+            setNewCategoryName('');
+            setNewCategoryParent('');
+        } catch (error) {
+            setCategoryError('Error de conexión al crear la categoría.');
+        } finally {
+            setCreatingCategory(false);
+        }
     };
 
     const formatFileSize = (bytes: number) => {
@@ -303,14 +373,25 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     {/* Fila 2.5: Categoría */}
                                     <div className="md:col-span-2">
                                         <Label htmlFor="itilcategories_id" className="text-xs">Categoría *</Label>
-                                        <SearchableSelect
-                                            options={categories.map(cat => ({ value: cat.id.toString(), label: cat.completename }))}
-                                            value={data.itilcategories_id}
-                                            onValueChange={(value) => setData('itilcategories_id', value)}
-                                            placeholder="Seleccione categoría..."
-                                            searchPlaceholder="Buscar categoría..."
-                                            className="mt-1"
-                                        />
+                                        <div className="mt-1 flex items-center gap-1">
+                                            <SearchableSelect
+                                                options={categoryList.map(cat => ({ value: cat.id.toString(), label: cat.completename }))}
+                                                value={data.itilcategories_id}
+                                                onValueChange={(value) => setData('itilcategories_id', value)}
+                                                placeholder="Seleccione categoría..."
+                                                searchPlaceholder="Buscar categoría..."
+                                                className="flex-1"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setCategoryError(''); setShowCategoryModal(true); }}
+                                                title="Crear nueva categoría"
+                                                aria-label="Crear nueva categoría"
+                                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-input bg-[#2c4370] text-white hover:bg-[#3d5583] transition-colors"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
@@ -586,6 +667,82 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                 </main>
 
                 <GLPIFooter />
+
+                {/* Modal para crear nueva categoría */}
+                <Dialog open={showCategoryModal} onOpenChange={(open) => {
+                    setShowCategoryModal(open);
+                    if (!open) setCategoryError('');
+                }}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Crear nueva categoría</DialogTitle>
+                            <DialogDescription>
+                                La categoría quedará disponible de inmediato y se seleccionará en este caso.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-3 py-2">
+                            <div>
+                                <Label htmlFor="new_category_name" className="text-xs">Nombre de la categoría *</Label>
+                                <Input
+                                    id="new_category_name"
+                                    autoComplete="off"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleCreateCategory();
+                                        }
+                                    }}
+                                    placeholder="Ej: Software aplicativo de apoyo pagina web de citas"
+                                    className="mt-1 h-8 text-sm"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="new_category_parent" className="text-xs">Categoría padre (opcional)</Label>
+                                <SearchableSelect
+                                    options={[
+                                        { value: '', label: 'Ninguna (categoría principal)' },
+                                        ...categoryList.map(cat => ({ value: cat.id.toString(), label: cat.completename })),
+                                    ]}
+                                    value={newCategoryParent}
+                                    onValueChange={(value) => setNewCategoryParent(value)}
+                                    placeholder="Ninguna (categoría principal)"
+                                    searchPlaceholder="Buscar categoría padre..."
+                                    className="mt-1"
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Si elige una categoría padre, la nueva quedará anidada dentro de ella.
+                                </p>
+                            </div>
+                            {categoryError && (
+                                <p className="text-red-600 text-xs">{categoryError}</p>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowCategoryModal(false)}
+                                disabled={creatingCategory}
+                                className="h-8 text-xs"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleCreateCategory}
+                                disabled={creatingCategory}
+                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs px-4"
+                            >
+                                {creatingCategory ? 'Creando...' : 'Crear categoría'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Modal de éxito */}
                 <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
