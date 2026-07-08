@@ -1096,6 +1096,7 @@ class TicketController extends Controller
         // devolverla para que el frontend simplemente la seleccione.
         $existing = DB::table('glpi_itilcategories')
             ->where('completename', $completename)
+            ->orderBy('id')
             ->first();
 
         if ($existing) {
