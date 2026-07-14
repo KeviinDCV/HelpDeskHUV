@@ -36,12 +36,14 @@ const iconMap: Record<string, React.ElementType> = {
   Bell,
 }
 
+// Se usan los tonos -600 (no -500) porque app.css solo remapea text-*-600/700/800
+// en modo oscuro; además mejoran el contraste sobre bg-*-50 en modo claro.
 const colorMap: Record<string, string> = {
-  blue: 'text-blue-500 bg-blue-50',
-  green: 'text-green-500 bg-green-50',
-  red: 'text-red-500 bg-red-50',
-  yellow: 'text-yellow-500 bg-yellow-50',
-  purple: 'text-purple-500 bg-purple-50',
+  blue: 'text-blue-600 bg-blue-50',
+  green: 'text-green-600 bg-green-50',
+  red: 'text-red-600 bg-red-50',
+  yellow: 'text-yellow-600 bg-yellow-50',
+  purple: 'text-purple-600 bg-purple-50',
 }
 
 export function NotificationsDropdown() {
@@ -177,7 +179,7 @@ export function NotificationsDropdown() {
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllAsRead}
-              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
             >
               <CheckCheck className="h-3 w-3" />
               Marcar todo leído
@@ -187,11 +189,11 @@ export function NotificationsDropdown() {
         
         <div className="overflow-y-auto flex-1">
           {isLoading ? (
-            <div className="p-4 text-center text-gray-500 text-sm">
+            <div className="p-4 text-center text-muted-foreground text-sm">
               Cargando...
             </div>
           ) : notifications.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
+            <div className="p-6 text-center text-muted-foreground">
               <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No tienes notificaciones</p>
             </div>
@@ -204,8 +206,8 @@ export function NotificationsDropdown() {
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`px-3 py-2.5 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    !notification.read ? 'bg-blue-50/50' : ''
+                  className={`px-3 py-2.5 border-b last:border-b-0 cursor-pointer hover:bg-accent transition-colors ${
+                    !notification.read ? 'bg-blue-500/10' : ''
                   }`}
                 >
                   <div className="flex gap-3">
@@ -214,32 +216,32 @@ export function NotificationsDropdown() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm font-medium truncate ${!notification.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                        <p className={`text-sm font-medium truncate ${!notification.read ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {notification.title}
                         </p>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {!notification.read && (
                             <button
                               onClick={(e) => handleMarkAsRead(notification.id, e)}
-                              className="p-1 hover:bg-gray-200 rounded"
+                              className="p-1 hover:bg-muted rounded"
                               title="Marcar como leído"
                             >
-                              <Check className="h-3 w-3 text-gray-500" />
+                              <Check className="h-3 w-3 text-muted-foreground" />
                             </button>
                           )}
                           <button
                             onClick={(e) => handleDelete(notification.id, e)}
-                            className="p-1 hover:bg-gray-200 rounded"
+                            className="p-1 hover:bg-muted rounded"
                             title="Eliminar"
                           >
-                            <Trash2 className="h-3 w-3 text-gray-400 hover:text-red-500" />
+                            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
                           </button>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {notification.created_at}
                       </p>
                     </div>
