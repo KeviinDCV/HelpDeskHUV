@@ -1,0 +1,100 @@
+{
+  "files": [
+    {
+      "file": "instrument-sans-latin-400-normal.woff",
+      "family": "Instrument Sans",
+      "rawFamily": "Instrument Sans",
+      "subfamily": "Regular",
+      "postscript": "InstrumentSans-Regular",
+      "weight": 400,
+      "style": "normal",
+      "variationAxes": [],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "instrument-sans-latin-400-normal.woff2",
+      "family": "Instrument Sans",
+      "rawFamily": "Instrument Sans",
+      "subfamily": "Regular",
+      "postscript": "InstrumentSans-Regular",
+      "weight": 400,
+      "style": "normal",
+      "variationAxes": [],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "instrument-sans-latin-500-normal.woff",
+      "family": "Instrument Sans",
+      "rawFamily": "Instrument Sans Medium",
+      "subfamily": "Regular",
+      "postscript": "InstrumentSans-Medium",
+      "weight": 500,
+      "style": "normal",
+      "variationAxes": [],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "instrument-sans-latin-500-normal.woff2",
+      "family": "Instrument Sans",
+      "rawFamily": "Instrument Sans Medium",
+      "subfamily": "Regular",
+      "postscript": "InstrumentSans-Medium",
+      "weight": 500,
+      "style": "normal",
+      "variationAxes": [],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "instrument-sans-latin-ext-400-normal.woff",
+      "family": "Instrument Sans",
+      "rawFamily": "Instrument Sans",
+      "subfamily": "Regular",
+      "postscript": "InstrumentSans-Regular",
+      "weight": 400,
+      "style": "normal",
+      "variationAxes": [],
+      "identified": true,
+      "isIcon": false
+    },
+    {
+      "file": "instrument-sans-latin-ext-400-normal.woff2",
+      "family": "Instrument Sans",
+      "rawFamily": "Instrument Sans",
+      "subfamily": "Regular",
+      "postscript": "InstrumentSans-Regular",
+      "weight": 400,
+      "style": "normal",
+      "variationAxes": [],
+      "identified": true,
+      "isIcon": false
+    }
+  ],
+  "families": [
+    {
+      "family": "Instrument Sans",
+      "weights": [
+        400,
+        500
+      ],
+      "variable": false,
+      "fileCount": 6,
+      "files": [
+        "instrument-sans-latin-400-normal.woff",
+        "instrument-sans-latin-400-normal.woff2",
+        "instrument-sans-latin-500-normal.woff",
+        "instrument-sans-latin-500-normal.woff2",
+        "instrument-sans-latin-ext-400-normal.woff",
+        "instrument-sans-latin-ext-400-normal.woff2"
+      ]
+    }
+  ],
+  "unidentified": [],
+  "meta": {
+    "generatedAt": "2026-07-14T18:12:17.599Z",
+    "tool": "fontkit"
+  }
+}

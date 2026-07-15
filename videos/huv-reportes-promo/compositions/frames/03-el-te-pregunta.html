@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The runtime clones ONLY <template> contents. Everything the render
+         needs — @font-face, styles, GSAP, timeline — lives inside it. -->
+    <title>Frame 03 — Él te pregunta (v2)</title>
+  </head>
+  <body>
+    <template>
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+
+      <style>
+        /* ── Fonts — only the files that actually ship with the project ───── */
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-Regular.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 500;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 600;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 700;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-700.woff2") format("woff2");
+        }
+
+        /* ── Root — styled by #root, NEVER by a class ─────────────────────── */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Instrument Sans", sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        #root * {
+          box-sizing: border-box;
+          margin: 0;
+        }
+
+        /* ══ DEPTH LAYER 1+2+3 — the ground is never flat white ════════════
+           base white · 1px navy grid substrate (3.5% alpha, parallaxes) ·
+           soft off-centre navy radial bloom (its own, slower rate).        */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #ffffff;
+        }
+        .grid {
+          position: absolute;
+          inset: -160px;
+          background-image:
+            repeating-linear-gradient(
+              0deg,
+              rgba(45, 62, 94, 0.038) 0 1px,
+              rgba(45, 62, 94, 0) 1px 64px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              rgba(45, 62, 94, 0.038) 0 1px,
+              rgba(45, 62, 94, 0) 1px 64px
+            );
+          transform-origin: 50% 50%;
+          will-change: transform;
+        }
+        .bloom {
+          position: absolute;
+          inset: -12%;
+          background: radial-gradient(
+            ellipse 52% 46% at 46% 36%,
+            rgba(45, 62, 94, 0.1) 0%,
+            rgba(45, 62, 94, 0.045) 42%,
+            rgba(45, 62, 94, 0) 72%
+          );
+          transform-origin: 50% 50%;
+          will-change: transform;
+        }
+
+        /* ══ THE 3D SCENE ═════════════════════════════════════════════════
+           .world carries the perspective; .cam-outer dollies in Z (the
+           camera); .cam-inner counter-translates (coordinate-target-zoom);
+           the window rests TILTED inside that space.                       */
+        .stage {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        .fx-defs {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+        .world {
+          position: absolute;
+          inset: 0;
+          perspective: 1600px;
+          perspective-origin: 50% 50%;
+        }
+        .cam-outer {
+          position: absolute;
+          inset: 0;
+          transform-style: preserve-3d;
+          will-change: transform;
+        }
+        .cam-inner {
+          position: absolute;
+          inset: 0;
+          transform-style: preserve-3d;
+          will-change: transform;
+        }
+
+        /* ── DEPTH LAYER 4 — navy elevation glow BENEATH the window ────────
+           A diffuse halo, seated 40px BEHIND the window in real Z, so it
+           parallaxes under the camera push. Never a hard drop shadow.     */
+        .win-glow {
+          position: absolute;
+          left: 260px;
+          top: 540px;
+          width: 1400px;
+          height: 230px;
+          transform: translateZ(-40px);
+        }
+        .win-glow-in {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            ellipse 62% 60% at 50% 38%,
+            rgba(45, 62, 94, 0.24) 0%,
+            rgba(45, 62, 94, 0.09) 46%,
+            rgba(45, 62, 94, 0) 74%
+          );
+          filter: blur(38px);
+          transform-origin: 50% 40%;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+
+        /* ── DEPTH LAYER 5 — the window (the hero) ─────────────────────────
+           ~78% of the canvas. Soft diffuse elevation, no hard shadow.     */
+        .window {
+          position: absolute;
+          left: 210px;
+          top: 60px;
+          width: 1500px;
+          height: 640px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          background: #f8fafc;
+          border: 1.5px solid rgba(45, 62, 94, 0.13);
+          border-radius: 16px;
+          overflow: hidden;
+          transform-origin: 50% 50%;
+          box-shadow:
+            0 50px 120px rgba(45, 62, 94, 0.12),
+            0 16px 44px rgba(45, 62, 94, 0.05);
+          opacity: 0;
+          will-change: transform, filter, opacity;
+        }
+        .win-title {
+          height: 66px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          opacity: 0;
+        }
+        .win-title .t1 {
+          font-size: 24px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: #2d3e5e;
+        }
+        .win-title .t2 {
+          font-size: 13px;
+          font-weight: 400;
+          color: #62748e;
+        }
+        .cards {
+          flex: 1;
+          min-height: 0;
+          margin-top: 18px;
+          display: flex;
+          gap: 22px;
+        }
+
+        /* ── LEFT CARD — the chat ─────────────────────────────────────────── */
+        .chat-card {
+          width: 994px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          background: #ffffff;
+          border: 1.5px solid rgba(45, 62, 94, 0.09);
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .chat-head {
+          height: 76px;
+          flex-shrink: 0;
+          background: #2d3e5e;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 0 22px;
+          opacity: 0;
+        }
+        .av-head {
+          width: 48px;
+          height: 48px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          object-fit: cover;
+          background: #ffffff;
+          border: 2px solid rgba(255, 255, 255, 0.92);
+        }
+        .bot-name {
+          font-size: 19px;
+          font-weight: 600;
+          color: #ffffff;
+          line-height: 1.2;
+        }
+        .bot-status {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-top: 4px;
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.84);
+        }
+        .dot-green {
+          width: 8px;
+          height: 8px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          background: #05df72;
+        }
+        .chat-body {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 16px;
+          background: #ffffff;
+        }
+        .msg-view {
+          flex: 1;
+          min-height: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        .msg-mask {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+          height: 22px;
+          z-index: 2;
+          background: linear-gradient(#ffffff 34%, rgba(255, 255, 255, 0));
+        }
+        .msg-col {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          will-change: transform;
+        }
+        .row-bot {
+          display: flex;
+          align-items: flex-end;
+          gap: 10px;
+          opacity: 0;
+        }
+        .mini-av {
+          width: 34px;
+          height: 34px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          object-fit: cover;
+          background: #f8fafc;
+          border: 1px solid rgba(45, 62, 94, 0.12);
+        }
+        .bub-bot {
+          /* Fixed width — a type-on inside an auto-width bubble jitters. */
+          background: #f8fafc;
+          border: 1px solid rgba(45, 62, 94, 0.09);
+          border-radius: 12px 12px 12px 4px;
+          padding: 12px 16px;
+          font-size: 16px;
+          font-weight: 400;
+          line-height: 1.5;
+          color: #2c4370;
+        }
+        .b1 {
+          width: 700px;
+          min-height: 72px;
+        }
+        .b2 {
+          width: 452px;
+          min-height: 48px;
+        }
+        .b3 {
+          width: 356px;
+          min-height: 48px;
+        }
+        .caret {
+          display: inline-block;
+          width: 2px;
+          height: 16px;
+          margin-left: 2px;
+          vertical-align: -2px;
+          background: #2c4370;
+          opacity: 0;
+        }
+        .row-user {
+          display: flex;
+          justify-content: flex-end;
+          /* Local perspective → the bubble's Z-pop is a REAL Z move,
+             without threading preserve-3d through the clipped card. */
+          perspective: 900px;
+        }
+        .bub-user {
+          max-width: 62%;
+          background: #2d3e5e;
+          color: #ffffff;
+          border-radius: 12px 12px 4px 12px;
+          padding: 12px 18px;
+          font-size: 16px;
+          font-weight: 500;
+          line-height: 1.5;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+        .input-pill {
+          height: 50px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 20px;
+          border: 1.5px solid rgba(45, 62, 94, 0.15);
+          border-radius: 100px;
+          background: #ffffff;
+          opacity: 0;
+        }
+        .input-ph {
+          font-size: 16px;
+          font-weight: 400;
+          color: #9a9a9a;
+        }
+
+        /* ── RIGHT CARD — RESUMEN ─────────────────────────────────────────── */
+        .res-card {
+          flex: 1;
+          min-width: 0;
+          position: relative;
+          background: #ffffff;
+          border: 1.5px solid rgba(45, 62, 94, 0.09);
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .res-inner {
+          --dof: 0px;
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          filter: blur(var(--dof));
+          will-change: filter;
+        }
+        .res-head {
+          height: 76px;
+          flex-shrink: 0;
+          background: #2d3e5e;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 20px;
+          opacity: 0;
+        }
+        .res-head span {
+          font-size: 15px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          color: #ffffff;
+        }
+        .res-body {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          padding: 18px 20px;
+        }
+        .eyebrow {
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #62748e;
+          opacity: 0;
+        }
+        .eb-2 {
+          margin-top: 20px;
+        }
+        .res-row {
+          --dof: 0.8px;
+          position: relative;
+          padding-left: 30px;
+          margin-top: 13px;
+          filter: blur(var(--dof));
+          will-change: filter;
+          opacity: 0;
+        }
+        .rdot {
+          position: absolute;
+          left: 0;
+          top: 5px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #9a9a9a;
+          transform-origin: 50% 50%;
+          will-change: transform, box-shadow;
+        }
+        .rline {
+          position: absolute;
+          left: 4.5px;
+          top: 20px;
+          width: 1px;
+          height: 30px;
+          background: rgba(45, 62, 94, 0.13);
+        }
+        .rlabel {
+          font-size: 15px;
+          font-weight: 500;
+          color: #2c4370;
+          line-height: 1.3;
+        }
+        .rval {
+          display: grid;
+          margin-top: 3px;
+          min-height: 21px;
+        }
+        .rval > span {
+          grid-area: 1 / 1;
+          align-self: start;
+          font-size: 15px;
+          line-height: 1.35;
+        }
+        .v-pend {
+          font-style: italic;
+          font-weight: 400;
+          color: #9a9a9a;
+        }
+        .v-fill {
+          font-weight: 500;
+          color: #2d3e5e;
+          opacity: 0;
+        }
+        .desc-box {
+          --dof: 0.8px;
+          margin-top: 13px;
+          padding: 12px 14px;
+          background: #f8fafc;
+          border: 1px solid rgba(45, 62, 94, 0.09);
+          border-radius: 10px;
+          filter: blur(var(--dof));
+          will-change: filter;
+          opacity: 0;
+        }
+        .desc-lab {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #62748e;
+        }
+        .desc-val {
+          margin-top: 5px;
+          font-size: 14px;
+          font-style: italic;
+          color: #9a9a9a;
+        }
+        .res-spacer {
+          flex: 1;
+          min-height: 10px;
+        }
+        .res-btn {
+          height: 46px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 100px;
+          background: rgba(45, 62, 94, 0.05);
+          border: 1px solid rgba(45, 62, 94, 0.08);
+          font-size: 14px;
+          font-weight: 600;
+          color: #9a9a9a;
+          opacity: 0;
+        }
+
+        /* ── DEPTH LAYER 6 — the payoff line, page-level (outside the camera)
+           Sits ~80px below the window's settled bottom edge (y≈720) and
+           finishes at y=896 — clear of the y=900 keep-out.                */
+        .payoff {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 798px;
+          height: 98px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .payoff-line {
+          display: flex;
+          align-items: baseline;
+          gap: 20px;
+          font-size: 80px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          line-height: 1.1;
+          color: #0a0a0a;
+          opacity: 0;
+        }
+        .word {
+          display: inline-block;
+          transform-origin: 50% 50%;
+          will-change: transform, text-shadow;
+        }
+        .word.kw {
+          color: #2d3e5e;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="03-el-te-pregunta"
+        data-start="0"
+        data-duration="10.633"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- ══ clip 0 — the ground: white + grid substrate + navy bloom ══ -->
+        <div id="f03-bg" class="clip bg" data-start="0" data-duration="10.633" data-track-index="0">
+          <div id="f03-grid" class="grid"></div>
+          <div id="f03-bloom" class="bloom"></div>
+        </div>
+
+        <!-- ══ clip 1 — the 3D scene: the window is the hero ══ -->
+        <div
+          id="f03-stage"
+          class="clip stage"
+          data-start="0"
+          data-duration="10.633"
+          data-track-index="1"
+        >
+          <!-- motion-blur-streak · Path A — symmetric stdDeviation (a depth
+               push-through, not a lateral smear). Generous filter region. -->
+          <svg class="fx-defs" width="0" height="0" aria-hidden="true">
+            <defs>
+              <filter id="f03-mblur" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur id="f03-mblur-node" in="SourceGraphic" stdDeviation="0 0" />
+              </filter>
+            </defs>
+          </svg>
+
+          <div class="world">
+            <div id="f03-cam-outer" class="cam-outer">
+              <div id="f03-cam-inner" class="cam-inner">
+                <!-- elevation glow — 40px behind the window in real Z -->
+                <div class="win-glow">
+                  <div id="f03-glow" class="win-glow-in"></div>
+                </div>
+
+                <div id="f03-window" class="window">
+                  <div id="f03-win-title" class="win-title">
+                    <div class="t1">Reporte Sistemas HUV</div>
+                    <div class="t2">Chatbot de Soporte Técnico</div>
+                  </div>
+
+                  <div class="cards">
+                    <!-- ── LEFT — chat ── -->
+                    <div class="chat-card">
+                      <div id="f03-chat-head" class="chat-head">
+                        <img id="f03-av-head" class="av-head" src="assets/Evaris.png" alt="" />
+                        <div>
+                          <div class="bot-name">Evarisbot</div>
+                          <div class="bot-status">
+                            <span class="dot-green"></span>
+                            EN LÍNEA
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="chat-body">
+                        <div class="msg-view">
+                          <div class="msg-mask"></div>
+                          <div id="f03-msg-col" class="msg-col" data-layout-allow-overflow>
+                            <div id="f03-bot1" class="row-bot">
+                              <img id="f03-av-1" class="mini-av" src="assets/Evaris.png" alt="" />
+                              <div class="bub-bot b1">
+                                <span id="f03-t1"></span><span id="f03-c1" class="caret"></span>
+                              </div>
+                            </div>
+
+                            <div class="row-user">
+                              <div id="f03-user1" class="bub-user">Carlos Valderrama</div>
+                            </div>
+
+                            <div id="f03-bot2" class="row-bot">
+                              <img id="f03-av-2" class="mini-av" src="assets/Evaris.png" alt="" />
+                              <div class="bub-bot b2">
+                                <span id="f03-t2"></span><span id="f03-c2" class="caret"></span>
+                              </div>
+                            </div>
+
+                            <div class="row-user">
+                              <div id="f03-user2" class="bub-user">Auxiliar de facturación</div>
+                            </div>
+
+                            <div id="f03-bot3" class="row-bot">
+                              <img id="f03-av-3" class="mini-av" src="assets/Evaris.png" alt="" />
+                              <div class="bub-bot b3">
+                                <span id="f03-t3"></span><span id="f03-c3" class="caret"></span>
+                              </div>
+                            </div>
+
+                            <div class="row-user">
+                              <div id="f03-user3" class="bub-user">Facturación</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div id="f03-input" class="input-pill">
+                          <span class="input-ph">Escribe tu mensaje…</span>
+                          <svg
+                            width="21"
+                            height="21"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#9a9a9a"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="M21.5 2.5 11 13" />
+                            <path d="M21.5 2.5 15 21.5 11 13 2.5 9z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- ── RIGHT — RESUMEN ── -->
+                    <div class="res-card">
+                      <div id="f03-res-inner" class="res-inner">
+                        <div id="f03-res-head" class="res-head">
+                          <svg
+                            width="19"
+                            height="19"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#ffffff"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="M14 2.5H7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5z" />
+                            <path d="M14 2.5v5h5" />
+                            <path d="M8.5 12.5h7" />
+                            <path d="M8.5 16.5h4.5" />
+                          </svg>
+                          <span>RESUMEN</span>
+                        </div>
+
+                        <div class="res-body">
+                          <div id="f03-eb1" class="eyebrow">QUIEN REPORTA</div>
+
+                          <div id="f03-row1" class="res-row">
+                            <span id="f03-dot1" class="rdot"></span>
+                            <span class="rline"></span>
+                            <div class="rlabel">Nombre</div>
+                            <div class="rval">
+                              <span id="f03-p1" class="v-pend">Pendiente…</span>
+                              <span id="f03-f1" class="v-fill">Carlos Valderrama</span>
+                            </div>
+                          </div>
+
+                          <div id="f03-row2" class="res-row">
+                            <span id="f03-dot2" class="rdot"></span>
+                            <span class="rline"></span>
+                            <div class="rlabel">Cargo</div>
+                            <div class="rval">
+                              <span id="f03-p2" class="v-pend">…</span>
+                              <span id="f03-f2" class="v-fill">Auxiliar de facturación</span>
+                            </div>
+                          </div>
+
+                          <div id="f03-row3" class="res-row">
+                            <span id="f03-dot3" class="rdot"></span>
+                            <div class="rlabel">Servicio</div>
+                            <div class="rval">
+                              <span id="f03-p3" class="v-pend">…</span>
+                              <span id="f03-f3" class="v-fill">Facturación</span>
+                            </div>
+                          </div>
+
+                          <div id="f03-eb2" class="eyebrow eb-2">EL PROBLEMA</div>
+
+                          <div id="f03-desc" class="desc-box">
+                            <div class="desc-lab">
+                              <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="#62748e"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              >
+                                <path
+                                  d="M14 2.5H7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5z"
+                                />
+                                <path d="M14 2.5v5h5" />
+                              </svg>
+                              Descripción
+                            </div>
+                            <div class="desc-val">Título pendiente…</div>
+                          </div>
+
+                          <div class="res-spacer"></div>
+
+                          <div id="f03-btn" class="res-btn">Completa la conversación</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ clip 2 — the payoff line (page level, never inside the camera) ══ -->
+        <div
+          id="f03-payoff"
+          class="clip payoff"
+          data-start="8.6"
+          data-duration="2.033"
+          data-track-index="2"
+        >
+          <div id="f03-payoff-line" class="payoff-line">
+            <span id="f03-w1" class="word">No</span>
+            <span id="f03-w2" class="word">hay</span>
+            <span id="f03-w3" class="word kw">formularios.</span>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          window.__timelines = window.__timelines || {};
+
+          /* ────────────────────────────────────────────────────────────────
+             THE SHOT is 10.133s (the voice line). The clip windows run to
+             10.633s because the host reserves a 0.5s crossfade tail — the
+             frame must still be PAINTED while it fades out. Nothing moves
+             in that tail; it is a hold, not an exit tween.
+             ──────────────────────────────────────────────────────────────── */
+          var SHOT = 10.133;
+          var DUR = 10.633;
+
+          var $ = function (id) {
+            return document.getElementById(id);
+          };
+
+          var camOuter = $("f03-cam-outer");
+          var camInner = $("f03-cam-inner");
+          var win = $("f03-window");
+          var grid = $("f03-grid");
+          var bloom = $("f03-bloom");
+          var mblurNode = $("f03-mblur-node");
+
+          /* ════ CAMERA ENVELOPE — derived from the geometry, then CLAMPED ══
+             perspective 1600 · window 1500×640 at (210,60) · rest tilt
+             rotateY(-7°) rotateX(3°)  →  projected rest extents
+             x∈[256,1750] (≈78% of the canvas), y∈[64,703].
+
+             The camera DOLLIES IN Z (multi-phase-camera, steady-push, on
+             .cam-outer) and .cam-inner counter-translates toward the chat
+             card (coordinate-target-zoom: outer transforms, inner translates,
+             same window + same ease).
+
+             Chat-card centre (731,422) → offset (-229,-118) → a FULL aim
+             would counter-translate (+229,+118). That is exactly what sliced
+             RESUMEN off the right edge and dropped the window into the
+             caption band. So the aim is DAMPED to the on-canvas envelope:
+
+               peak z = +115  →  S = 1600/(1600-115) = 1.0774
+               solve right ≤ 1876 and bottom ≤ 720 (to keep the ~80px gap
+               above the payoff line at y=798)  →  T = (+55, +6)
+
+             Settled projection: x∈[233,1848], y∈[31,720]. The whole window —
+             and every RESUMEN dot — stays on-canvas and above y=900 at every
+             instant, micro-drift included.                                  */
+          var CAM_Z_BACK = -640; // deep Z — the window arrives from here
+          var CAM_Z_REST = 0;
+          var CAM_Z_PUSH = 115;
+          var AIM_X = 55;
+          var AIM_Y = 6;
+
+          var TILT_Y_IN = -14; // more extreme on arrival …
+          var TILT_X_IN = 7;
+          var TILT_Y_REST = -7; // … resting pose …
+          var TILT_X_REST = 3;
+          var TILT_Y_FLAT = -3.2; // … rotating toward flat as the camera nears
+          var TILT_X_FLAT = 1.4;
+
+          // sine-wave-loop — subtle jitter only (LOW end of its range)
+          var DRIFT_CYCLES = 1.5;
+          var DRIFT_AMP_X = 2.5;
+          var DRIFT_AMP_Y = 1.5;
+          var DRIFT_FREQ_RATIO = 1.3;
+
+          // parallax — each layer moves at its OWN rate, all slower than the
+          // window: grid 0.30 of the camera's translate, bloom 0.13
+          var GRID_PAR = 0.3;
+          var GRID_SCALE_PAR = 0.22;
+          var BLOOM_PAR = 0.13;
+          var BLOOM_SCALE_PAR = 0.08;
+          var SUB_CYCLES = 0.8; // the substrate's own slow drift
+          var SUB_AMP_X = 8;
+          var SUB_AMP_Y = 4.5;
+
+          var cam = {
+            z: CAM_Z_BACK,
+            tx: 0,
+            ty: 0,
+            rotY: TILT_Y_IN,
+            rotX: TILT_X_IN
+          };
+          // motion-blur-streak (Path A) — proxy → stdDeviation
+          var mb = { v: 16 };
+          var driver = { t: 0 };
+
+          /* ════ TYPE-ON — discrete-text-sequence (smooth-slice + caret) ════
+             Exact copy, WITHOUT the 👋 emoji (headless Chrome ships no colour
+             emoji font — it would render as a tofu box).                    */
+          var TYPE = [
+            {
+              el: $("f03-t1"),
+              caret: $("f03-c1"),
+              start: 2.15,
+              dur: 1.75,
+              text:
+                "¡Hola! Soy Evarisbot, tu asistente para reportar problemas " +
+                "técnicos en el Hospital. ¿Me podrías decir tu nombre completo?"
+            },
+            {
+              el: $("f03-t2"),
+              caret: $("f03-c2"),
+              start: 5.95,
+              dur: 0.6,
+              text: "Gracias, Carlos. ¿Cuál es tu cargo en el Hospital?"
+            },
+            {
+              el: $("f03-t3"),
+              caret: $("f03-c3"),
+              start: 7.4,
+              dur: 0.55,
+              text: "Perfecto. ¿En qué servicio trabajas?"
+            }
+          ];
+          var BLINK_PERIOD = 0.66;
+
+          /* ════ ROW IGNITION — grey → ORANGE with a glow PULSE ═════════════
+             The dot's colour is a GSAP tween; the PULSE (scale + orange halo)
+             is an attack / decay / rest envelope, so it ignites rather than
+             flat-swapping. It falls back to 0 as the row resolves to navy.  */
+          var IGN_ATTACK = 0.2;
+          var IGN_DECAY = 0.5;
+          var IGN_REST = 0.38;
+          var IGN_OUT = 0.45;
+          var IGN_SCALE = 0.2;
+          var IGN_BLUR = 20;
+          var IGN_SPREAD = 5;
+
+          var DOTS = [
+            { el: $("f03-dot1"), ignite: 4.1, resolve: 5.62 },
+            { el: $("f03-dot2"), ignite: 5.9, resolve: 7.05 },
+            { el: $("f03-dot3"), ignite: 7.3, resolve: 8.45 }
+          ];
+
+          function ignition(t, ti, tr) {
+            if (t < ti) return 0;
+            if (t >= tr) {
+              var out = (t - tr) / IGN_OUT;
+              if (out >= 1) return 0;
+              return IGN_REST * (1 - out);
+            }
+            var a = (t - ti) / IGN_ATTACK;
+            if (a < 1) return a;
+            var d = (t - ti - IGN_ATTACK) / IGN_DECAY;
+            if (d >= 1) return IGN_REST;
+            return 1 - d * (1 - IGN_REST);
+          }
+
+          /* ════ PAYOFF — asr-keyword-glow (attack / sustain / release) ═════ */
+          var W_ATTACK = 0.14;
+          var W_RELEASE = 0.38;
+          var W_REST = 0.22;
+          var W_MAX_BLUR = 26;
+          var W_MAX_SCALE = 0.05; // no overshoot, no bounce
+
+          var WORDS = [
+            { el: $("f03-w1"), start: 8.85, end: 9.05 },
+            { el: $("f03-w2"), start: 9.1, end: 9.3 },
+            { el: $("f03-w3"), start: 9.4, end: 10.05 } // keyword — longest sustain
+          ];
+
+          function envelope(t, start, end) {
+            if (t < start) return 0;
+            if (t < end) return Math.min((t - start) / W_ATTACK, 1);
+            var releaseEnd = end + W_RELEASE;
+            if (t < releaseEnd) {
+              var decay = (t - end) / W_RELEASE;
+              return 1 - decay * (1 - W_REST);
+            }
+            return W_REST;
+          }
+
+          /* ════ ONE per-frame writer, fed by the timeline clock ════════════ */
+          function frameUpdate() {
+            var t = driver.t;
+
+            // — camera: Z dolly (outer) + counter-translate (inner) + jitter —
+            var p = (t / DUR) * Math.PI * 2 * DRIFT_CYCLES;
+            var dx = Math.sin(p) * DRIFT_AMP_X;
+            var dy = Math.sin(p * DRIFT_FREQ_RATIO) * DRIFT_AMP_Y;
+
+            camOuter.style.transform = "translateZ(" + cam.z.toFixed(3) + "px)";
+            camInner.style.transform =
+              "translate(" + (cam.tx + dx).toFixed(3) + "px," + (cam.ty + dy).toFixed(3) + "px)";
+            win.style.transform =
+              "rotateY(" + cam.rotY.toFixed(3) + "deg) rotateX(" + cam.rotX.toFixed(3) + "deg)";
+
+            // — motion blur: peaks at peak velocity, resolves to 0 at settle.
+            //   Detached once resolved so the window is a clean 3D surface. —
+            mblurNode.setAttribute("stdDeviation", mb.v.toFixed(3) + " " + mb.v.toFixed(3));
+            win.style.filter = mb.v > 0.06 ? "url(#f03-mblur)" : "none";
+
+            // — parallax: the substrate reads the camera but lags it —
+            var camScale = 1600 / (1600 - cam.z);
+            var sp = (t / DUR) * Math.PI * 2 * SUB_CYCLES;
+            var sdx = Math.sin(sp) * SUB_AMP_X;
+            var sdy = Math.sin(sp * 1.4 + Math.PI / 2) * SUB_AMP_Y;
+
+            grid.style.transform =
+              "translate(" +
+              (cam.tx * GRID_PAR + sdx).toFixed(3) +
+              "px," +
+              (cam.ty * GRID_PAR + sdy).toFixed(3) +
+              "px) scale(" +
+              (1 + (camScale - 1) * GRID_SCALE_PAR).toFixed(5) +
+              ")";
+            bloom.style.transform =
+              "translate(" +
+              (cam.tx * BLOOM_PAR - sdx * 0.35).toFixed(3) +
+              "px," +
+              (cam.ty * BLOOM_PAR - sdy * 0.35).toFixed(3) +
+              "px) scale(" +
+              (1 + (camScale - 1) * BLOOM_SCALE_PAR).toFixed(5) +
+              ")";
+
+            // — type-on + deterministic caret blink —
+            for (var i = 0; i < TYPE.length; i++) {
+              var m = TYPE[i];
+              var n = 0;
+              if (t >= m.start) {
+                var prog = Math.min((t - m.start) / m.dur, 1);
+                n = Math.floor(prog * m.text.length);
+              }
+              var slice = m.text.slice(0, n);
+              if (m.el.textContent !== slice) m.el.textContent = slice;
+
+              var vis = 0;
+              if (t >= m.start - 0.08 && t <= m.start + m.dur + 0.35) {
+                vis = Math.sin(((t - m.start) / BLINK_PERIOD) * Math.PI * 2) > 0 ? 1 : 0.15;
+              }
+              m.caret.style.opacity = String(vis);
+            }
+
+            // — the RESUMEN rows IGNITE (pulse), then rest, then resolve —
+            for (var d = 0; d < DOTS.length; d++) {
+              var dot = DOTS[d];
+              var e = ignition(t, dot.ignite, dot.resolve);
+              dot.el.style.transform = "scale(" + (1 + IGN_SCALE * e).toFixed(4) + ")";
+              dot.el.style.boxShadow =
+                "0 0 " +
+                (IGN_BLUR * e).toFixed(2) +
+                "px " +
+                (IGN_SPREAD * e).toFixed(2) +
+                "px rgba(255,137,4," +
+                (0.5 * e).toFixed(3) +
+                ")";
+            }
+
+            // — payoff keyword glow —
+            for (var w = 0; w < WORDS.length; w++) {
+              var word = WORDS[w];
+              var env = envelope(t, word.start, word.end);
+              word.el.style.textShadow =
+                "0 0 " +
+                (W_MAX_BLUR * env).toFixed(2) +
+                "px rgba(45,62,94," +
+                (0.06 + env * 0.34).toFixed(3) +
+                ")";
+              word.el.style.transform = "scale(" + (1 + W_MAX_SCALE * env).toFixed(4) + ")";
+            }
+          }
+
+          // The timeline's own onUpdate fires AFTER its children render, so
+          // cam.* / mb.v / driver.t are this seek's values — never stale.
+          var tl = gsap.timeline({ paused: true, onUpdate: frameUpdate });
+
+          /* ══ SCENE 1 (0.0–2.0) — the window ARRIVES from deep Z ════════════
+             Camera dollies from z=-640 to rest; the window resolves out of
+             motion blur, un-tilting from (-14°,7°) into its rest pose
+             (-7°,3°) at ~78% of the frame. The navy elevation glow blooms
+             beneath it. Only the CHROME populates — the chat body is EMPTY. */
+          tl.to(cam, { z: CAM_Z_REST, duration: 0.85, ease: "power3.out" }, 0.05);
+          tl.to(cam, { rotY: TILT_Y_REST, rotX: TILT_X_REST, duration: 1.1, ease: "power3.out" }, 0.05);
+          // blur envelope — SAME window + SAME ease as the Z travel → peak
+          // blur lands on peak speed and hits 0 exactly at the settle
+          tl.to(mb, { v: 0, duration: 0.85, ease: "power3.out" }, 0.05);
+
+          tl.fromTo(
+            "#f03-window",
+            { opacity: 0 },
+            { opacity: 1, duration: 0.45, ease: "power2.out" },
+            0.05
+          );
+
+          // the elevation glow blooms ONCE and rests (finite)
+          tl.fromTo(
+            "#f03-glow",
+            { opacity: 0, scale: 0.82 },
+            { opacity: 1, scale: 1, duration: 1.1, ease: "power3.out" },
+            0.45
+          );
+
+          tl.fromTo(
+            "#f03-win-title",
+            { opacity: 0, y: 8 },
+            { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+            0.6
+          );
+          tl.fromTo(
+            ["#f03-chat-head", "#f03-res-head"],
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.6, stagger: 0.08, ease: "power3.out" },
+            0.72
+          );
+          tl.fromTo(
+            "#f03-eb1",
+            { opacity: 0, y: 8 },
+            { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+            0.95
+          );
+          // un-reached rows land dimmed + softly defocused — they are not the
+          // field being asked yet (they SHARPEN when they ignite)
+          tl.fromTo(
+            ["#f03-row1", "#f03-row2", "#f03-row3"],
+            { opacity: 0, y: 8 },
+            { opacity: 0.72, y: 0, duration: 0.5, stagger: 0.07, ease: "power3.out" },
+            1.02
+          );
+          tl.fromTo(
+            "#f03-eb2",
+            { opacity: 0, y: 8 },
+            { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+            1.22
+          );
+          tl.fromTo(
+            "#f03-desc",
+            { opacity: 0, y: 8 },
+            { opacity: 0.78, y: 0, duration: 0.5, ease: "power3.out" },
+            1.3
+          );
+          tl.fromTo(
+            "#f03-input",
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+            1.36
+          );
+          tl.fromTo(
+            "#f03-btn",
+            { opacity: 0, y: 8 },
+            { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+            1.45
+          );
+
+          /* ══ SCENE 2 (2.0–4.0) — «Te saluda» ══════════════════════════════
+             The greeting TYPES IN. The camera PUSHES IN Z toward the chat
+             card and the window rotates toward flat. RESUMEN racks OUT of
+             focus (depth-of-field-blur, focal pull). Scale + counter-
+             translate + tilt share one window and one ease, or the target
+             wanders mid-push.                                              */
+          tl.to(cam, { z: CAM_Z_PUSH, duration: 1.2, ease: "power3.inOut" }, 2.05);
+          tl.to(cam, { tx: AIM_X, ty: AIM_Y, duration: 1.2, ease: "power3.inOut" }, 2.05);
+          tl.to(
+            cam,
+            { rotY: TILT_Y_FLAT, rotX: TILT_X_FLAT, duration: 1.2, ease: "power3.inOut" },
+            2.05
+          );
+
+          tl.fromTo(
+            "#f03-bot1",
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+            2.05
+          );
+          tl.to(
+            "#f03-res-inner",
+            { "--dof": "3.4px", opacity: 0.66, duration: 0.9, ease: "power2.inOut" },
+            2.15
+          );
+
+          /* ══ SCENE 3 (4.0–5.6) — «tu nombre» ══════════════════════════════
+             Focus racks BACK onto RESUMEN. The Nombre row IGNITES — its dot
+             goes grey → orange #FF8904 with a glow pulse, its label sharpens.
+             The user's navy bubble slides in with a small Z-pop forward.    */
+          tl.to(
+            "#f03-res-inner",
+            { "--dof": "0px", opacity: 1, duration: 0.6, ease: "power2.inOut" },
+            3.98
+          );
+          tl.to("#f03-dot1", { backgroundColor: "#FF8904", duration: 0.28, ease: "power2.out" }, 4.1);
+          tl.to(
+            "#f03-row1",
+            { "--dof": "0px", opacity: 1, duration: 0.5, ease: "power2.out" },
+            4.1
+          );
+          tl.fromTo(
+            "#f03-user1",
+            { opacity: 0, x: 34, z: -90 },
+            { opacity: 1, x: 0, z: 0, duration: 0.55, ease: "power3.out" },
+            4.75
+          );
+
+          /* ══ SCENE 4 (5.6–7.0) — «tu cargo» ═══════════════════════════════
+             ONE PER SPOKEN CUE, never simultaneous: Nombre RESOLVES (orange →
+             navy, value fills) → Cargo IGNITES → the next question types in →
+             the user answers.                                               */
+          tl.to("#f03-dot1", { backgroundColor: "#2D3E5E", duration: 0.4, ease: "power2.out" }, 5.62);
+          tl.to("#f03-p1", { opacity: 0, duration: 0.35, ease: "power2.out" }, 5.62);
+          tl.fromTo(
+            "#f03-f1",
+            { opacity: 0, y: 5 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            5.66
+          );
+
+          tl.to("#f03-dot2", { backgroundColor: "#FF8904", duration: 0.28, ease: "power2.out" }, 5.9);
+          tl.to(
+            "#f03-row2",
+            { "--dof": "0px", opacity: 1, duration: 0.5, ease: "power2.out" },
+            5.9
+          );
+          tl.fromTo(
+            "#f03-bot2",
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            5.9
+          );
+          tl.fromTo(
+            "#f03-user2",
+            { opacity: 0, x: 34, z: -90 },
+            { opacity: 1, x: 0, z: 0, duration: 0.55, ease: "power3.out" },
+            6.68
+          );
+
+          /* ══ SCENE 5 (7.0–8.6) — «y el servicio donde trabajas» ═══════════
+             Cargo resolves, Servicio ignites the same way, the conversation
+             ADVANCES inside the window (the blueprint's signature), and the
+             whole QUIEN REPORTA block lands resolved.                       */
+          tl.to("#f03-dot2", { backgroundColor: "#2D3E5E", duration: 0.4, ease: "power2.out" }, 7.05);
+          tl.to("#f03-p2", { opacity: 0, duration: 0.35, ease: "power2.out" }, 7.05);
+          tl.fromTo(
+            "#f03-f2",
+            { opacity: 0, y: 5 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            7.09
+          );
+
+          tl.to("#f03-dot3", { backgroundColor: "#FF8904", duration: 0.28, ease: "power2.out" }, 7.3);
+          tl.to(
+            "#f03-row3",
+            { "--dof": "0px", opacity: 1, duration: 0.5, ease: "power2.out" },
+            7.3
+          );
+          tl.fromTo(
+            "#f03-bot3",
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            7.35
+          );
+          tl.fromTo(
+            "#f03-user3",
+            { opacity: 0, x: 34, z: -90 },
+            { opacity: 1, x: 0, z: 0, duration: 0.55, ease: "power3.out" },
+            8.05
+          );
+          // the thread advances — the window's CONTENTS move, not the window
+          tl.fromTo("#f03-msg-col", { y: 0 }, { y: -40, duration: 0.7, ease: "power3.out" }, 8.0);
+
+          tl.to("#f03-dot3", { backgroundColor: "#2D3E5E", duration: 0.4, ease: "power2.out" }, 8.45);
+          tl.to("#f03-p3", { opacity: 0, duration: 0.35, ease: "power2.out" }, 8.45);
+          tl.fromTo(
+            "#f03-f3",
+            { opacity: 0, y: 5 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            8.49
+          );
+
+          /* ══ SCENE 6 (8.6–10.133) — «No hay formularios.» ═════════════════
+             The payoff lands BIG (80px) ~80px below the window, and the
+             keyword glow runs across it. The window HOLDS STILL — only the
+             camera's subtle jitter. NO back-half push. NO exit tween (this
+             is not the final frame).                                        */
+          tl.fromTo(
+            "#f03-payoff-line",
+            { opacity: 0, y: 20 },
+            { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+            8.62
+          );
+
+          /* ── the clock: feeds the per-frame writer for the WHOLE clip
+                window (shot + the 0.5s crossfade tail, which is a hold) ─── */
+          tl.to(driver, { t: DUR, duration: DUR, ease: "none" }, 0);
+
+          // paint frame 0 synchronously (streaked, deep-Z start — not a
+          // momentarily-sharp pre-frame)
+          frameUpdate();
+
+          window.__timelines["03-el-te-pregunta"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

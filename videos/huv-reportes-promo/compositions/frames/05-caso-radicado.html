@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The HyperFrames runtime clones ONLY <template> contents; <head> is discarded.
+         Every style, every script (incl. the GSAP load) therefore lives inside <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        /* ================= Fonts — project-local files only ================= */
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-Regular.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 500;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 600;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 700;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-700.woff2") format("woff2");
+        }
+
+        /* ================= Root — styled via #root ONLY, never by a class ================= */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Instrument Sans", sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        #root * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        /* ================= LAYER 1 — base ground (full-bleed clip, never on #root) ======== */
+        #f05-bg {
+          position: absolute;
+          inset: 0;
+          background: #ffffff;
+        }
+
+        /* ================= LAYER 2 — navy grid substrate (parallaxes slowly) ============== */
+        #f05-grid {
+          position: absolute;
+          inset: -140px;
+          background-image:
+            linear-gradient(to right, rgba(45, 62, 94, 0.038) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(45, 62, 94, 0.038) 1px, transparent 1px);
+          background-size: 64px 64px;
+          will-change: transform;
+        }
+
+        /* ================= LAYER 3 — ambient navy bloom, anchored off-centre ============== */
+        #f05-ground-bloom {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(
+              ellipse 1040px 760px at 63% 30%,
+              rgba(45, 62, 94, 0.1) 0%,
+              rgba(45, 62, 94, 0.035) 42%,
+              rgba(45, 62, 94, 0) 72%
+            ),
+            radial-gradient(
+              ellipse 900px 620px at 24% 82%,
+              rgba(45, 62, 94, 0.055) 0%,
+              rgba(45, 62, 94, 0) 66%
+            );
+        }
+
+        /* ================= LAYER 4 — the reconstructed app window, in a 3D world ========== */
+        #f05-stage {
+          position: absolute;
+          inset: 0;
+          perspective: 1600px;
+          perspective-origin: 50% 44%;
+        }
+        /* Soft diffuse elevation glow UNDER the window. No hard drop shadow anywhere. */
+        #f05-win-glow {
+          position: absolute;
+          left: 130px;
+          top: 160px;
+          width: 1660px;
+          height: 760px;
+          z-index: 1;
+          background: radial-gradient(
+            ellipse at 50% 58%,
+            rgba(45, 62, 94, 0.24) 0%,
+            rgba(45, 62, 94, 0.08) 44%,
+            rgba(45, 62, 94, 0) 72%
+          );
+          filter: blur(52px);
+          will-change: opacity;
+        }
+        /* The tilt lives on this wrapper — GSAP never touches its transform. */
+        .win-tilt {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          transform: rotateY(-2.2deg) rotateX(1deg);
+          transform-style: preserve-3d;
+        }
+        #f05-window {
+          position: absolute;
+          left: 200px;
+          top: 76px;
+          width: 1520px;
+          height: 784px;
+          background: #f8fafc;
+          border: 1.5px solid rgba(45, 62, 94, 0.2);
+          border-radius: 18px;
+          padding: 28px;
+          display: flex;
+          gap: 24px;
+          overflow: hidden;
+          /* p = 0 state of the diagonal wipe, authored in CSS so t=0 is correct with no JS */
+          clip-path: polygon(0% 0%, 100% 0%, 100% 212%, 0% 112%);
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, clip-path;
+        }
+
+        /* ---- left card: the chat ---- */
+        .win-chat {
+          flex: 0 0 880px;
+          height: 728px;
+          background: #ffffff;
+          border: 1px solid rgba(45, 62, 94, 0.1);
+          border-radius: 12px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .chat-head {
+          flex: 0 0 70px;
+          background: #2d3e5e;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 0 22px;
+        }
+        .avatar-wrap {
+          position: relative;
+          width: 44px;
+          height: 44px;
+          flex: 0 0 44px;
+        }
+        .avatar-img {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          object-fit: cover;
+          background: #ffffff;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        .avatar-dot {
+          position: absolute;
+          right: 0;
+          bottom: 1px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #05df72;
+          border: 2px solid #2d3e5e;
+        }
+        .chat-id {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .chat-name {
+          font-size: 18px;
+          font-weight: 600;
+          color: #ffffff;
+          line-height: 1.1;
+        }
+        .chat-status {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: rgba(255, 255, 255, 0.74);
+          line-height: 1.1;
+        }
+        .chat-body {
+          flex: 1;
+          padding: 22px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          gap: 14px;
+          background: #ffffff;
+        }
+        .msg-row {
+          display: flex;
+          align-items: flex-end;
+          gap: 10px;
+        }
+        .msg-me {
+          justify-content: flex-end;
+        }
+        .msg-avatar {
+          width: 32px;
+          height: 32px;
+          flex: 0 0 32px;
+          border-radius: 50%;
+          object-fit: cover;
+          background: #f8fafc;
+        }
+        .bubble-bot {
+          max-width: 66%;
+          background: #f8fafc;
+          color: #2c4370;
+          border: 1px solid rgba(45, 62, 94, 0.08);
+          border-radius: 12px;
+          padding: 12px 16px;
+          font-size: 16px;
+          font-weight: 400;
+          line-height: 1.5;
+        }
+        .bubble-me {
+          max-width: 62%;
+          background: #2d3e5e;
+          color: #ffffff;
+          border-radius: 12px;
+          padding: 12px 16px;
+          font-size: 16px;
+          font-weight: 400;
+          line-height: 1.5;
+        }
+        .chat-input-area {
+          flex: 0 0 94px;
+          padding: 0 22px 24px;
+          display: flex;
+          align-items: center;
+        }
+        .chat-input {
+          width: 100%;
+          height: 54px;
+          border: 1.5px solid rgba(45, 62, 94, 0.18);
+          border-radius: 100px;
+          background: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 22px;
+        }
+        .chat-placeholder {
+          font-size: 16px;
+          font-weight: 400;
+          color: #9a9a9a;
+        }
+
+        /* ---- right column: RESUMEN + the one solid button ---- */
+        .win-col {
+          flex: 1;
+          height: 728px;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+        .sum-card {
+          flex: 1 1 auto;
+          background: #ffffff;
+          border: 1px solid rgba(45, 62, 94, 0.1);
+          border-radius: 12px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .sum-head {
+          flex: 0 0 58px;
+          background: #2d3e5e;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 18px;
+        }
+        .sum-head-label {
+          font-size: 15px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: #ffffff;
+        }
+        .sum-body {
+          flex: 1;
+          padding: 22px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .sum-eyebrow {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          color: #2d3e5e;
+        }
+        .field {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        /* every field resolved → solid navy dots (no orange "in progress" left) */
+        .field-dot {
+          width: 9px;
+          height: 9px;
+          flex: 0 0 9px;
+          margin-top: 6px;
+          border-radius: 50%;
+          background: #2d3e5e;
+        }
+        .field-text {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
+        .field-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: #2c4370;
+          line-height: 1.3;
+        }
+        .field-value {
+          font-size: 15px;
+          font-weight: 500;
+          color: #2d3e5e;
+          line-height: 1.4;
+        }
+        .desc-box {
+          background: #f8fafc;
+          border: 1px solid rgba(45, 62, 94, 0.08);
+          border-radius: 10px;
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .desc-label {
+          font-size: 12px;
+          font-weight: 500;
+          color: #2c4370;
+        }
+        .desc-value {
+          font-size: 15px;
+          font-weight: 500;
+          color: #2d3e5e;
+          line-height: 1.4;
+        }
+        .btn-block {
+          flex: 0 0 auto;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+        }
+        .btn-wrap {
+          position: relative;
+          width: 100%;
+          height: 78px;
+        }
+        /* soft navy glow behind the button — elevation, never a shadow */
+        #f05-btn-glow {
+          position: absolute;
+          left: -70px;
+          right: -70px;
+          top: -50px;
+          bottom: -50px;
+          z-index: 0;
+          border-radius: 100px;
+          background: radial-gradient(
+            ellipse at 50% 50%,
+            rgba(45, 62, 94, 0.55) 0%,
+            rgba(45, 62, 94, 0.2) 40%,
+            rgba(45, 62, 94, 0) 70%
+          );
+          filter: blur(24px);
+          opacity: 0;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        /* THE one solid-filled element of the whole video. Spent exactly once, here. */
+        #f05-btn {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          height: 78px;
+          border-radius: 100px;
+          background: rgba(45, 62, 94, 0.08);
+          color: #9a9a9a;
+          font-size: 20px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: 50% 50%;
+          will-change: transform;
+        }
+        #f05-btn-hint {
+          font-size: 13px;
+          font-weight: 400;
+          color: #9a9a9a;
+          text-align: center;
+          line-height: 1.3;
+          will-change: opacity;
+        }
+
+        /* ================= LAYER 5 — the drawn cursor ================= */
+        #f05-cursor {
+          position: absolute;
+          left: 1015px;
+          top: 575px;
+          width: 40px;
+          height: 40px;
+          transform-origin: 8.3px 5px; /* the arrow tip */
+          will-change: transform, opacity;
+        }
+
+        /* ================= LAYER 6 — confirmation card, in its own 3D stage ============== */
+        #f05-card-stage {
+          position: absolute;
+          inset: 0;
+          perspective: 1600px;
+          perspective-origin: 50% 48%;
+        }
+        /* radial bloom — expands ONCE behind the card, then rests (finite) */
+        #f05-bloom {
+          position: absolute;
+          left: 150px;
+          top: 55px;
+          width: 1620px;
+          height: 920px;
+          z-index: 1;
+          background: radial-gradient(
+            ellipse at 50% 50%,
+            rgba(45, 62, 94, 0.44) 0%,
+            rgba(45, 62, 94, 0.17) 36%,
+            rgba(45, 62, 94, 0) 68%
+          );
+          filter: blur(44px);
+          opacity: 0;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        /* 3D carrier: GSAP drives z + rotationX here. NO filter on this element. */
+        #f05-card-3d {
+          position: absolute;
+          left: 410px;
+          top: 250px;
+          width: 1100px;
+          height: 530px;
+          z-index: 2;
+          will-change: transform;
+        }
+        /* card-tinted: 4% fill · 1.5px 20% border · 14px radius · NO shadow */
+        #f05-card {
+          width: 100%;
+          height: 100%;
+          background: rgba(45, 62, 94, 0.04);
+          border: 1.5px solid rgba(45, 62, 94, 0.2);
+          border-radius: 14px;
+          padding: 46px 50px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          will-change: opacity, filter;
+        }
+        .check-wrap {
+          position: relative;
+          width: 120px;
+          height: 120px;
+          flex: 0 0 120px;
+        }
+        /* the soft light burst that fires as the stroke closes */
+        #f05-check-burst {
+          position: absolute;
+          inset: -80px;
+          z-index: 0;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 50% 50%,
+            rgba(45, 62, 94, 0.5) 0%,
+            rgba(45, 62, 94, 0.18) 40%,
+            rgba(45, 62, 94, 0) 68%
+          );
+          filter: blur(20px);
+          opacity: 0;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        .check-svg {
+          position: relative;
+          z-index: 1;
+          width: 120px;
+          height: 120px;
+          display: block;
+        }
+        .check-svg path {
+          fill: none;
+          stroke: #2d3e5e;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        #f05-card-h2 {
+          margin-top: 22px;
+          font-size: 80px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          line-height: 1.05;
+          color: #0a0a0a;
+          text-align: center;
+          will-change: transform, opacity;
+        }
+        .num-row {
+          margin-top: 24px;
+          width: 100%;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 32px;
+        }
+        /* fixed-width box → the count-up's font-size growth causes ZERO layout shift */
+        #f05-case {
+          flex: 0 0 700px;
+          text-align: center;
+          font-size: 72px; /* tweened to 120px by the count-up */
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          line-height: 1;
+          color: #2d3e5e;
+          font-variant-numeric: tabular-nums;
+          opacity: 0;
+          white-space: nowrap;
+          will-change: opacity;
+        }
+        #f05-pill {
+          flex: 0 0 auto;
+          height: 56px;
+          line-height: 56px;
+          padding: 0 28px;
+          border-radius: 100px;
+          background: rgba(45, 62, 94, 0.08);
+          color: #059669;
+          font-size: 25px;
+          font-weight: 500;
+          white-space: nowrap;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+
+        /* ================= LAYER 7 — the closing body line ================= */
+        #f05-tagline {
+          position: absolute;
+          left: 360px;
+          top: 834px;
+          width: 1200px;
+          text-align: center;
+          font-size: 36px;
+          font-weight: 400;
+          line-height: 1.4;
+          color: #2c4370;
+          will-change: transform, opacity;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="05-caso-radicado"
+        data-duration="8.741"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- track 0 — base white ground -->
+        <div id="f05-bg" class="clip" data-start="0" data-duration="8.741" data-track-index="0"></div>
+
+        <!-- track 1 — navy grid substrate -->
+        <div id="f05-grid" class="clip" data-start="0" data-duration="8.741" data-track-index="1"></div>
+
+        <!-- track 2 — ambient navy bloom -->
+        <div
+          id="f05-ground-bloom"
+          class="clip"
+          data-start="0"
+          data-duration="8.741"
+          data-track-index="2"
+        ></div>
+
+        <!-- track 3 — the reconstructed Reporte Sistemas HUV window (wiped away in Scene 2) -->
+        <div id="f05-stage" class="clip" data-start="0" data-duration="3.2" data-track-index="3">
+          <div id="f05-win-glow"></div>
+
+          <div class="win-tilt">
+            <div id="f05-window">
+              <div class="win-chat">
+                <div class="chat-head">
+                  <div class="avatar-wrap">
+                    <img id="f05-av-head" class="avatar-img" src="assets/Evaris.png" alt="" />
+                    <div class="avatar-dot"></div>
+                  </div>
+                  <div class="chat-id">
+                    <div class="chat-name">Evarisbot</div>
+                    <div class="chat-status">EN LÍNEA</div>
+                  </div>
+                </div>
+
+                <div class="chat-body">
+                  <div class="msg-row">
+                    <img id="f05-av-m1" class="msg-avatar" src="assets/Evaris.png" alt="" />
+                    <div class="bubble-bot">¿Y en qué servicio trabajas?</div>
+                  </div>
+                  <div class="msg-row msg-me">
+                    <div class="bubble-me">Facturación</div>
+                  </div>
+                  <div class="msg-row">
+                    <img id="f05-av-m2" class="msg-avatar" src="assets/Evaris.png" alt="" />
+                    <div class="bubble-bot">Gracias. Cuéntame qué está pasando.</div>
+                  </div>
+                  <div class="msg-row msg-me">
+                    <div class="bubble-me">
+                      El computador de facturación no enciende desde esta mañana.
+                    </div>
+                  </div>
+                  <div class="msg-row">
+                    <img id="f05-av-m3" class="msg-avatar" src="assets/Evaris.png" alt="" />
+                    <div class="bubble-bot">
+                      Listo. Ya tengo todo lo necesario para radicar tu reporte.
+                    </div>
+                  </div>
+                </div>
+
+                <div class="chat-input-area">
+                  <div class="chat-input">
+                    <span class="chat-placeholder">Escribe tu mensaje…</span>
+                    <svg
+                      width="21"
+                      height="21"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#2c4370"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M22 2 L11 13" />
+                      <path d="M22 2 L15 22 L11 13 L2 9 Z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div class="win-col">
+                <div class="sum-card">
+                  <div class="sum-head">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#ffffff"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <path d="M14 2v6h6" />
+                    </svg>
+                    <div class="sum-head-label">RESUMEN</div>
+                  </div>
+
+                  <div class="sum-body">
+                    <div class="sum-eyebrow">QUIEN REPORTA</div>
+
+                    <div class="field">
+                      <div class="field-dot"></div>
+                      <div class="field-text">
+                        <div class="field-label">Nombre</div>
+                        <div class="field-value">Claudia Restrepo</div>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <div class="field-dot"></div>
+                      <div class="field-text">
+                        <div class="field-label">Cargo</div>
+                        <div class="field-value">Auxiliar administrativa</div>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <div class="field-dot"></div>
+                      <div class="field-text">
+                        <div class="field-label">Servicio</div>
+                        <div class="field-value">Facturación</div>
+                      </div>
+                    </div>
+
+                    <div class="sum-eyebrow">EL PROBLEMA</div>
+                    <div class="desc-box">
+                      <div class="desc-label">Descripción</div>
+                      <div class="desc-value">El computador de facturación no enciende</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="btn-block">
+                  <div class="btn-wrap">
+                    <div id="f05-btn-glow"></div>
+                    <div id="f05-btn">Completa la conversación</div>
+                  </div>
+                  <div id="f05-btn-hint">
+                    Interactúa con el asistente para habilitar el envío del reporte.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- track 4 — the drawn cursor: ONE press, then it leaves with the UI -->
+        <div id="f05-cursor" class="clip" data-start="0" data-duration="2.6" data-track-index="4">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M5 3L19 12L12 13L9 20L5 3Z"
+              fill="#ffffff"
+              stroke="#2d3e5e"
+              stroke-width="1.6"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+
+        <!-- track 5 — the confirmation card (bloom behind it, card arriving from Z) -->
+        <div
+          id="f05-card-stage"
+          class="clip"
+          data-start="1.95"
+          data-duration="6.791"
+          data-track-index="5"
+        >
+          <div id="f05-bloom"></div>
+
+          <div id="f05-card-3d">
+            <div id="f05-card">
+              <div class="check-wrap">
+                <div id="f05-check-burst"></div>
+                <svg class="check-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    id="f05-check-ring"
+                    d="M 6 50 A 44 44 0 1 1 94 50 A 44 44 0 1 1 6 50"
+                    stroke-width="5"
+                  />
+                  <path id="f05-check-mark" d="M 30 51 L 44 65 L 71 37" stroke-width="7" />
+                </svg>
+              </div>
+
+              <div id="f05-card-h2">Caso radicado</div>
+
+              <div class="num-row">
+                <div id="f05-case">#2026-<span id="f05-case-digits">0000</span></div>
+                <div id="f05-pill">En seguimiento</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- track 6 — the closing body line. After it lands, EVERYTHING STOPS. -->
+        <div id="f05-tagline" class="clip" data-start="6.95" data-duration="1.791" data-track-index="6">
+          Nada se pierde: puedes consultarlo cuando quieras.
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+
+        (function () {
+          /* ------------------------------------------------------------------
+           * Frame 5 — "Caso radicado". THE DELIBERATE BREATHER.
+           * blueprint: titlecard-reveal → ONE restrained move, then a still hold.
+           * The payoff BLOOMS; it does not get busier. Low motion is the payload.
+           *
+           * power3 long tails only. No overshoot, no repeat/yoyo, no Math.random,
+           * no drift/push/breathing in the back half, no exit tween.
+           * ------------------------------------------------------------------ */
+
+          /* ===== Scene 1 (0.0–2.0) — the button goes solid navy; ONE press ===== */
+          var CURSOR_IN_AT = 0.05,
+            CURSOR_FADE_DUR = 0.3;
+          var CURSOR_MOVE_DUR = 0.82;
+          var ENABLE_AT = 0.55,
+            ENABLE_DUR = 0.45; // grey → SOLID NAVY (the only solid fill of the video)
+          var GLOW_IN_DUR = 0.6,
+            GLOW_REST_OPACITY = 0.42;
+          /* press-release-spring: linear compression, then a power3.out recovery.
+             The rule's back.out is deliberately replaced — this pack bans overshoot. */
+          var PRESS_START = 1.1,
+            PRESS_DUR = 0.12,
+            PRESS_SCALE = 0.955;
+          var RELEASE_START = PRESS_START + PRESS_DUR, // adjacency == state continuity
+            RELEASE_DUR = 0.52;
+          var CURSOR_PRESS_SCALE = 0.86;
+          var BURST_OPACITY = 0.6,
+            BURST_SCALE = 1.14,
+            BURST_DUR = 0.42,
+            BURST_SETTLE_DUR = 0.5;
+
+          /* cursor travel: CSS origin (1015, 575) + tip offset (8.3, 5) → button centre (1412, 766) */
+          var CURSOR_DX = 389,
+            CURSOR_DY = 186;
+
+          /* ===== Scene 2 (2.0–4.0) — THE ONE MOVE: wipe-away-to-reveal ===== */
+          var WIPE_AT = 2.0,
+            WIPE_DUR = 0.9;
+          var WIN_FADE_AT = 2.5,
+            WIN_FADE_DUR = 0.45;
+          var CARD_AT = 2.2,
+            CARD_DUR = 0.6, // motion-blur-streak: position + blur share window AND ease
+            CARD_EASE = "power3.out";
+          var CARD_Z_FROM = -560,
+            CARD_ROTX_FROM = 5,
+            CARD_BLUR_PEAK = 16;
+          /* ambient-glow-bloom (pulse-on-arrival, FINITE — no breathe, no loop):
+             BLOOM_AT + BLOOM_DUR lands exactly on the card's settle → one beat. */
+          var BLOOM_AT = 2.0,
+            BLOOM_DUR = 0.8, // 2.0 + 0.8 = 2.8 == CARD_AT + CARD_DUR
+            BLOOM_PEAK = 0.34, // ≤ 0.45 ceiling
+            BLOOM_HOLD = 0.24,
+            BLOOM_SETTLE_DUR = 0.7;
+          /* svg-path-draw — measured geometry, staggered ~72% so it reads as one draw */
+          var RING_AT = 2.86,
+            RING_DUR = 0.58;
+          var MARK_AT = 3.28,
+            MARK_DUR = 0.4;
+          /* soft light burst as the stroke closes */
+          var CBURST_AT = 3.56,
+            CBURST_GROW = 0.32,
+            CBURST_FADE = 0.52;
+          var H2_AT = 3.52,
+            H2_DUR = 0.55;
+
+          /* ===== Scene 3 (4.0–5.6) — the case number as a 120px monument ===== */
+          var COUNT_AT = 4.12,
+            COUNT_DUR = 1.25; // counting-dynamic-scale: value + font-size in ONE tween
+          var CASE_TARGET = 847, // settles on #2026-0847
+            SIZE_FROM = 72,
+            SIZE_TO = 120;
+
+          /* ===== Scene 4 (5.6–7.0) — the tracking pill ===== */
+          var PILL_AT = 5.7,
+            PILL_DUR = 0.6; // spring-pop-entrance, smooth register (power3.out)
+
+          /* ===== Scene 5 (7.0–8.341) — the closing line… then TOTAL STILLNESS ===== */
+          var TAG_AT = 7.05,
+            TAG_DUR = 0.7;
+
+          /* substrate parallax — decelerates fully to rest before Scene 5 */
+          var GRID_DUR = 6.4;
+
+          var win = document.getElementById("f05-window");
+          var cardEl = document.getElementById("f05-card");
+          var caseEl = document.getElementById("f05-case");
+          var digitsEl = document.getElementById("f05-case-digits");
+
+          /* svg-path-draw — measure real geometry with getTotalLength(), never guess */
+          var ring = document.getElementById("f05-check-ring");
+          var mark = document.getElementById("f05-check-mark");
+          var ringLen = (ring.getTotalLength && ring.getTotalLength()) || 277;
+          var markLen = (mark.getTotalLength && mark.getTotalLength()) || 59;
+          ring.style.strokeDasharray = ringLen;
+          ring.style.strokeDashoffset = ringLen;
+          mark.style.strokeDasharray = markLen;
+          mark.style.strokeDashoffset = markLen;
+
+          /* motion-blur-streak (path A, depth-push form): symmetric blur envelope on a
+             proxy, seeded once so a seek to the first frame shows the streaked start. */
+          var blurP = { v: CARD_BLUR_PEAK };
+          var writeCardBlur = function () {
+            cardEl.style.filter = blurP.v > 0.08 ? "blur(" + blurP.v + "px)" : "none";
+          };
+          writeCardBlur();
+
+          var tl = gsap.timeline({ paused: true });
+
+          /* ---------- substrate: the grid parallaxes slower than everything else ---------- */
+          tl.fromTo(
+            "#f05-grid",
+            { x: 0, y: 0 },
+            { x: 18, y: -38, duration: GRID_DUR, ease: "power3.out" },
+            0
+          );
+
+          /* ================= SCENE 1 — the press ================= */
+          tl.fromTo(
+            "#f05-cursor",
+            { opacity: 0 },
+            { opacity: 1, duration: CURSOR_FADE_DUR, ease: "power2.out" },
+            CURSOR_IN_AT
+          );
+          tl.fromTo(
+            "#f05-cursor",
+            { x: 0, y: 0 },
+            { x: CURSOR_DX, y: CURSOR_DY, duration: CURSOR_MOVE_DUR, ease: "power2.inOut" },
+            CURSOR_IN_AT
+          );
+
+          /* disabled grey → SOLID NAVY. The one solid element of the whole video. */
+          tl.to(
+            "#f05-btn",
+            {
+              backgroundColor: "#2d3e5e",
+              color: "#ffffff",
+              duration: ENABLE_DUR,
+              ease: "power3.out",
+            },
+            ENABLE_AT
+          );
+          tl.to("#f05-btn-hint", { opacity: 0, duration: 0.35, ease: "power2.out" }, ENABLE_AT);
+          /* …and it GLOWS. Soft diffuse navy halo — elevation, not a shadow. */
+          tl.fromTo(
+            "#f05-btn-glow",
+            { opacity: 0, scale: 0.9 },
+            { opacity: GLOW_REST_OPACITY, scale: 1, duration: GLOW_IN_DUR, ease: "power2.out" },
+            ENABLE_AT
+          );
+
+          /* press-release-spring — linear input compression… */
+          tl.to("#f05-btn", { scale: PRESS_SCALE, duration: PRESS_DUR, ease: "power1.in" }, PRESS_START);
+          tl.to(
+            "#f05-cursor",
+            { scale: CURSOR_PRESS_SCALE, duration: PRESS_DUR, ease: "power1.in" },
+            PRESS_START
+          );
+          /* …then a smooth long-tail recovery. No overshoot anywhere in this pack. */
+          tl.to("#f05-btn", { scale: 1, duration: RELEASE_DUR, ease: "power3.out" }, RELEASE_START);
+          tl.to("#f05-cursor", { scale: 1, duration: 0.34, ease: "power3.out" }, RELEASE_START);
+          /* release burst on the glow layer (the rule's Phase 3, done as glow — never a shadow) */
+          tl.to(
+            "#f05-btn-glow",
+            {
+              opacity: BURST_OPACITY,
+              scale: BURST_SCALE,
+              duration: BURST_DUR,
+              ease: "power2.out",
+              immediateRender: false,
+            },
+            RELEASE_START
+          );
+          tl.to(
+            "#f05-btn-glow",
+            {
+              opacity: GLOW_REST_OPACITY,
+              scale: 1,
+              duration: BURST_SETTLE_DUR,
+              ease: "power2.inOut",
+              immediateRender: false,
+            },
+            RELEASE_START + BURST_DUR
+          );
+
+          /* ================= SCENE 2 — THE ONE MOVE ================= */
+          /* wipe-away-to-reveal: a diagonal edge sweeps bottom-left → top-right and
+             takes the demo UI off frame while the clean card arrives from Z. */
+          var wipe = { p: 0 };
+          tl.to(
+            wipe,
+            {
+              p: 1,
+              duration: WIPE_DUR,
+              ease: "power3.inOut",
+              onUpdate: function () {
+                var L = 112 - 232 * wipe.p; // left-edge crossing, %
+                var R = L + 100; // right-edge crossing (constant diagonal slope)
+                win.style.clipPath = "polygon(0% 0%, 100% 0%, 100% " + R + "%, 0% " + L + "%)";
+              },
+            },
+            WIPE_AT
+          );
+          tl.to("#f05-window", { scale: 0.97, duration: WIPE_DUR, ease: "power3.inOut" }, WIPE_AT);
+          tl.to("#f05-cursor", { opacity: 0, duration: 0.28, ease: "power2.in" }, 2.02);
+          tl.to(
+            ["#f05-window", "#f05-win-glow"],
+            { opacity: 0, duration: WIN_FADE_DUR, ease: "power2.in" },
+            WIN_FADE_AT
+          );
+
+          /* ambient-glow-bloom — expands ONCE behind the card, then rests. Finite. */
+          tl.fromTo(
+            "#f05-bloom",
+            { opacity: 0, scale: 0.78 },
+            { opacity: BLOOM_PEAK, scale: 1.06, duration: BLOOM_DUR, ease: "power2.out" },
+            BLOOM_AT
+          );
+          tl.to(
+            "#f05-bloom",
+            {
+              opacity: BLOOM_HOLD,
+              scale: 1,
+              duration: BLOOM_SETTLE_DUR,
+              ease: "power2.inOut",
+              immediateRender: false,
+            },
+            BLOOM_AT + BLOOM_DUR
+          );
+
+          /* the card ARRIVES FROM Z — real 3D on the carrier, blur on the surface. */
+          tl.fromTo(
+            "#f05-card-3d",
+            { z: CARD_Z_FROM, rotationX: CARD_ROTX_FROM },
+            { z: 0, rotationX: 0, duration: CARD_DUR, ease: CARD_EASE },
+            CARD_AT
+          );
+          tl.fromTo(
+            "#f05-card",
+            { opacity: 0 },
+            { opacity: 1, duration: CARD_DUR, ease: CARD_EASE },
+            CARD_AT
+          );
+          /* motion-blur-streak: SAME window + SAME ease → peak blur == peak speed,
+             resolving to exactly 0 on the settle. Razor-sharp the instant it stops. */
+          tl.to(
+            blurP,
+            { v: 0, duration: CARD_DUR, ease: CARD_EASE, onUpdate: writeCardBlur },
+            CARD_AT
+          );
+
+          /* svg-path-draw — the check self-draws, stroke by stroke. Pens don't bounce. */
+          tl.fromTo(
+            "#f05-check-ring",
+            { strokeDashoffset: ringLen },
+            { strokeDashoffset: 0, duration: RING_DUR, ease: "power2.out" },
+            RING_AT
+          );
+          tl.fromTo(
+            "#f05-check-mark",
+            { strokeDashoffset: markLen },
+            { strokeDashoffset: 0, duration: MARK_DUR, ease: "power2.out" },
+            MARK_AT
+          );
+          /* …and finishes with a soft light burst as the stroke closes. */
+          tl.fromTo(
+            "#f05-check-burst",
+            { opacity: 0, scale: 0.55 },
+            { opacity: 0.72, scale: 1.5, duration: CBURST_GROW, ease: "power2.out" },
+            CBURST_AT
+          );
+          tl.to(
+            "#f05-check-burst",
+            {
+              opacity: 0,
+              scale: 2.05,
+              duration: CBURST_FADE,
+              ease: "power2.in",
+              immediateRender: false,
+            },
+            CBURST_AT + CBURST_GROW
+          );
+
+          /* "Caso radicado" — 80px, ink. */
+          tl.fromTo(
+            "#f05-card-h2",
+            { y: 20, opacity: 0 },
+            { y: 0, opacity: 1, duration: H2_DUR, ease: "power3.out" },
+            H2_AT
+          );
+
+          /* ================= SCENE 3 — the 120px monument ================= */
+          tl.fromTo(
+            "#f05-case",
+            { opacity: 0 },
+            { opacity: 1, duration: 0.35, ease: "power2.out" },
+            COUNT_AT
+          );
+          /* counting-dynamic-scale: value AND font-size driven by ONE eased tween.
+             power3.out — it's data; it must land on its value, never overshoot. */
+          var count = { v: 0, fs: SIZE_FROM };
+          tl.to(
+            count,
+            {
+              v: CASE_TARGET,
+              fs: SIZE_TO,
+              duration: COUNT_DUR,
+              ease: "power3.out",
+              onUpdate: function () {
+                digitsEl.textContent = String(Math.round(count.v)).padStart(4, "0");
+                caseEl.style.fontSize = count.fs + "px";
+              },
+            },
+            COUNT_AT
+          );
+
+          /* ================= SCENE 4 — "En seguimiento" ================= */
+          /* spring-pop-entrance, smooth register: scale 0 → 1 on power3.out, no bounce. */
+          tl.fromTo(
+            "#f05-pill",
+            { scale: 0, y: 12, opacity: 0 },
+            { scale: 1, y: 0, opacity: 1, duration: PILL_DUR, ease: "power3.out" },
+            PILL_AT
+          );
+
+          /* ================= SCENE 5 — the line settles, and then EVERYTHING STOPS ======= */
+          tl.fromTo(
+            "#f05-tagline",
+            { y: 26, opacity: 0 },
+            { y: 0, opacity: 1, duration: TAG_DUR, ease: "power3.out" },
+            TAG_AT
+          );
+          /* Complete stillness from 7.75s to 8.341s.
+             No drift. No push. No breathing. The stop IS the payload of this frame. */
+
+          window.__timelines["05-caso-radicado"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

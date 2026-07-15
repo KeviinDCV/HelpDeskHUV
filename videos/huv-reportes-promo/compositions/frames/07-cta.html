@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="UTF-8" />
+    <title>07-cta — Reporta con Evarisbot</title>
+    <!-- This <head> is metadata for the source file only. The HF runtime clones ONLY the
+         <template> contents — every style / script / markup node lives inside it. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        /* ── Fonts — only the four Instrument Sans files that ship with the project ───── */
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-Regular.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 500;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 600;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 700;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-700.woff2") format("woff2");
+        }
+
+        /* ── Root — styled by #root ONLY, never by a class (scoping law) ──────────────── */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          container-type: size;
+          font-family: "Instrument Sans", sans-serif;
+          font-kerning: normal;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* ════════ DEPTH LAYER 1 — the base (full-bleed clip layer, never on #root) ═════ */
+        .f07-base {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background: #ffffff;
+        }
+
+        /* ════════ DEPTH LAYER 2 — the geometric substrate (1px navy grid @ 3.5%) ═══════
+           Alpha is BAKED INTO THE LINE COLOR, never into an `opacity` property, so no tween
+           can ever brighten it. GSAP touches TRANSFORM on this layer only — it parallaxes
+           (slower + larger than the foreground) and comes fully to rest before the final hold. */
+        .f07-grid {
+          position: absolute;
+          inset: -120px; /* oversized so the parallax drift never exposes an edge */
+          z-index: 1;
+          background-image:
+            repeating-linear-gradient(
+              0deg,
+              rgba(45, 62, 94, 0.035) 0 1px,
+              rgba(45, 62, 94, 0) 1px 60px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              rgba(45, 62, 94, 0.035) 0 1px,
+              rgba(45, 62, 94, 0) 1px 60px
+            );
+          transform-origin: 50% 45%;
+          pointer-events: none;
+          will-change: transform;
+        }
+
+        /* ════════ DEPTH LAYER 3 — the soft navy radial bloom (off-centre, anchored) ════ */
+        .f07-bloom {
+          position: absolute;
+          inset: -60px;
+          z-index: 2;
+          background:
+            radial-gradient(
+              1180px 900px at 41% 33%,
+              rgba(45, 62, 94, 0.1) 0%,
+              rgba(45, 62, 94, 0.045) 42%,
+              rgba(45, 62, 94, 0) 72%
+            ),
+            radial-gradient(
+              820px 700px at 78% 82%,
+              rgba(45, 62, 94, 0.05) 0%,
+              rgba(45, 62, 94, 0) 68%
+            );
+          transform-origin: 45% 40%;
+          pointer-events: none;
+          will-change: transform;
+        }
+
+        /* ════════ DEPTH LAYER 4 — content ═════════════════════════════════════════════ */
+
+        /* Scene 1 — the four inherited benefit cards. Same geometry + surface as frame 6 so
+           the crossfade seam reads as ONE formation; they exist only to be swept away. */
+        .f07-cards {
+          position: absolute;
+          inset: 0;
+          z-index: 3;
+        }
+        .f07-card {
+          position: absolute;
+          box-sizing: border-box;
+          width: 780px;
+          height: 258px;
+          display: flex;
+          align-items: center;
+          gap: 36px;
+          padding: 0 40px;
+          /* frame.md card-tinted (4% navy over white), written as its pre-composited opaque
+             equivalent so the grid substrate does not read straight through the card. */
+          background-color: #f7f7f9;
+          border: 1.5px solid rgba(45, 62, 94, 0.2);
+          border-radius: 14px;
+          box-shadow: none;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        .f07-card-mark {
+          flex: 0 0 88px;
+          width: 88px;
+          height: 88px;
+          border-radius: 12px;
+          background: rgba(45, 62, 94, 0.08);
+        }
+        .f07-card-lines {
+          flex: 1 1 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .f07-card-line {
+          height: 20px;
+          border-radius: 6px;
+          background: rgba(45, 62, 94, 0.08);
+        }
+        .f07-card-line.is-short {
+          width: 54%;
+        }
+        .f07-card-a {
+          left: 160px;
+          top: 176px;
+        }
+        .f07-card-b {
+          left: 980px;
+          top: 176px;
+        }
+        .f07-card-c {
+          left: 160px;
+          top: 474px;
+        }
+        .f07-card-d {
+          left: 980px;
+          top: 474px;
+        }
+
+        /* Scene 2 — ⭐ THE MARK. The official HUV logo file: revealed, NEVER recoloured,
+           cropped, distorted or re-traced. 960px = 50% of the canvas; height stays auto so
+           the 4308×1218 aspect is preserved exactly. */
+        .f07-logo-stage {
+          position: absolute;
+          left: 480px;
+          top: 196px;
+          width: 960px;
+          height: 272px;
+          z-index: 4;
+        }
+        .f07-logo-img {
+          display: block;
+          width: 960px;
+          height: auto;
+          /* Start fully masked — the reveal frontier lives at the left edge. GSAP drives
+             clip-path from a proxy (see the timeline), so this is only the pre-roll state. */
+          clip-path: inset(0 100% 0 0);
+          will-change: clip-path;
+        }
+        /* The leading edge of the reveal — a soft navy glow band riding the frontier, so the
+           mask reads as a drawing STROKE rather than a wipe. Blur is a static CSS filter. */
+        .f07-draw-edge {
+          position: absolute;
+          top: -34px;
+          bottom: -34px;
+          left: -48px; /* centres the 96px band on the frontier at x = 0 */
+          width: 96px;
+          background: linear-gradient(
+            90deg,
+            rgba(45, 62, 94, 0) 0%,
+            rgba(45, 62, 94, 0.08) 42%,
+            rgba(45, 62, 94, 0.26) 62%,
+            rgba(45, 62, 94, 0.05) 78%,
+            rgba(45, 62, 94, 0) 100%
+          );
+          filter: blur(9px);
+          opacity: 0;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+
+        /* Centred rows — full-width blocks. No CSS transform on them; GSAP tweens the inner
+           spans only (gsap_css_transform_conflict). */
+        .f07-row {
+          position: absolute;
+          left: 0;
+          width: 1920px;
+          text-align: center;
+          z-index: 4;
+        }
+        .f07-name {
+          top: 512px;
+          font-size: 72px;
+          font-weight: 600;
+          line-height: 1.15;
+          letter-spacing: -0.02em;
+          color: #0a0a0a;
+        }
+        .f07-word {
+          display: inline-block;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+        .f07-url {
+          top: 632px;
+        }
+        .f07-pill {
+          display: inline-block;
+          padding: 18px 46px;
+          border-radius: 100px;
+          background: rgba(45, 62, 94, 0.08);
+          color: #2d3e5e;
+          font-size: 32px;
+          font-weight: 600;
+          line-height: 1.2;
+          letter-spacing: 0.01em;
+          /* Elevation, not a shadow: a diffuse navy halo under a floating surface. */
+          box-shadow: 0 26px 60px rgba(45, 62, 94, 0.1);
+          transform-origin: 50% 50%;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+        .f07-kicker {
+          top: 800px;
+        }
+        .f07-kicker-line {
+          display: inline-block;
+          font-size: 46px;
+          font-weight: 400;
+          line-height: 1.4;
+          color: #2c4370;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+
+        /* ════════ DEPTH LAYER 5 — foreground accent: the mascot + its single bloom ═════ */
+        .f07-mascot {
+          position: absolute;
+          left: 1402px;
+          top: 566px;
+          width: 190px;
+          height: 190px;
+          z-index: 5;
+        }
+        .f07-mascot-glow {
+          position: absolute;
+          z-index: 1;
+          inset: -170px; /* the halo extends well past the portrait */
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 50% 50%,
+            rgba(45, 62, 94, 0.42) 0%,
+            rgba(45, 62, 94, 0.18) 40%,
+            rgba(45, 62, 94, 0) 68%
+          );
+          opacity: 0;
+          transform-origin: 50% 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+        .f07-portrait-wrap {
+          position: relative;
+          z-index: 2;
+          width: 190px;
+          height: 190px;
+          opacity: 0;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        .f07-portrait {
+          display: block;
+          width: 190px;
+          height: 190px;
+          border-radius: 50%;
+          object-fit: cover;
+          object-position: 50% 42%;
+          background: #ffffff;
+          border: 1.5px solid rgba(45, 62, 94, 0.2);
+          box-shadow: none;
+          /* motion-blur-streak, path A — directional smear on the X axis of travel. */
+          filter: url(#f07-streak);
+        }
+
+        .f07-defs {
+          position: absolute;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="07-cta"
+        data-duration="5.781"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- motion-blur-streak filter region: generous, so the smear never clips at the box -->
+        <svg class="f07-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="f07-streak" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur id="f07-streak-blur" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+          </defs>
+        </svg>
+
+        <!-- LAYER 1 — base ground (full-bleed clip, lowest track; never a bg on #root) -->
+        <div
+          id="f07-base"
+          class="clip f07-base"
+          data-start="0"
+          data-duration="5.781"
+          data-track-index="0"
+        ></div>
+
+        <!-- LAYER 2 — geometric substrate (parallaxes slower than the foreground) -->
+        <div
+          id="f07-grid"
+          class="clip f07-grid"
+          data-start="0"
+          data-duration="5.781"
+          data-track-index="1"
+          aria-hidden="true"
+        ></div>
+
+        <!-- LAYER 3 — the soft navy radial bloom of the light field -->
+        <div
+          id="f07-bloom"
+          class="clip f07-bloom"
+          data-start="0"
+          data-duration="5.781"
+          data-track-index="2"
+          aria-hidden="true"
+        ></div>
+
+        <!-- ══ Scene 1 (0.0–1.3s) — the four benefit cards clear off to the four edges ══ -->
+        <div
+          id="f07-cards"
+          class="clip f07-cards"
+          data-start="0"
+          data-duration="1.35"
+          data-track-index="3"
+          aria-hidden="true"
+        >
+          <div class="f07-card f07-card-a" data-out-x="-900" data-out-y="-640">
+            <div class="f07-card-mark"></div>
+            <div class="f07-card-lines">
+              <div class="f07-card-line"></div>
+              <div class="f07-card-line is-short"></div>
+            </div>
+          </div>
+          <div class="f07-card f07-card-b" data-out-x="900" data-out-y="-640">
+            <div class="f07-card-mark"></div>
+            <div class="f07-card-lines">
+              <div class="f07-card-line"></div>
+              <div class="f07-card-line is-short"></div>
+            </div>
+          </div>
+          <div class="f07-card f07-card-c" data-out-x="-900" data-out-y="640">
+            <div class="f07-card-mark"></div>
+            <div class="f07-card-lines">
+              <div class="f07-card-line"></div>
+              <div class="f07-card-line is-short"></div>
+            </div>
+          </div>
+          <div class="f07-card f07-card-d" data-out-x="900" data-out-y="640">
+            <div class="f07-card-mark"></div>
+            <div class="f07-card-lines">
+              <div class="f07-card-line"></div>
+              <div class="f07-card-line is-short"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ Scene 2 (1.3–3.0s) — ⭐ THE MARK DRAWS ITSELF ══════════════════════════ -->
+        <div
+          id="f07-logo"
+          class="clip f07-logo-stage"
+          data-start="1.2"
+          data-duration="4.581"
+          data-track-index="4"
+        >
+          <img
+            id="f07-logo-img"
+            class="f07-logo-img"
+            src="assets/huv-h.png"
+            alt="Hospital Universitario del Valle — Evaristo García E.S.E."
+          />
+          <div id="f07-draw-edge" class="f07-draw-edge" aria-hidden="true"></div>
+        </div>
+
+        <div
+          id="f07-name"
+          class="clip f07-row f07-name"
+          data-start="2"
+          data-duration="3.781"
+          data-track-index="5"
+        >
+          <span class="f07-word">Reporte</span> <span class="f07-word">Sistemas</span>
+          <span class="f07-word">HUV</span>
+        </div>
+
+        <div
+          id="f07-url"
+          class="clip f07-row f07-url"
+          data-start="2.6"
+          data-duration="3.181"
+          data-track-index="6"
+        >
+          <span id="f07-pill" class="f07-pill">helpdesk.huv.gov.co/reportar</span>
+        </div>
+
+        <!-- ══ Scene 3 (3.0–4.5s) — the mascot settles beside the lockup; ONE bloom ════ -->
+        <div
+          id="f07-mascot"
+          class="clip f07-mascot"
+          data-start="3.1"
+          data-duration="2.681"
+          data-track-index="7"
+        >
+          <div id="f07-mascot-glow" class="f07-mascot-glow" aria-hidden="true"></div>
+          <div id="f07-portrait-wrap" class="f07-portrait-wrap">
+            <img class="f07-portrait" src="assets/Evaris.png" alt="Evarisbot" />
+          </div>
+        </div>
+
+        <!-- ══ Scene 4 (4.5–5.781s) — the closing line, then complete stillness ════════ -->
+        <div
+          id="f07-kicker"
+          class="clip f07-row f07-kicker"
+          data-start="4.4"
+          data-duration="1.381"
+          data-track-index="8"
+        >
+          <span id="f07-kicker-line" class="f07-kicker-line">Es más rápido de lo que crees.</span>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        (function () {
+          window.__timelines = window.__timelines || {};
+
+          var ROOT = document.querySelector('[data-composition-id="07-cta"]');
+          var q = function (s) {
+            return ROOT.querySelector(s);
+          };
+          var qa = function (s) {
+            return Array.prototype.slice.call(ROOT.querySelectorAll(s));
+          };
+
+          var tl = gsap.timeline({ paused: true });
+
+          /* ═══════════════════════════════════════════════════════════════════════════
+             THE LIGHT FIELD — depth layers 2 + 3. Parallax: the substrate is larger and
+             moves SLOWER than everything in front of it, and comes fully to rest before
+             the final hold (Scene 4 is complete stillness). Alpha is baked into the line /
+             gradient colours, so these layers are TRANSFORM-ONLY — no tween can brighten
+             them, and they are already in place at t=0 (a ground does not "arrive").
+             ═══════════════════════════════════════════════════════════════════════════ */
+          var FIELD_SETTLE = 4.3; /* at rest well before the final hold */
+
+          tl.fromTo(
+            "#f07-grid",
+            { scale: 1.05, y: 16, x: -8 },
+            { scale: 1, y: 0, x: 0, duration: FIELD_SETTLE, ease: "power2.out" },
+            0,
+          );
+          tl.fromTo(
+            "#f07-bloom",
+            { scale: 1.08 },
+            { scale: 1, duration: FIELD_SETTLE, ease: "power2.out" },
+            0,
+          );
+
+          /* ═══════════════════════════════════════════════════════════════════════════
+             SCENE 1 (0.0–1.3s) — `center-outward-expansion`, run in its EXIT direction.
+             The formation interpolates from its laid-out positions to off-frame targets
+             (centre→target machinery, out-eased, staggered inside the rule's 0.04–0.08s
+             band). A real exit is permitted here because this is the FINAL frame.
+             ═══════════════════════════════════════════════════════════════════════════ */
+          var CLEAR_START = 0.08;
+          var CLEAR_DUR = 0.95;
+          var CLEAR_STAGGER = 0.06;
+          var CLEAR_EASE = "power3.out"; /* out-easing: they fling out, never get sucked back */
+
+          qa(".f07-card").forEach(function (el, i) {
+            var at = CLEAR_START + i * CLEAR_STAGGER;
+            tl.fromTo(
+              el,
+              { x: 0, y: 0, scale: 1 },
+              {
+                x: Number(el.dataset.outX),
+                y: Number(el.dataset.outY),
+                scale: 1.05,
+                duration: CLEAR_DUR,
+                ease: CLEAR_EASE,
+              },
+              at,
+            );
+            /* The fade trails the flight so the cards read as LEAVING, not dissolving. */
+            tl.to(el, { opacity: 0, duration: 0.5, ease: "power1.in" }, at + 0.45);
+          });
+
+          /* ═══════════════════════════════════════════════════════════════════════════
+             SCENE 2 (1.3–3.0s) — ⭐ THE HUV MARK DRAWS ITSELF.
+
+             `logo-assemble-lockup`'s signature ("the mark builds itself") instantiated on a
+             RASTER: the logo is pure navy line art, so a left→right reveal mask over the
+             image makes it appear to be drawn stroke by stroke. One proxy (`wipe.p`, 0→1)
+             drives BOTH the clip-path frontier and the position of the soft glow riding that
+             frontier, so edge and reveal are locked to the same frame — that glow is what
+             makes it read as a drawing stroke instead of a wipe.
+
+             Two phases, because the artwork has two parts: the building occupies the left
+             ~37.5% of the file, the wordmark the rest. So the BUILDING DRAWS FIRST, takes a
+             beat, and THEN the wordmark completes. `power2.out` per `svg-path-draw` — a pen
+             decelerates into a stroke; it never bounces.
+
+             The mark is only ever REVEALED: no recolour, no crop, no distortion. The image
+             keeps its exact 4308×1218 aspect (960px wide = 50% of canvas, height auto), and
+             GSAP never touches a transform on it.
+             ═══════════════════════════════════════════════════════════════════════════ */
+          var LOGO_W = 960;
+          var BUILDING_FRAC = 0.375; /* where the building ends and the wordmark begins */
+
+          var logoImg = q("#f07-logo-img");
+          var drawEdge = q("#f07-draw-edge");
+          var wipe = { p: 0 };
+
+          function writeWipe() {
+            var p = wipe.p;
+            logoImg.style.clipPath = "inset(0 " + (100 - p * 100) + "% 0 0)";
+            /* the glow band rides the reveal frontier (its own left offset centres it) */
+            drawEdge.style.transform = "translateX(" + p * LOGO_W + "px)";
+          }
+          writeWipe(); /* seed frame 0: fully masked, edge parked at the left margin */
+
+          var DRAW_A_AT = 1.28;
+          var DRAW_A_DUR = 0.58; /* the building */
+          var DRAW_B_AT = 1.9;
+          var DRAW_B_DUR = 0.72; /* the wordmark completes */
+
+          tl.fromTo(
+            wipe,
+            { p: 0 },
+            {
+              p: BUILDING_FRAC,
+              duration: DRAW_A_DUR,
+              ease: "power2.out",
+              immediateRender: false,
+              onUpdate: writeWipe,
+            },
+            DRAW_A_AT,
+          );
+          tl.fromTo(
+            wipe,
+            { p: BUILDING_FRAC },
+            {
+              p: 1,
+              duration: DRAW_B_DUR,
+              ease: "power2.out",
+              immediateRender: false,
+              onUpdate: writeWipe,
+            },
+            DRAW_B_AT,
+          );
+
+          /* The stroke's leading light: lit for the length of the draw, extinguished exactly
+             as the last stroke lands (2.62s) — nothing lingers into the hold. */
+          tl.fromTo(
+            drawEdge,
+            { opacity: 0 },
+            { opacity: 0.95, duration: 0.18, ease: "power1.out" },
+            DRAW_A_AT,
+          );
+          tl.to(drawEdge, { opacity: 0, duration: 0.24, ease: "power1.in" }, 2.4);
+
+          /* ── `dynamic-content-sequencing` — per-word staggered reveal. Each word's start is
+             DERIVED from its content length (BASE_STEP + len × SEC_PER_CHAR) and pre-computed
+             once, so a longer word buys its own extra beat; not a flat hardcoded stagger. ── */
+          var NAME_START = 2.1;
+          var BASE_STEP = 0.12;
+          var SEC_PER_CHAR = 0.014;
+          var WORD_DUR = 0.55;
+
+          var cumulative = 0;
+          qa(".f07-word").forEach(function (el) {
+            var at = NAME_START + cumulative;
+            cumulative += BASE_STEP + el.textContent.length * SEC_PER_CHAR;
+            tl.fromTo(
+              el,
+              { opacity: 0, y: 28 },
+              { opacity: 1, y: 0, duration: WORD_DUR, ease: "power3.out" },
+              at,
+            );
+          });
+
+          /* ── The address lands as a tag-pill. PRODUCTION DOMAIN ONLY — never an IP. ── */
+          tl.fromTo(
+            "#f07-pill",
+            { opacity: 0, y: 26, scale: 0.94 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "power3.out" },
+            2.72,
+          );
+
+          /* ═══════════════════════════════════════════════════════════════════════════
+             SCENE 3 (3.0–4.5s) — the mascot slides in beside the lockup and settles, and
+             the light arrives with him: `ambient-glow-bloom` in its bloom-and-hold form —
+             the halo expands ONCE and rests. No breathe, no yoyo, no loop.
+
+             The slide is a `motion-blur-streak` (path A): an inline feGaussianBlur on the
+             X axis of travel only, tweened through a proxy on the SAME window + SAME ease as
+             the position, so peak blur coincides with peak speed and resolves to exactly 0
+             at the settle — he streaks in, then snaps sharp and holds.
+             ═══════════════════════════════════════════════════════════════════════════ */
+          var MASCOT_AT = 3.2;
+          var MASCOT_DUR = 0.75; /* settles at 3.95 */
+          var MASCOT_EASE = "power3.out"; /* out-family: velocity front-loaded */
+          var ENTER_FROM_X = 200;
+          var PEAK_BLUR = 15;
+
+          var blurNode = q("#f07-streak-blur");
+          var blurProxy = { v: PEAK_BLUR };
+          function writeBlur() {
+            blurNode.setAttribute("stdDeviation", blurProxy.v + " 0"); /* X axis only */
+          }
+          writeBlur(); /* seed: a seek to the entrance's first frame shows the streaked start */
+
+          tl.fromTo(
+            "#f07-portrait-wrap",
+            { x: ENTER_FROM_X, opacity: 0, scale: 0.94 },
+            {
+              x: 0,
+              opacity: 1,
+              scale: 1,
+              duration: MASCOT_DUR,
+              ease: MASCOT_EASE,
+              immediateRender: false,
+            },
+            MASCOT_AT,
+          );
+          tl.fromTo(
+            blurProxy,
+            { v: PEAK_BLUR },
+            {
+              v: 0,
+              duration: MASCOT_DUR,
+              ease: MASCOT_EASE,
+              immediateRender: false,
+              onUpdate: writeBlur,
+            },
+            MASCOT_AT,
+          );
+
+          /* The bloom lands ON the mascot's settle (BLOOM_START + BLOOM_DUR = 3.95) so glow
+             and character resolve as ONE beat — then it rests. Peak stays under the 0.45 wash
+             ceiling; the halo colour is darker + more saturated than the surface it backs. */
+          var GLOW_START_SCALE = 0.84;
+          var GLOW_PEAK_OPACITY = 0.32;
+          var BLOOM_DUR = 0.72;
+          var BLOOM_START = 3.23;
+
+          tl.fromTo(
+            "#f07-mascot-glow",
+            { opacity: 0, scale: GLOW_START_SCALE },
+            {
+              opacity: GLOW_PEAK_OPACITY,
+              scale: 1,
+              duration: BLOOM_DUR,
+              ease: "power2.out",
+              immediateRender: false,
+            },
+            BLOOM_START,
+          );
+
+          /* ═══════════════════════════════════════════════════════════════════════════
+             SCENE 4 (4.5–5.781s) — the closing line settles. And then nothing: the last
+             motion in the video ends at 5.25s and the frame holds as a poster — mark, name,
+             address, character. Complete stillness. No drift, no push, no jitter.
+             ═══════════════════════════════════════════════════════════════════════════ */
+          tl.fromTo(
+            "#f07-kicker-line",
+            { opacity: 0, y: 26 },
+            { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+            4.55,
+          );
+
+          window.__timelines["07-cta"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

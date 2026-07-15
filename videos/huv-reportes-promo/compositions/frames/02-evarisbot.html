@@ -1,0 +1,772 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Head is metadata for this SOURCE file only — the runtime discards it.
+         EVERYTHING the render needs (fonts, styles, markup, GSAP, timeline)
+         lives INSIDE <template> below. -->
+    <title>Frame 02 — Ya no. Evarisbot. (v2)</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* ══════════════════════════════════════════════════════════════════
+           FONTS — only the four faces that actually ship in assets/fonts/.
+           ══════════════════════════════════════════════════════════════════ */
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-Regular.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 500;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 600;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 700;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-700.woff2") format("woff2");
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           ROOT — styled by #root, NEVER by a class on the root element.
+           No background here: the full-bleed ground rides a class="clip" layer.
+           ══════════════════════════════════════════════════════════════════ */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Instrument Sans", sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── LAYER 0 · the light field (full-bleed clip — never flat white) ── */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #ffffff;
+          overflow: hidden;
+        }
+
+        /* LAYER 0a — 1px navy grid substrate @ 3.5% alpha. Parallaxes: it drifts
+           slower than everything in front of it, which is what kills the void. */
+        .grid {
+          position: absolute;
+          inset: -140px;
+          background-image:
+            linear-gradient(to right, rgba(45, 62, 94, 0.035) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(45, 62, 94, 0.035) 1px, transparent 1px);
+          background-size: 64px 64px;
+          transform-origin: 50% 50%;
+          pointer-events: none;
+          will-change: transform;
+        }
+
+        /* LAYER 0b — two soft navy radial blooms anchored OFF-centre. They drift
+           against the grid at a different rate = depth in the ground itself. */
+        .ground-bloom-a {
+          position: absolute;
+          left: -320px;
+          top: 130px;
+          width: 1500px;
+          height: 1500px;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 50% 50%,
+            rgba(45, 62, 94, 0.075) 0%,
+            rgba(45, 62, 94, 0.042) 34%,
+            rgba(45, 62, 94, 0) 66%
+          );
+          pointer-events: none;
+          will-change: transform;
+        }
+        .ground-bloom-b {
+          position: absolute;
+          left: 1010px;
+          top: -340px;
+          width: 1100px;
+          height: 1100px;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 50% 50%,
+            rgba(45, 62, 94, 0.055) 0%,
+            rgba(45, 62, 94, 0.03) 36%,
+            rgba(45, 62, 94, 0) 68%
+          );
+          pointer-events: none;
+          will-change: transform;
+        }
+
+        /* SVG filter host — zero-size, out of layout. */
+        .defs {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           THE STAGE — every hero layer is centred on the SAME anchor:
+           (960, 410). "Ya no." and the mascot share that anchor + a 50% 50%
+           transform-origin, which is what makes the scale-swap read as a morph.
+           Centring is done with left/top/margin ONLY — never a CSS transform on
+           an element GSAP later tweens x/y/scale/rotation on.
+           ══════════════════════════════════════════════════════════════════ */
+
+        /* LAYER 1 — the hero bloom. THE LIGHT ARRIVES WITH HIM: this expands
+           OUTWARD from his centre (scale 0.22 → 1) as he pushes forward. */
+        .hero-bloom {
+          position: absolute;
+          left: 180px;
+          top: -370px;
+          width: 1560px;
+          height: 1560px;
+          z-index: 1;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 50% 50%,
+            rgba(45, 62, 94, 0.14) 0%,
+            rgba(45, 62, 94, 0.09) 30%,
+            rgba(45, 62, 94, 0.035) 52%,
+            rgba(45, 62, 94, 0) 70%
+          );
+          transform-origin: 50% 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+
+        /* LAYER 2 — the two concentric rings. They start SMALL (behind the
+           mascot's disc), sweep outward ONCE, and dissolve. Finite tweens.
+           CSS-hidden at rest because their fromTo runs immediateRender:false. */
+        .ring {
+          position: absolute;
+          left: 760px;
+          top: 210px;
+          width: 400px;
+          height: 400px;
+          z-index: 2;
+          border-radius: 50%;
+          border: 2px solid rgba(45, 62, 94, 0.5);
+          opacity: 0;
+          transform-origin: 50% 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+        .ring-b {
+          border-color: rgba(45, 62, 94, 0.34);
+        }
+
+        /* LAYER 3 — the outgoing headline. ~200px, 700, ink, dead-centre on the
+           shared anchor. It DOMINATES the frame in Scene 1. */
+        .yano {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 305px;
+          height: 210px;
+          z-index: 3;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 200px;
+          font-weight: 700;
+          line-height: 1;
+          letter-spacing: -0.02em;
+          color: #0a0a0a;
+          white-space: nowrap;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+
+        /* LAYER 4 — the AI constellation. Real 3D: the nodes flip in from depth
+           inside a perspective box, then SETTLE AT REST. No orbit, ever. */
+        .nodes {
+          position: absolute;
+          inset: 0;
+          z-index: 4;
+          perspective: 1400px;
+          transform-style: preserve-3d;
+          pointer-events: none;
+        }
+        .node {
+          position: absolute;
+          border-radius: 50%;
+          background: #2d3e5e;
+          /* Elevation, not shadow: zero-offset diffuse navy halo + soft ring. */
+          box-shadow:
+            0 0 0 6px rgba(45, 62, 94, 0.08),
+            0 0 26px rgba(45, 62, 94, 0.22);
+          transform-style: preserve-3d;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        /* Resting positions: an ellipse around (960, 410), all four well clear
+           of the mascot's 190px radius AND of the type below it. Sizes vary by
+           index so the cluster reads as a constellation, not a rectangle. */
+        .n1 {
+          left: 651px;
+          top: 312px;
+          width: 30px;
+          height: 30px;
+          margin: -15px 0 0 -15px;
+        }
+        .n2 {
+          left: 1269px;
+          top: 312px;
+          width: 20px;
+          height: 20px;
+          margin: -10px 0 0 -10px;
+        }
+        .n3 {
+          left: 1275px;
+          top: 502px;
+          width: 26px;
+          height: 26px;
+          margin: -13px 0 0 -13px;
+        }
+        .n4 {
+          left: 645px;
+          top: 502px;
+          width: 18px;
+          height: 18px;
+          margin: -9px 0 0 -9px;
+        }
+
+        /* LAYER 5 — the mascot. THREE nested boxes, each with one job:
+             .mascot-jitter  perspective host + the ONLY element the driver
+                             writes a raw transform on (GSAP never touches it)
+             .mascot-depth   GSAP tweens translateZ here → true Z push
+             .mascot         GSAP tweens scale/opacity + carries the streak filter
+           z-index 5 > .yano's 3: the incoming sits ABOVE the outgoing so the
+           dissolving text's fade-tail never bleeds through him. */
+        .mascot-jitter {
+          position: absolute;
+          left: 770px;
+          top: 220px;
+          width: 380px;
+          height: 380px;
+          z-index: 5;
+          perspective: 1600px;
+        }
+        .mascot-depth {
+          position: absolute;
+          inset: 0;
+          transform-style: preserve-3d;
+          will-change: transform;
+        }
+        .mascot {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          overflow: hidden;
+          background: #ffffff;
+          border: 1.5px solid rgba(45, 62, 94, 0.18);
+          filter: url(#f02-streak);
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, filter;
+        }
+        .mascot img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           LAYER 6 — the type cluster. Everything sits BELOW the mascot's disc
+           (never over his face) and above the y = 900 keep-out.
+           ══════════════════════════════════════════════════════════════════ */
+        .eyebrow {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 148px;
+          z-index: 6;
+          text-align: center;
+          font-size: 32px;
+          font-weight: 700;
+          line-height: 1.15;
+          letter-spacing: 0.01em;
+          color: #2d3e5e;
+          will-change: transform, opacity;
+        }
+
+        .name-row {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 634px;
+          z-index: 6;
+          display: flex;
+          justify-content: center;
+        }
+        /* Fixed-width slot: the typed string grows centred inside a box wider
+           than the finished name, so the row never reflows mid-type. */
+        .name-slot {
+          display: inline-flex;
+          align-items: baseline;
+          justify-content: center;
+          min-width: 640px;
+          white-space: pre;
+          font-size: 90px;
+          font-weight: 600;
+          line-height: 1.12;
+          letter-spacing: -0.02em;
+          color: #0a0a0a;
+        }
+        .name-text {
+          white-space: pre;
+        }
+        .caret {
+          display: inline-block;
+          width: 10px;
+          height: 70px;
+          margin-left: 12px;
+          vertical-align: -8px;
+          background: #9a9a9a;
+          opacity: 0;
+        }
+
+        .pill-row {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 760px;
+          z-index: 6;
+          display: flex;
+          justify-content: center;
+        }
+        .pill {
+          display: inline-flex;
+          align-items: center;
+          padding: 17px 40px;
+          border-radius: 100px;
+          background: rgba(45, 62, 94, 0.08);
+          color: #2d3e5e;
+          font-size: 27px;
+          font-weight: 600;
+          line-height: 1.2;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+
+        .body-line {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 846px;
+          z-index: 6;
+          text-align: center;
+          font-size: 32px;
+          font-weight: 400;
+          line-height: 1.45;
+          color: #2c4370;
+          will-change: transform, opacity;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="02-evarisbot"
+        data-width="1920"
+        data-height="1080"
+        data-duration="9.417"
+      >
+        <!-- Full-bleed ground on a clip layer (NEVER on #root) -->
+        <div class="clip bg" data-start="0" data-duration="9.417" data-track-index="0">
+          <div class="ground-bloom-a" id="f02-gba"></div>
+          <div class="ground-bloom-b" id="f02-gbb"></div>
+          <div class="grid" id="f02-grid"></div>
+        </div>
+
+        <!-- motion-blur-streak (Path A) — directional/depth blur on the push.
+             Generous filter region so the smear never clips at the box edge. -->
+        <svg class="defs" aria-hidden="true">
+          <defs>
+            <filter id="f02-streak" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur id="f02-streak-blur" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+          </defs>
+        </svg>
+
+        <div class="hero-bloom" id="f02-bloom"></div>
+
+        <div class="ring" id="f02-ring-a"></div>
+        <div class="ring ring-b" id="f02-ring-b"></div>
+
+        <div class="yano" id="f02-yano">Ya no.</div>
+
+        <div class="nodes">
+          <div class="node n1" id="f02-n1"></div>
+          <div class="node n2" id="f02-n2"></div>
+          <div class="node n3" id="f02-n3"></div>
+          <div class="node n4" id="f02-n4"></div>
+        </div>
+
+        <div class="mascot-jitter" id="f02-jitter">
+          <div class="mascot-depth" id="f02-depth">
+            <div class="mascot" id="f02-mascot">
+              <img src="assets/Evaris.png" alt="Evarisbot" />
+            </div>
+          </div>
+        </div>
+
+        <div class="eyebrow" id="f02-eyebrow">Ya no.</div>
+
+        <div class="name-row">
+          <span class="name-slot"
+            ><span class="name-text" id="f02-name"></span
+            ><span class="caret" id="f02-caret"></span
+          ></span>
+        </div>
+
+        <div class="pill-row">
+          <span class="pill" id="f02-pill">Asistente con IA · HUV</span>
+        </div>
+
+        <div class="body-line" id="f02-body">Disponible para todo el personal.</div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+
+        (function () {
+          /* ════════════════════════════════════════════════════════════════
+             Frame 02 — «Ya no. Evarisbot.»   duration 8.917s (FIXED)
+             blueprint: kinetic-type-beats (Product_Intro — the name-drop that
+             resolves on the brand; here the "brand" IS the mascot).
+             rules:  scale-swap-transition · motion-blur-streak ·
+                     ambient-glow-bloom · orbit-3d-entry ·
+                     discrete-text-sequence · context-sensitive-cursor ·
+                     spring-pop-entrance (smooth long-tail register)
+             Everything below is a pure function of timeline time — no clocks,
+             no Math.random, no repeat/yoyo, no CSS transition/@keyframes.
+             ════════════════════════════════════════════════════════════════ */
+          const DURATION = 8.917;
+
+          const grid = document.getElementById("f02-grid");
+          const gba = document.getElementById("f02-gba");
+          const gbb = document.getElementById("f02-gbb");
+          const bloom = document.getElementById("f02-bloom");
+          const ringA = document.getElementById("f02-ring-a");
+          const ringB = document.getElementById("f02-ring-b");
+          const yano = document.getElementById("f02-yano");
+          const jitter = document.getElementById("f02-jitter");
+          const depth = document.getElementById("f02-depth");
+          const mascot = document.getElementById("f02-mascot");
+          const eyebrow = document.getElementById("f02-eyebrow");
+          const nameEl = document.getElementById("f02-name");
+          const caret = document.getElementById("f02-caret");
+          const pill = document.getElementById("f02-pill");
+          const bodyLine = document.getElementById("f02-body");
+          const nodes = [
+            document.getElementById("f02-n1"),
+            document.getElementById("f02-n2"),
+            document.getElementById("f02-n3"),
+            document.getElementById("f02-n4"),
+          ];
+
+          const tl = gsap.timeline({ paused: true });
+
+          /* ══ THE LIGHT FIELD (runs under the whole shot) ══════════════════
+             The grid substrate and the two ground blooms drift at DIFFERENT,
+             very slow rates — the parallax that gives the ground depth. Finite
+             linear tweens (ease "none"), never a loop. */
+          tl.fromTo(
+            grid,
+            { x: -14, y: -24, scale: 1 },
+            { x: 8, y: 16, scale: 1.03, duration: DURATION, ease: "none" },
+            0,
+          );
+          tl.fromTo(
+            gba,
+            { x: 16, y: 12 },
+            { x: -12, y: -10, duration: DURATION, ease: "none" },
+            0,
+          );
+          tl.fromTo(
+            gbb,
+            { x: -10, y: -6 },
+            { x: 8, y: 6, duration: DURATION, ease: "none" },
+            0,
+          );
+
+          /* ══ SCENE 1 (0.0–1.6) — «Ya no.» ════════════════════════════════
+             HARD CUT: opacity is 1 in the from-state, so the line is simply
+             THERE at frame 0 — no fade-up. It then LANDS via spring-pop-entrance
+             in its smooth long-tail register: power3.out decelerates cleanly into
+             the resting size. NO overshoot, no back.out. ~200px, 700, ink,
+             dead-centre on the shared anchor (960, 410). It dominates, alone. */
+          tl.fromTo(
+            yano,
+            { scale: 1.14, y: -18, opacity: 1 },
+            { scale: 1, y: 0, opacity: 1, duration: 0.8, ease: "power3.out" },
+            0,
+          );
+
+          /* ══ SCENE 2 (1.6–3.8) — THE ANSWER ARRIVES, AND BRINGS THE LIGHT ══
+             scale-swap-transition, textbook: two coordinated tweens fired at ONE
+             trigger around ONE shared centre + transform-origin.
+               · outgoing (.yano)   scale 1 → EXIT_SCALE, opacity → 0, power2.in
+                                    (+ a rise, handing off to the eyebrow slot)
+               · incoming (mascot)  scale EXIT_SCALE → 1, opacity 0 → 1, starting
+                                    OVERLAP seconds before the exit finishes.
+             House register overrides the recipe's back.out: power3.out, no bounce.
+             Incoming z-index (5) > outgoing (3) so the fade-tail can't bleed. */
+          const TRIGGER = 1.7;
+          const EXIT_DUR = 0.42;
+          const OVERLAP = 0.16;
+          const EXIT_SCALE = 0.55;
+          const ENTER_AT = TRIGGER + EXIT_DUR - OVERLAP; // 1.96
+          const ENTER_DUR = 0.9; // mascot settles ≈ 2.86s — on the word "Evarisbot"
+
+          tl.to(
+            yano,
+            { scale: EXIT_SCALE, y: -46, opacity: 0, duration: EXIT_DUR, ease: "power2.in" },
+            TRIGGER,
+          );
+
+          /* …and the line resolves into its eyebrow slot at the top while the big
+             one is still dissolving — it reads as "Ya no." shrinking and rising. */
+          tl.fromTo(
+            eyebrow,
+            { opacity: 0, y: 16 },
+            { opacity: 1, y: 0, duration: 0.58, ease: "power3.out" },
+            1.9,
+          );
+
+          /* He PUSHES FORWARD FROM DEEP Z. Two locked tweens, same window + same
+             ease, inside a perspective: 1600px box:
+               · .mascot-depth  translateZ −680 → 0   (true perspective foreshortening)
+               · .mascot        scale EXIT_SCALE → 1  (the scale-swap's incoming half)
+             Apparent size at the start ≈ 0.55 × 1600/2280 ≈ 0.39 → he arrives from
+             far back in the frame, not from a flat pop. */
+          tl.fromTo(depth, { z: -680 }, { z: 0, duration: ENTER_DUR, ease: "power3.out" }, ENTER_AT);
+          tl.fromTo(
+            mascot,
+            { scale: EXIT_SCALE, opacity: 0 },
+            { scale: 1, opacity: 1, duration: ENTER_DUR, ease: "power3.out" },
+            ENTER_AT,
+          );
+
+          /* motion-blur-streak — Path A, "camera push-through" variation: the smear
+             is depth-wise, so stdDeviation is SYMMETRIC ("B B"), not directional.
+             GSAP can't tween an SVG attribute, so we tween a proxy and write it back
+             each frame. The envelope shares the push's EXACT window and ease, so
+             peak-blur lands on peak-speed and resolves to 0 the instant he settles —
+             he streaks in out of soft focus and snaps razor-sharp. Seeded once at
+             setup so a seek to frame 0 renders the streaked start state. */
+          const blurNode = document.getElementById("f02-streak-blur");
+          const PEAK_BLUR = 26;
+          const blurProxy = { v: PEAK_BLUR };
+          const writeBlur = () =>
+            blurNode.setAttribute("stdDeviation", blurProxy.v.toFixed(2) + " " + blurProxy.v.toFixed(2));
+          writeBlur();
+
+          tl.fromTo(
+            blurProxy,
+            { v: PEAK_BLUR },
+            {
+              v: 0,
+              duration: ENTER_DUR,
+              ease: "power3.out",
+              immediateRender: false,
+              onUpdate: writeBlur,
+            },
+            ENTER_AT,
+          );
+
+          /* ambient-glow-bloom — hero-bloom form, bloom-and-hold (FINITE: no
+             breathe loop, no yoyo). The halo EXPANDS OUTWARD FROM HIS CENTRE
+             (scale 0.22 → 1) and BLOOM_START + BLOOM_DUR (2.00 + 0.86 = 2.86)
+             lands exactly on his settle, so the light and the answer read as ONE
+             beat. Peak alpha is carried by the gradient itself (0.14 at the core)
+             — far under the 0.45 wash ceiling, and the glow sits BEHIND him
+             (z-index 1 vs 5). No box-shadow on the hero: the halo is the glow. */
+          tl.fromTo(
+            bloom,
+            { opacity: 0, scale: 0.22 },
+            { opacity: 1, scale: 1, duration: 0.86, ease: "power2.out" },
+            2.0,
+          );
+
+          /* Two concentric rings SWEEP OUTWARD ONCE and dissolve. Each is a single
+             finite tween: they start small enough to be hidden behind his disc, so
+             they appear to emanate from him. Per-ring variation is index-derived
+             (start times, end scale, alpha) — never random. */
+          tl.fromTo(
+            ringA,
+            { scale: 0.48, opacity: 0.62 },
+            { scale: 3.1, opacity: 0, duration: 1.25, ease: "power2.out", immediateRender: false },
+            2.4,
+          );
+          tl.fromTo(
+            ringB,
+            { scale: 0.48, opacity: 0.44 },
+            { scale: 2.7, opacity: 0, duration: 1.25, ease: "power2.out", immediateRender: false },
+            2.66,
+          );
+
+          /* ══ SCENE 3 (3.8–5.8) — the name types on, the constellation lands ══
+             orbit-3d-entry, ADAPTED: phase 1 only. Each node is positioned at its
+             RESTING slot in CSS and flips in IN PLACE from a 3D orientation
+             (rotateX / rotateY / translateZ / scale) inside a perspective: 1400px
+             stage — then STOPS. Phase 2 (the continuous elliptical orbit) is
+             deliberately omitted: the renderer seeks frame-by-frame and an infinite
+             orbit is banned. They arrive, they settle, they hold.
+             The recipe's back.out flip is swapped for power3.out — no overshoot. */
+          const NODES_AT = 4.86;
+          const NODE_STAGGER = 0.11; // 4 × 0.11 = 0.44s — the group lands as one beat
+          const NODE_ENTRY_DUR = 0.62;
+
+          nodes.forEach((el, i) => {
+            tl.fromTo(
+              el,
+              { rotateX: 82, rotateY: -48, z: -280, scale: 0.35, opacity: 0 },
+              {
+                rotateX: 0,
+                rotateY: 0,
+                z: 0,
+                scale: 1,
+                opacity: 1,
+                duration: NODE_ENTRY_DUR,
+                ease: "power3.out",
+              },
+              NODES_AT + i * NODE_STAGGER,
+            );
+          });
+
+          /* discrete-text-sequence — an array of {t, text, segment, color} states,
+             reverse-searched every frame for the latest entry whose t has passed.
+             context-sensitive-cursor — the caret takes the ACTIVE SEGMENT's colour
+             (text-light while typing → primary the instant the brand name lands),
+             blinks off a deterministic sine, and holds solid while keys are landing. */
+          const NAME = "Evarisbot";
+          const T_TYPE_START = 3.98;
+          const CHAR_STEP = 0.105;
+          const T_TYPE_END = T_TYPE_START + NAME.length * CHAR_STEP; // 4.925
+          const COLOR_TYPING = "#9A9A9A"; // text-light
+          const COLOR_BRAND = "#2D3E5E"; // primary
+
+          const SEQUENCE = [{ t: 0, text: "", segment: "idle", color: COLOR_TYPING }];
+          for (let i = 1; i <= NAME.length; i++) {
+            SEQUENCE.push({
+              t: T_TYPE_START + (i - 1) * CHAR_STEP,
+              text: NAME.slice(0, i),
+              segment: "typing",
+              color: COLOR_TYPING,
+            });
+          }
+          SEQUENCE.push({ t: T_TYPE_END, text: NAME, segment: "brand", color: COLOR_BRAND });
+
+          function entryAt(time) {
+            for (let i = SEQUENCE.length - 1; i >= 0; i--) {
+              if (time >= SEQUENCE[i].t) return SEQUENCE[i];
+            }
+            return SEQUENCE[0];
+          }
+
+          // Caret envelope — fades in just before the first keystroke, retires
+          // before the pill lands. Pure function of t.
+          const T_CARET_IN = 3.78;
+          const T_CARET_IN_END = 3.98;
+          const T_CARET_OUT = 5.8;
+          const T_CARET_OUT_END = 6.1;
+          const BLINK_PERIOD = 0.72;
+
+          function caretAlphaAt(t) {
+            if (t < T_CARET_IN) return 0;
+            if (t < T_CARET_IN_END) return (t - T_CARET_IN) / (T_CARET_IN_END - T_CARET_IN);
+            if (t < T_CARET_OUT) return 1;
+            if (t < T_CARET_OUT_END) return 1 - (t - T_CARET_OUT) / (T_CARET_OUT_END - T_CARET_OUT);
+            return 0;
+          }
+
+          /* ══ SCENE 5's stillness — subtle jitter, and nothing more ═══════════
+             A bounded ±2px sine on the mascot, enveloped to ZERO before the last
+             frame so the shot ends dead still. Written on .mascot-jitter, a wrapper
+             GSAP NEVER tweens, so it can never collide with a GSAP transform. */
+          const T_JITTER_START = 5.2;
+          const JITTER_AMP = 2.0;
+          const JITTER_CYCLES = 1.5;
+          const JITTER_FADE_FRAC = 0.25;
+
+          function jitterYAt(t) {
+            if (t <= T_JITTER_START) return 0;
+            const u = Math.min(1, (t - T_JITTER_START) / (DURATION - T_JITTER_START));
+            const env = u < 1 - JITTER_FADE_FRAC ? 1 : Math.max(0, (1 - u) / JITTER_FADE_FRAC);
+            return Math.sin(2 * Math.PI * JITTER_CYCLES * u) * JITTER_AMP * env;
+          }
+
+          // ONE driver → one onUpdate. Everything it writes is a pure function of
+          // time, so every seek reproduces the identical frame.
+          const driver = { t: 0 };
+
+          function renderAt(t) {
+            const entry = entryAt(t);
+            nameEl.textContent = entry.text;
+
+            caret.style.background = entry.color;
+            const isTyping = t >= T_TYPE_START && t <= T_TYPE_END + 0.12;
+            const blinkOn = isTyping ? 1 : Math.sin((2 * Math.PI * t) / BLINK_PERIOD) > 0 ? 1 : 0;
+            caret.style.opacity = String(caretAlphaAt(t) * blinkOn);
+
+            jitter.style.transform = "translateY(" + jitterYAt(t).toFixed(3) + "px)";
+          }
+
+          tl.to(
+            driver,
+            { t: DURATION, duration: DURATION, ease: "none", onUpdate: () => renderAt(driver.t) },
+            0,
+          );
+
+          /* ══ SCENE 4 (5.8–7.4) — the tag-pill ════════════════════════════════
+             spring-pop-entrance, smooth long-tail (power3.out), NO overshoot.
+             accent-light fill / primary text / 100px radius, straight from frame.md. */
+          tl.fromTo(
+            pill,
+            { scale: 0, y: 14, opacity: 0 },
+            { scale: 1, y: 0, opacity: 1, duration: 0.62, ease: "power3.out" },
+            5.95,
+          );
+
+          /* ══ SCENE 5 (7.4–8.917) — the body line settles, then EVERYTHING HOLDS ══
+             text-muted, a quiet close. No exit tween — this is not the final frame;
+             the root transition IS the exit. */
+          tl.fromTo(
+            bodyLine,
+            { opacity: 0, y: 18 },
+            { opacity: 1, y: 0, duration: 0.72, ease: "power3.out" },
+            7.48,
+          );
+
+          // Land every driver-owned value for the very first rendered frame.
+          renderAt(0);
+
+          window.__timelines["02-evarisbot"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

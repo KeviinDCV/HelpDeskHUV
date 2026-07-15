@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #FFFFFF;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="61.61"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div
+        id="el-01-antes-llamar-esperar"
+        class="scene"
+        data-composition-id="01-antes-llamar-esperar"
+        data-composition-src="compositions/frames/01-antes-llamar-esperar.html"
+        data-start="0"
+        data-duration="8.72"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-01-antes-llamar-esperar-voice"
+        src="assets/voice/01.wav"
+        data-start="0"
+        data-duration="8.32"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-02-evarisbot"
+        class="scene"
+        data-composition-id="02-evarisbot"
+        data-composition-src="compositions/frames/02-evarisbot.html"
+        data-start="8.32"
+        data-duration="9.417"
+        data-track-index="1"
+      ></div>
+      <audio
+        id="el-02-evarisbot-voice"
+        src="assets/voice/02.wav"
+        data-start="8.32"
+        data-duration="8.917"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-03-el-te-pregunta"
+        class="scene"
+        data-composition-id="03-el-te-pregunta"
+        data-composition-src="compositions/frames/03-el-te-pregunta.html"
+        data-start="17.237000000000002"
+        data-duration="10.633"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-03-el-te-pregunta-voice"
+        src="assets/voice/03.wav"
+        data-start="17.237000000000002"
+        data-duration="10.133"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-04-ia-arma-resumen"
+        class="scene"
+        data-composition-id="04-ia-arma-resumen"
+        data-composition-src="compositions/frames/04-ia-arma-resumen.html"
+        data-start="27.37"
+        data-duration="12.511"
+        data-track-index="1"
+      ></div>
+      <audio
+        id="el-04-ia-arma-resumen-voice"
+        src="assets/voice/04.wav"
+        data-start="27.37"
+        data-duration="12.011"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-05-caso-radicado"
+        class="scene"
+        data-composition-id="05-caso-radicado"
+        data-composition-src="compositions/frames/05-caso-radicado.html"
+        data-start="39.381"
+        data-duration="8.741"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-05-caso-radicado-voice"
+        src="assets/voice/05.wav"
+        data-start="39.381"
+        data-duration="8.341"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-06-beneficios"
+        class="scene"
+        data-composition-id="06-beneficios"
+        data-composition-src="compositions/frames/06-beneficios.html"
+        data-start="47.722"
+        data-duration="8.607"
+        data-track-index="1"
+      ></div>
+      <audio
+        id="el-06-beneficios-voice"
+        src="assets/voice/06.wav"
+        data-start="47.722"
+        data-duration="8.107"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-07-cta"
+        class="scene"
+        data-composition-id="07-cta"
+        data-composition-src="compositions/frames/07-cta.html"
+        data-start="55.829"
+        data-duration="5.781"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-07-cta-voice"
+        src="assets/voice/07.wav"
+        data-start="55.829"
+        data-duration="5.781"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <!-- SFX -->
+      <audio
+        id="el-sfx-0"
+        src="assets/sfx/click-soft.mp3"
+        data-start="27.37"
+        data-duration="0.37"
+        data-track-index="20"
+        data-volume="0.35"
+      ></audio>
+      <audio
+        id="el-sfx-1"
+        src="assets/sfx/click-soft.mp3"
+        data-start="39.381"
+        data-duration="0.37"
+        data-track-index="21"
+        data-volume="0.35"
+      ></audio>
+      <audio
+        id="el-sfx-2"
+        src="assets/sfx/chime.mp3"
+        data-start="39.381"
+        data-duration="2.5"
+        data-track-index="22"
+        data-volume="0.35"
+      ></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+      // ── frame transitions (injected by transitions.mjs) ──
+      (function () { var tl = window.__timelines["main"];
+        tl.to("#el-01-antes-llamar-esperar", { scale: 2.5, opacity: 0, filter: "blur(8px)", duration: 0.4, ease: "power3.in" }, 8.32);
+        tl.fromTo("#el-02-evarisbot", { scale: 0.5, opacity: 0, filter: "blur(8px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: "power3.out" }, 8.32);
+        tl.to("#el-02-evarisbot", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 17.237);
+        tl.fromTo("#el-03-el-te-pregunta", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 17.237);
+        tl.to("#el-03-el-te-pregunta", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 27.37);
+        tl.fromTo("#el-04-ia-arma-resumen", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 27.37);
+        tl.to("#el-04-ia-arma-resumen", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 39.381);
+        tl.fromTo("#el-05-caso-radicado", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 39.381);
+        tl.to("#el-05-caso-radicado", { scale: 2.5, opacity: 0, filter: "blur(8px)", duration: 0.4, ease: "power3.in" }, 47.722);
+        tl.fromTo("#el-06-beneficios", { scale: 0.5, opacity: 0, filter: "blur(8px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: "power3.out" }, 47.722);
+        tl.to("#el-06-beneficios", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 55.829);
+        tl.fromTo("#el-07-cta", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 55.829);
+        tl.to({}, { duration: 61.61 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+      })();
+    </script>
+  </body>
+</html>

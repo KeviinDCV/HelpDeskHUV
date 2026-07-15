@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Frame 1 — «Antes: llamar y esperar» · v2 «CLARO, PERO CON FUERZA»
+      Sub-composition: the runtime clones ONLY <template>. Every <style>/<script>
+      (including the GSAP load) therefore lives INSIDE <template>.
+      blueprint: kinetic-type-beats (Adapt) — the SIGNATURE MOVE is the in-place hard-cut
+      swap; v2 gives each cut DIMENSION (scatter back into Z / assemble from Z).
+    -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-Regular.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 500;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 600;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 700;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-700.woff2") format("woff2");
+        }
+
+        /* Root — styled by #root, NEVER by a class on the data-composition-id element. */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          container-type: size;
+          font-family: "Instrument Sans", sans-serif;
+          font-feature-settings: "kern" 1;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* Every timed layer is a bare positioned container; everything that MOVES or is
+           GATED lives on an inner element, so nothing fights the framework's clip control. */
+        .layer {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* ── LAYER 0 · base ground (full-bleed on a clip, never on #root) ───────────── */
+        .ground {
+          background: #ffffff;
+          z-index: 0;
+        }
+
+        /* ── LAYER 1 · navy grid substrate (1px @ 3.5% alpha) — parallaxes slowest ──── */
+        .grid-layer {
+          z-index: 1;
+        }
+        .grid-plane {
+          position: absolute;
+          inset: -160px;
+          background-image:
+            repeating-linear-gradient(
+              0deg,
+              rgba(45, 62, 94, 0.035) 0 1px,
+              rgba(45, 62, 94, 0) 1px 64px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              rgba(45, 62, 94, 0.035) 0 1px,
+              rgba(45, 62, 94, 0) 1px 64px
+            );
+          -webkit-mask-image: radial-gradient(
+            circle at 50% 44%,
+            rgba(0, 0, 0, 1) 0%,
+            rgba(0, 0, 0, 0.9) 38%,
+            rgba(0, 0, 0, 0) 80%
+          );
+          mask-image: radial-gradient(
+            circle at 50% 44%,
+            rgba(0, 0, 0, 1) 0%,
+            rgba(0, 0, 0, 0.9) 38%,
+            rgba(0, 0, 0, 0) 80%
+          );
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+
+        /* ── LAYER 2 · soft navy radial bloom, anchored OFF-CENTRE (low-centre) ─────── */
+        .bloom-layer {
+          z-index: 2;
+        }
+        .bloom {
+          position: absolute;
+          inset: -6%;
+          background: radial-gradient(
+            62% 56% at 46% 64%,
+            rgba(45, 62, 94, 0.1) 0%,
+            rgba(45, 62, 94, 0.055) 40%,
+            rgba(45, 62, 94, 0) 72%
+          );
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+
+        /* ── LAYER 3 · the giant "?" wallpaper — bleeds off top-right, slow parallax ── */
+        .wall-layer {
+          z-index: 3;
+        }
+        .wp-drift {
+          position: absolute;
+          inset: 0;
+          will-change: transform;
+        }
+        .wp-mark {
+          position: absolute;
+          top: -330px;
+          right: -70px;
+          display: block;
+          font-size: 1200px;
+          font-weight: 700;
+          line-height: 0.78;
+          letter-spacing: -0.04em;
+          /* 0.05 rendered as "effectively transparent" — the glyph vanished and the
+             frame lost its third depth layer. 0.10 keeps it a faint watermark that
+             actually paints. */
+          color: rgba(45, 62, 94, 0.10);
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+
+        /* ── LAYER 4 · the type stage — a real 3D scene ─────────────────────────────── */
+        .stage {
+          z-index: 4;
+          perspective: 1600px;
+          perspective-origin: 50% 42%;
+        }
+        .q-stack {
+          position: absolute;
+          left: 190px; /* 1540px wide = ~80% of the canvas */
+          right: 190px;
+          top: 250px;
+          height: 380px; /* optical centre y = 440 — well inside the y<=900 keep-out */
+          transform-style: preserve-3d;
+        }
+        .q-line {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-style: preserve-3d;
+          opacity: 0;
+        }
+        .q-text {
+          width: 100%;
+          text-align: center;
+          font-size: 150px; /* MASSIVE — the hero dominates */
+          font-weight: 700;
+          line-height: 1.06;
+          letter-spacing: -0.025em;
+          color: #0a0a0a;
+          transform-style: preserve-3d;
+        }
+        .w {
+          display: inline-block;
+          white-space: nowrap;
+          transform-style: preserve-3d;
+          backface-visibility: hidden;
+          will-change: transform, opacity, filter;
+        }
+
+        /* ── LAYER 5 · the resolve — line, second clause, and the bar that never fills ─ */
+        .resolve-layer {
+          z-index: 5;
+        }
+        .rs {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+        }
+        .r-lines {
+          position: absolute;
+          left: 130px;
+          right: 130px;
+          top: 196px;
+          text-align: center;
+        }
+        .r-line {
+          display: block;
+          font-size: 130px;
+          font-weight: 700;
+          line-height: 1.04;
+          letter-spacing: -0.025em;
+          color: #0a0a0a;
+          white-space: nowrap;
+        }
+        .y-line {
+          position: absolute;
+          left: 130px;
+          right: 130px;
+          top: 536px;
+          text-align: center;
+          font-size: 92px;
+          font-weight: 600;
+          line-height: 1.1;
+          letter-spacing: -0.02em;
+          color: #2c4370;
+          white-space: nowrap;
+        }
+
+        /* The waiting bar — full canvas width, soft diffuse navy glow beneath.
+           Elevation, never a hard drop shadow. */
+        .bar-wrap {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 760px;
+        }
+        .bar-track {
+          position: relative;
+          display: block;
+          width: 100%;
+          height: 20px;
+          background: rgba(45, 62, 94, 0.08);
+          overflow: hidden;
+          box-shadow:
+            0 40px 90px rgba(45, 62, 94, 0.16),
+            0 12px 34px rgba(45, 62, 94, 0.08);
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+        .bar-fill {
+          display: block;
+          width: 100%;
+          height: 100%;
+          background: #2d3e5e;
+          transform-origin: left center;
+          will-change: transform;
+        }
+
+        /* motion-blur-streak · Path A — one directional filter node, driven by a pure
+           function of time. "v v" for the depth swaps, "0 v" for the vertical rip. */
+        .fx-defs {
+          position: absolute;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="01-antes-llamar-esperar"
+        data-start="0"
+        data-duration="8.72"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- motion-blur filter (generous region so the smear never clips at the box edge) -->
+        <svg class="fx-defs" aria-hidden="true">
+          <defs>
+            <filter
+              id="f01-mb"
+              x="-60%"
+              y="-60%"
+              width="220%"
+              height="220%"
+              color-interpolation-filters="sRGB"
+            >
+              <feGaussianBlur id="f01-mb-blur" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+          </defs>
+        </svg>
+
+        <!-- LAYER 0 — base ground -->
+        <div
+          class="clip layer ground"
+          data-start="0"
+          data-duration="8.72"
+          data-track-index="0"
+        ></div>
+
+        <!-- LAYER 1 — grid substrate -->
+        <div class="clip layer grid-layer" data-start="0" data-duration="8.72" data-track-index="1">
+          <div class="grid-plane" id="f01-grid"></div>
+        </div>
+
+        <!-- LAYER 2 — radial bloom -->
+        <div class="clip layer bloom-layer" data-start="0" data-duration="8.72" data-track-index="2">
+          <div class="bloom" id="f01-bloom"></div>
+        </div>
+
+        <!-- LAYER 3 — the giant "?" wallpaper (Scene 3) -->
+        <div class="clip layer wall-layer" data-start="0" data-duration="8.72" data-track-index="3">
+          <div class="wp-drift" id="f01-wp-drift">
+            <div class="wp-mark" id="f01-wp">?</div>
+          </div>
+        </div>
+
+        <!-- LAYER 4 — the 3D type stage: three questions, one slot, hard cuts between them -->
+        <div class="clip layer stage" data-start="0" data-duration="8.72" data-track-index="4">
+          <div class="q-stack">
+            <div class="q-line" id="f01-q1">
+              <div class="q-text">
+                <span class="w">¿El</span>
+                <span class="w">computador</span>
+                <span class="w">no</span>
+                <span class="w">enciende?</span>
+              </div>
+            </div>
+            <div class="q-line" id="f01-q2">
+              <div class="q-text">
+                <span class="w">¿La</span>
+                <span class="w">impresora</span>
+                <span class="w">no</span>
+                <span class="w">responde?</span>
+              </div>
+            </div>
+            <div class="q-line" id="f01-q3">
+              <div class="q-text">
+                <span class="w">¿Se</span>
+                <span class="w">cayó</span>
+                <span class="w">el</span>
+                <span class="w">sistema?</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LAYER 5 — the resolve -->
+        <div
+          class="clip layer resolve-layer"
+          data-start="0"
+          data-duration="8.72"
+          data-track-index="5"
+        >
+          <div class="rs" id="f01-rs">
+            <div class="r-lines" id="f01-r-lines">
+              <span class="r-line">
+                <span class="w">Antes,</span>
+                <span class="w">tocaba</span>
+              </span>
+              <span class="r-line">
+                <span class="w">llamar</span>
+                <span class="w">a</span>
+                <span class="w">soporte.</span>
+              </span>
+            </div>
+
+            <div class="y-line" id="f01-y-line">
+              <span class="w">Y</span>
+              <span class="w">esperar</span>
+              <span class="w">en</span>
+              <span class="w">la</span>
+              <span class="w">línea.</span>
+            </div>
+
+            <div class="bar-wrap">
+              <div class="bar-track" id="f01-bar-track">
+                <div class="bar-fill" id="f01-bar-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        (function () {
+          window.__timelines = window.__timelines || {};
+
+          var ID = "01-antes-llamar-esperar";
+          var root = document.querySelector('[data-composition-id="' + ID + '"]');
+          var $ = function (s) {
+            return root.querySelector(s);
+          };
+          var $$ = function (s) {
+            return Array.prototype.slice.call(root.querySelectorAll(s));
+          };
+
+          /* ── beats (seconds) — every Scene is a phase; nothing is front-loaded ────── */
+          var END = 8.32; // the shot; the clip window (8.72) holds the last frame
+          var SWAP_2 = 1.7; // Scene 2 — hard cut
+          var SWAP_3 = 3.2; // Scene 3 — hard cut
+          var RIP = 4.7; // Scene 4 — cut-the-curve exit begins
+          var CUT_4 = 4.95; // Scene 4 — the hard cut (last exiting word dies here)
+          var BAR_IN = 6.5; // Scene 5 — "Y esperar en la línea."
+
+          var EXIT_LEAD = 0.2; // scatter-back runway into each hard cut
+          var ENTRY_DUR = 0.5; // assemble-from-depth out of each hard cut
+          var CUT_OPACITY = 0.15; // both sides of a cut MATCH here — no flash at the swap
+
+          var grid = $("#f01-grid");
+          var bloom = $("#f01-bloom");
+          var wpDrift = $("#f01-wp-drift");
+          var wpMark = $("#f01-wp");
+          var q1 = $("#f01-q1");
+          var q2 = $("#f01-q2");
+          var q3 = $("#f01-q3");
+          var rs = $("#f01-rs");
+          var barTrack = $("#f01-bar-track");
+          var barFill = $("#f01-bar-fill");
+          var blurNode = $("#f01-mb-blur");
+
+          var q1w = $$("#f01-q1 .w");
+          var q2w = $$("#f01-q2 .w");
+          var q3w = $$("#f01-q3 .w");
+          var rw = $$("#f01-r-lines .w"); // reading order across both display lines
+          var yw = $$("#f01-y-line .w");
+
+          var tl = gsap.timeline({ paused: true });
+
+          /* ===========================================================================
+             depth-scatter-assemble — every scattered coordinate is INDEX-derived
+             (golden-angle trig + stepped depth). No Math.random: byte-identical seeks.
+             =========================================================================== */
+          var GOLDEN = Math.PI * (3 - Math.sqrt(5)); // ~2.39943 rad — even spread, no clumps
+
+          function cloudPoint(i, n, radius, zNear, zFar, tumble) {
+            var a = i * GOLDEN;
+            var dt = n > 1 ? i / (n - 1) : 0;
+            return {
+              x: Math.cos(a) * radius,
+              y: Math.sin(a) * radius,
+              z: zNear - dt * (zNear - zFar), // stepped depth across the cloud
+              rotationX: Math.sin(a) * tumble,
+              rotationY: Math.cos(a) * tumble,
+            };
+          }
+          // incoming cloud — sits BEHIND the focal plane, assembles FORWARD
+          function inPoint(i, n) {
+            return cloudPoint(i, n, 150, -220, -640, 46);
+          }
+          // outgoing cloud — scatters BACKWARD, wider and deeper
+          function outPoint(i, n) {
+            return cloudPoint(i, n, 215, -430, -910, 62);
+          }
+
+          // ASSEMBLE — each word tweens from its cloud point to a FLAT resolve (z:0, rot:0).
+          function assemble(words, at, stagger, dur, ease) {
+            var n = words.length;
+            words.forEach(function (el, i) {
+              var s = inPoint(i, n);
+              tl.fromTo(
+                el,
+                {
+                  x: s.x,
+                  y: s.y,
+                  z: s.z,
+                  rotationX: s.rotationX,
+                  rotationY: s.rotationY,
+                  opacity: CUT_OPACITY,
+                },
+                {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                  rotationX: 0,
+                  rotationY: 0,
+                  opacity: 1,
+                  duration: dur,
+                  ease: ease,
+                },
+                at + i * stagger,
+              );
+            });
+          }
+
+          // SCATTER BACK — a chord (no stagger): every word hits CUT_OPACITY exactly at the
+          // cut frame, so the incoming set can match it and the swap reads as ONE beat.
+          function scatterBack(words, at, dur) {
+            var n = words.length;
+            words.forEach(function (el, i) {
+              var s = outPoint(i, n);
+              tl.fromTo(
+                el,
+                { x: 0, y: 0, z: 0, rotationX: 0, rotationY: 0, opacity: 1 },
+                {
+                  x: s.x,
+                  y: s.y,
+                  z: s.z,
+                  rotationX: s.rotationX,
+                  rotationY: s.rotationY,
+                  opacity: CUT_OPACITY,
+                  duration: dur,
+                  ease: "power3.in", // accelerating away from the focal plane
+                  immediateRender: false, // never stamp the flat state at build time
+                },
+                at,
+              );
+            });
+          }
+
+          /* ── Scene 1 (0.0–1.7) — the ground assembles, then the first question
+                arrives from Z with motion blur resolving to sharp. Nothing else. ────── */
+          tl.fromTo(grid, { opacity: 0 }, { opacity: 1, duration: 1.0, ease: "power2.out" }, 0);
+          tl.fromTo(bloom, { opacity: 0 }, { opacity: 1, duration: 1.3, ease: "power2.out" }, 0.05);
+
+          // parallax — four layers, four different rates (grid slowest, type fastest)
+          tl.fromTo(grid, { x: 0, y: 0 }, { x: -18, y: 46, duration: END, ease: "none" }, 0);
+          tl.fromTo(bloom, { y: 0, scale: 1 }, { y: 22, scale: 1.05, duration: END, ease: "none" }, 0);
+
+          assemble(q1w, 0.02, 0.055, 0.86, "power3.out");
+
+          /* ── Scene 2 (1.7–3.2) — HARD-CUT SWAP (the blueprint's signature move), now
+                with dimension: outgoing scatters back into Z, incoming assembles forward.
+                Never both on screen — the cut IS the beat. ─────────────────────────── */
+          scatterBack(q1w, SWAP_2 - EXIT_LEAD, EXIT_LEAD);
+          assemble(q2w, SWAP_2, 0.05, ENTRY_DUR, "expo.out");
+
+          /* ── Scene 3 (3.2–4.7) — swap to question 3; the giant "?" bleeds in off the
+                top-right and parallaxes SLOWER than the type. ──────────────────────── */
+          scatterBack(q2w, SWAP_3 - EXIT_LEAD, EXIT_LEAD);
+          assemble(q3w, SWAP_3, 0.05, ENTRY_DUR, "expo.out");
+
+          tl.fromTo(
+            wpMark,
+            { opacity: 0, scale: 0.94 },
+            { opacity: 1, scale: 1, duration: 0.9, ease: "power3.out" },
+            SWAP_3,
+          );
+          tl.fromTo(
+            wpDrift,
+            { x: 0, y: 0 },
+            { x: 14, y: -20, duration: END - SWAP_3, ease: "none" },
+            SWAP_3,
+          );
+
+          /* ── Scene 4 (4.7–6.5) — CUT THE CURVE, upward.
+                Exit: y 0 -> -230 on power4.in (0.34s); the fade dies AT the cut.
+                Entry: y +230 -> 0 on power4.out (0.30s) — same direction, mirrored ease,
+                matched velocity across the seam. ──────────────────────────────────── */
+          q3w.forEach(function (el, i) {
+            var at = RIP + i * 0.022; // reading-order ramp
+            tl.fromTo(
+              el,
+              { y: 0 },
+              { y: -230, duration: 0.34, ease: "power4.in", immediateRender: false },
+              at,
+            );
+            tl.fromTo(
+              el,
+              { opacity: 1 },
+              { opacity: 0, duration: 0.18, ease: "power1.in", immediateRender: false },
+              at,
+            );
+          });
+          // the wallpaper rides the same curve on a SHORTER travel — parallax at the cut
+          tl.fromTo(
+            wpMark,
+            { y: 0 },
+            { y: -140, duration: 0.34, ease: "power4.in", immediateRender: false },
+            RIP,
+          );
+          tl.fromTo(
+            wpMark,
+            { opacity: 1 },
+            { opacity: 0, duration: 0.24, ease: "power1.in", immediateRender: false },
+            RIP,
+          );
+
+          // waterfall entry — pre-set every word (immediateRender:false alone would leave
+          // un-started words sitting visible at rest during the stagger window)
+          gsap.set(rw, { y: 230, opacity: 0 });
+          var gap = 0.05;
+          var delay = 0;
+          rw.forEach(function (el, i) {
+            if (i > 0) {
+              delay += gap;
+              gap *= 0.84; // shrinking gaps — the cascade ACCELERATES across the line
+            }
+            tl.fromTo(
+              el,
+              { y: 230, opacity: 0.35 },
+              { y: 0, opacity: 1, duration: 0.3, ease: "power4.out", immediateRender: false },
+              CUT_4 + delay,
+            );
+          });
+
+          /* ── Scene 5 (6.5–8.32) — the second clause settles, then the bar.
+                dynamic-content-sequencing: each word's lead is computed from its own
+                content length; absolute starts pre-computed, never per-frame. ─────── */
+          var WORD_BASE = 0.05;
+          var SEC_PER_CHAR = 0.012;
+          var cursor = 0;
+          yw.forEach(function (el) {
+            tl.fromTo(
+              el,
+              { y: 26, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" },
+              BAR_IN + cursor,
+            );
+            cursor += WORD_BASE + el.textContent.length * SEC_PER_CHAR;
+          });
+
+          /* stat-bars-and-fills — scaleX from a left origin, never a width tween.
+             It crawls... and is STILL UNFINISHED when the frame ends. That IS the pain. */
+          tl.fromTo(
+            barTrack,
+            { opacity: 0, y: 16 },
+            { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" },
+            BAR_IN + 0.05,
+          );
+          tl.fromTo(
+            barFill,
+            { scaleX: 0 },
+            { scaleX: 0.06, duration: 0.4, ease: "power2.out" },
+            BAR_IN + 0.2,
+          ); // a hopeful little nudge (6.70 -> 7.10)
+          tl.to(barFill, { scaleX: 0.17, duration: 1.22, ease: "none" }, 7.1); // ...then it just crawls (7.10 -> 8.32)
+
+          /* ===========================================================================
+             discrete-text-sequence — whole-line state swaps at time thresholds.
+             Instant, no fade, no CSS transition: ONE line owns the slot at a time.
+             Driven by a pure function of time, so every seek is identical.
+             =========================================================================== */
+          var SEQ = [
+            { t: 0.0, id: "q1" },
+            { t: SWAP_2, id: "q2" },
+            { t: SWAP_3, id: "q3" },
+            { t: CUT_4, id: "rs" },
+          ];
+          var GATES = { q1: q1, q2: q2, q3: q3, rs: rs };
+          var lastId = null;
+
+          function applyState(t) {
+            var id = SEQ[0].id;
+            for (var i = SEQ.length - 1; i >= 0; i--) {
+              if (t >= SEQ[i].t) {
+                id = SEQ[i].id;
+                break;
+              }
+            }
+            if (id === lastId) return; // DOM write only on the transition
+            for (var k in GATES) GATES[k].style.opacity = k === id ? "1" : "0";
+            lastId = id;
+          }
+
+          /* ===========================================================================
+             motion-blur-streak (Path A) — the blur envelope shares the WINDOW and the
+             EASE of the move it rides, so peak blur lands on peak speed and resolves to
+             exactly 0 at the settle. Symmetric ("v v") for the depth swaps — the smear is
+             depth-wise; directional ("0 v") for the vertical rip. Both sides of a cut use
+             the SAME peak, so the values match at the swap frame. Never on settled type:
+             below the floor the filter is removed outright.
+             =========================================================================== */
+          var PEAK_IN = 16; // arriving from deep Z
+          var PEAK_CUT = 10; // text-scale peak at a hard cut (per the cut catalog)
+          var PEAK_RIP = 12; // the upward rip
+          var BLUR_FLOOR = 0.06;
+
+          function c01(v) {
+            return v < 0 ? 0 : v > 1 ? 1 : v;
+          }
+          var EASE = {
+            out3: function (p) {
+              return 1 - Math.pow(1 - p, 3);
+            },
+            in3: function (p) {
+              return p * p * p;
+            },
+            in4: function (p) {
+              return p * p * p * p;
+            },
+            out4: function (p) {
+              return 1 - Math.pow(1 - p, 4);
+            },
+            outExpo: function (p) {
+              return p >= 1 ? 1 : 1 - Math.pow(2, -10 * p);
+            },
+          };
+
+          var BLUR = [
+            { g: "q1", t0: 0.0, t1: 1.1, a: PEAK_IN, b: 0, e: "out3", ax: "d" },
+            { g: "q1", t0: SWAP_2 - EXIT_LEAD, t1: SWAP_2, a: 0, b: PEAK_CUT, e: "in3", ax: "d" },
+            { g: "q2", t0: SWAP_2, t1: SWAP_2 + ENTRY_DUR, a: PEAK_CUT, b: 0, e: "outExpo", ax: "d" },
+            { g: "q2", t0: SWAP_3 - EXIT_LEAD, t1: SWAP_3, a: 0, b: PEAK_CUT, e: "in3", ax: "d" },
+            { g: "q3", t0: SWAP_3, t1: SWAP_3 + ENTRY_DUR, a: PEAK_CUT, b: 0, e: "outExpo", ax: "d" },
+            { g: "q3", t0: RIP, t1: CUT_4, a: 0, b: PEAK_RIP, e: "in4", ax: "y" },
+            { g: "r", t0: CUT_4, t1: CUT_4 + 0.4, a: PEAK_RIP, b: 0, e: "out4", ax: "y" },
+          ];
+          var GROUPS = { q1: q1w, q2: q2w, q3: q3w, r: rw };
+          var lastGroup = "none";
+
+          function applyBlur(t) {
+            var g = "none";
+            var v = 0;
+            var ax = "d";
+            for (var i = 0; i < BLUR.length; i++) {
+              var ph = BLUR[i];
+              if (t >= ph.t0 && t < ph.t1) {
+                var p = c01((t - ph.t0) / (ph.t1 - ph.t0));
+                v = ph.a + (ph.b - ph.a) * EASE[ph.e](p);
+                if (v > BLUR_FLOOR) {
+                  g = ph.g;
+                  ax = ph.ax;
+                }
+                break;
+              }
+            }
+            if (g !== "none") {
+              var s = v.toFixed(2);
+              blurNode.setAttribute("stdDeviation", ax === "y" ? "0 " + s : s + " " + s);
+            }
+            if (g !== lastGroup) {
+              for (var k in GROUPS) {
+                var on = k === g;
+                GROUPS[k].forEach(function (el) {
+                  el.style.filter = on ? "url(#f01-mb)" : "none";
+                });
+              }
+              lastGroup = g;
+            }
+          }
+
+          function frameAt(t) {
+            applyState(t);
+            applyBlur(t);
+          }
+
+          var driver = { t: 0 };
+          tl.to(
+            driver,
+            {
+              t: END,
+              duration: END,
+              ease: "none",
+              onUpdate: function () {
+                frameAt(driver.t);
+              },
+            },
+            0,
+          );
+
+          frameAt(0); // seed frame 0: q1 parked in the cloud, streaked, ready to assemble
+
+          window.__timelines[ID] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

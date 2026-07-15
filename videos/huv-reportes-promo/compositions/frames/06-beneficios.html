@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The <head> is metadata for this SOURCE FILE ONLY. The HF runtime clones ONLY the
+         contents of <template>. Every <style>, every <script> (including the GSAP load) and
+         all markup therefore live INSIDE the template below. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        /* ═══════════════════════════════════════════════════════════════════════════════
+           FONTS — only the four Instrument Sans files that actually ship with the project.
+           ═══════════════════════════════════════════════════════════════════════════════ */
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-Regular.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 500;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 600;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Instrument Sans";
+          font-weight: 700;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/InstrumentSans-700.woff2") format("woff2");
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════════════
+           ROOT — styled by #root, NEVER by a class on the data-composition-id element.
+           (At render each file's CSS is scoped to its composition id as a DESCENDANT
+           selector, so a class on the root would stop matching and the scene would render
+           completely unstyled.)
+           ═══════════════════════════════════════════════════════════════════════════════ */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden; /* contains the motion-blur smear during each card's flight */
+          font-family: "Instrument Sans", sans-serif;
+          font-kerning: normal;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════════════
+           LAYER 0 — base ground (full-bleed, on a `clip` layer, never on #root).
+           ═══════════════════════════════════════════════════════════════════════════════ */
+        .f06-bg {
+          position: absolute;
+          inset: 0;
+          background: #ffffff;
+          z-index: 0;
+        }
+
+        /* ── LAYER 1 — soft navy radial BLOOM, anchored OFF-CENTRE. The ground is never
+              flat white: this is the light in the room. Alphas sit inside the 5–10% band. ── */
+        .f06-bloom {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          background:
+            radial-gradient(
+              1240px 840px at 63% 33%,
+              rgba(45, 62, 94, 0.1) 0%,
+              rgba(45, 62, 94, 0.045) 40%,
+              rgba(45, 62, 94, 0) 72%
+            ),
+            radial-gradient(
+              900px 700px at 20% 88%,
+              rgba(45, 62, 94, 0.05) 0%,
+              rgba(45, 62, 94, 0) 68%
+            );
+          transform-origin: 63% 33%;
+          will-change: transform, opacity;
+        }
+
+        /* ── LAYER 2 — geometric SUBSTRATE: a 1px navy grid at 3.5% alpha. It PARALLAXES
+              (drifts slower than the foreground) behind the cards. Deliberately oversized
+              (inset: -160px) so the drift never exposes an edge. ── */
+        .f06-substrate {
+          position: absolute;
+          inset: -160px;
+          z-index: 2;
+          background-image:
+            repeating-linear-gradient(
+              to right,
+              rgba(45, 62, 94, 0.035) 0 1px,
+              rgba(45, 62, 94, 0) 1px 80px
+            ),
+            repeating-linear-gradient(
+              to bottom,
+              rgba(45, 62, 94, 0.035) 0 1px,
+              rgba(45, 62, 94, 0) 1px 80px
+            );
+          will-change: transform;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════════════
+           LAYER 3 — WALLPAPER NUMERAL "4" (four benefits).
+           This layer caused the v1 catastrophe: it rendered as a SOLID DARK NAVY glyph
+           that appeared to sit IN FRONT of the cards, covering an icon and slicing through
+           card text. Four INDEPENDENT guarantees now make that physically impossible:
+
+             1. ALPHA IS BAKED INTO THE STROKE COLOR — `stroke: rgba(45,62,94,0.06)`.
+                It is NOT expressed as an animatable `opacity` property. The v1 bug was a
+                GSAP tween pushing this element's `opacity` up to 1, which overrode the CSS
+                `opacity: 0.06`. Here the element's `opacity` is irrelevant to how dark it
+                reads: even at `opacity: 1` the ink is still 6% navy. GSAP touches ONLY the
+                TRANSFORM of this layer — never its opacity. (See the timeline.)
+             2. THE CARDS ARE OPAQUE — `#f7f7f9`, the pre-composited equivalent of the
+                token `card-bg: rgba(45,62,94,0.04)` over white. Pixel-identical on this
+                canvas, but it OCCLUDES. v1's 96%-transparent fill let the glyph behind the
+                cards read straight through them, which is indistinguishable from it being
+                on top. It can no longer be seen through.
+             3. IT IS STRICTLY BELOW THE CARDS — track-index 3 and z-index 3, against the
+                card world's track-index 4 / z-index 4.
+             4. IT BLEEDS OFF THE BOTTOM-RIGHT CORNER, not dead-centre over the grid. Its
+                only un-occluded pixels fall in the empty right margin and the empty
+                bottom-right corner — never over a card, an icon, or a line of text.
+
+           Net effect: a barely-perceptible watermark that parallaxes. The cards and their
+           text are the payload; nothing may obscure them.
+           ═══════════════════════════════════════════════════════════════════════════════ */
+        .f06-wall {
+          position: absolute;
+          left: 1430px;
+          top: 560px;
+          width: 640px; /* bleeds off the right edge:  1430 + 640 = 2070 > 1920 */
+          height: 934px; /* bleeds off the bottom edge:  560 + 934 = 1494 > 1080 */
+          z-index: 3;
+          pointer-events: none;
+          will-change: transform;
+        }
+        .f06-num {
+          display: block;
+          width: 100%;
+          height: 100%;
+        }
+        .f06-num path {
+          fill: none;
+          /* 6% navy. THE ALPHA LIVES HERE, in the colour — never in `opacity`. */
+          stroke: rgba(45, 62, 94, 0.06);
+          stroke-width: 5; /* thin outline in a 100-unit box: a drawn numeral, not a slab */
+          stroke-linecap: butt;
+          stroke-linejoin: miter;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════════════
+           LAYER 4 — THE 3D WORLD. `perspective` on the world wrapper is what lets the
+           cards genuinely fly in from deep Z toward the viewer, instead of appearing flat
+           in-plane the way v1 did.
+           ═══════════════════════════════════════════════════════════════════════════════ */
+        .f06-world {
+          position: absolute;
+          left: 96px;
+          top: 138px;
+          width: 1728px;
+          height: 618px;
+          z-index: 4;
+          perspective: 1600px;
+          perspective-origin: 50% 50%;
+        }
+
+        /* preserve-3d is load-bearing: the perspective on .f06-world applies to its CHILD
+           (.f06-grid); the cards are GRANDCHILDREN, so the grid must keep the 3D rendering
+           context alive or every translateZ collapses to nothing. No `overflow` and no
+           `filter` here — either would force flattening. */
+        .f06-grid {
+          width: 100%;
+          height: 100%;
+          transform-style: preserve-3d;
+          display: grid;
+          grid-template-columns: repeat(2, 844px);
+          grid-template-rows: repeat(2, 289px);
+          gap: 40px;
+          will-change: transform;
+        }
+
+        /* card-tinted (frame.md): 1.5px navy-20% border, 14px radius.
+           ELEVATION, NOT SHADOW: hard drop shadows are banned. The single large-radius,
+           low-alpha navy halo below is a diffuse ambient GLOW — no crisp edge, no offset
+           slab. It is the only lift the cards get. */
+        .f06-card {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 36px;
+          padding: 0 44px;
+          box-sizing: border-box;
+          background-color: #f7f7f9; /* opaque — see guarantee 2 above */
+          border: 1.5px solid rgba(45, 62, 94, 0.2);
+          border-radius: 14px;
+          box-shadow: 0 36px 90px rgba(45, 62, 94, 0.12);
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, filter;
+          /* NOTE: no CSS `transform` is declared on this element anywhere — GSAP tweens
+             z / y / rotationX on it, and a CSS transform here would be silently destroyed
+             (gsap_css_transform_conflict). Layout comes from CSS Grid only. */
+        }
+        .f06-c1 {
+          filter: url(#f06-blur-0);
+        }
+        .f06-c2 {
+          filter: url(#f06-blur-1);
+        }
+        .f06-c3 {
+          filter: url(#f06-blur-2);
+        }
+        .f06-c4 {
+          filter: url(#f06-blur-3);
+        }
+
+        .f06-icon {
+          display: block;
+          flex: 0 0 100px;
+          width: 100px;
+          height: 100px;
+          overflow: visible;
+        }
+        .f06-icon .f06-draw {
+          fill: none;
+          stroke: #2d3e5e;
+          stroke-width: 2.4;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .f06-icon .f06-slash {
+          stroke-width: 2.9;
+        }
+        .f06-icon .f06-hand-hour {
+          stroke-width: 3.1;
+        }
+        .f06-icon .f06-hand-min {
+          stroke-width: 2.2;
+        }
+        .f06-icon .f06-pivot {
+          fill: #2d3e5e;
+          stroke: none;
+        }
+
+        /* h3 — the payload. ~54px, the size v1 was missing. */
+        .f06-label {
+          font-size: 54px;
+          font-weight: 500;
+          line-height: 1.22;
+          letter-spacing: -0.02em;
+          color: #0a0a0a;
+          max-width: 620px;
+          will-change: transform, opacity;
+        }
+
+        /* h4-eyebrow — 28px, 600, tracked caps, primary */
+        .f06-eyebrow {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 64px;
+          z-index: 5;
+          text-align: center;
+          font-size: 28px;
+          font-weight: 600;
+          line-height: 1.2;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #2d3e5e;
+          will-change: transform, opacity;
+        }
+
+        /* Closing line — ~54px, primary. Bottom edge at 864.8px; even at the far end of
+           its 18px entrance rise it peaks at 882.8px, clear of the y=900 keep-out. */
+        .f06-close {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 800px;
+          z-index: 5;
+          text-align: center;
+          font-size: 54px;
+          font-weight: 500;
+          line-height: 1.2;
+          letter-spacing: -0.02em;
+          color: #2d3e5e;
+          will-change: transform, opacity;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="06-beneficios"
+        data-duration="8.607"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- ── motion-blur-streak (Path A): one directional-blur filter per card. The cards
+             rush the CAMERA (a depth push), so the smear is depth-wise, not axial — hence a
+             SYMMETRIC stdDeviation ("B B"), per the rule's camera-push-through variation.
+             Generous filter region so the smear never clips at the card's box edge. ── -->
+        <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+          <defs>
+            <filter id="f06-blur-0" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur id="f06-blur-node-0" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+            <filter id="f06-blur-1" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur id="f06-blur-node-1" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+            <filter id="f06-blur-2" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur id="f06-blur-node-2" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+            <filter id="f06-blur-3" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur id="f06-blur-node-3" in="SourceGraphic" stdDeviation="0 0" />
+            </filter>
+          </defs>
+        </svg>
+
+        <!-- Layer 0 — full-bleed white base (clip, track 0) -->
+        <div class="clip f06-bg" data-start="0" data-duration="8.607" data-track-index="0"></div>
+
+        <!-- Layer 1 — off-centre navy bloom (clip, track 1) -->
+        <div class="clip f06-bloom" data-start="0" data-duration="8.607" data-track-index="1"></div>
+
+        <!-- Layer 2 — 1px navy grid substrate @3.5%, parallaxing (clip, track 2) -->
+        <div
+          class="clip f06-substrate"
+          data-start="0"
+          data-duration="8.607"
+          data-track-index="2"
+        ></div>
+
+        <!-- Layer 3 — wallpaper numeral "4": 6% navy ink, bleeding off the bottom-right
+             corner, on track 3 / z-index 3 — strictly BELOW the card world (track 4 /
+             z-index 4). Transform-only; no tween ever touches its opacity. -->
+        <div
+          class="clip f06-wall"
+          data-start="0"
+          data-duration="8.607"
+          data-track-index="3"
+          aria-hidden="true"
+        >
+          <svg
+            class="f06-num"
+            viewBox="0 0 100 146"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M 66 10 L 12 104" />
+            <path d="M 8 104 L 92 104" />
+            <path d="M 66 10 L 66 138" />
+          </svg>
+        </div>
+
+        <!-- Layer 4 — the 3D world holding the 2×2 card grid (clip, track 4) -->
+        <div class="clip f06-world" data-start="0" data-duration="8.607" data-track-index="4">
+          <div class="f06-grid">
+            <!-- Card 1 · upper-left · «Sin llamadas» · struck-through phone -->
+            <div class="f06-card f06-c1">
+              <svg class="f06-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  class="f06-draw f06-phone"
+                  d="M 13 9 C 10 9 8 11 8 14 C 8 27 21 40 34 40 C 37 40 39 38 39 35 L 39 31 C 39 29.5 38 28.4 36.5 28.1 L 31 27 C 29.6 26.7 28.2 27.2 27.5 28.4 L 26.4 30.2 C 22.5 28.2 19.8 25.5 17.8 21.6 L 19.6 20.5 C 20.8 19.8 21.3 18.4 21 17 L 19.9 11.5 C 19.6 10 18.5 9 17 9 Z"
+                />
+                <path class="f06-draw f06-slash" d="M 9 9 L 39 39" />
+              </svg>
+              <div class="f06-label">Sin llamadas</div>
+            </div>
+
+            <!-- Card 2 · upper-right · «Sin filas» · struck-through queue of people -->
+            <div class="f06-card f06-c2">
+              <svg class="f06-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <circle class="f06-draw f06-q1" cx="11" cy="16" r="4.6" />
+                <path
+                  class="f06-draw f06-q2"
+                  d="M 5 34 C 5 27.6 7.7 25 11 25 C 14.3 25 17 27.6 17 34"
+                />
+                <circle class="f06-draw f06-q3" cx="24" cy="16" r="4.6" />
+                <path
+                  class="f06-draw f06-q4"
+                  d="M 18 34 C 18 27.6 20.7 25 24 25 C 27.3 25 30 27.6 30 34"
+                />
+                <circle class="f06-draw f06-q5" cx="37" cy="16" r="4.6" />
+                <path
+                  class="f06-draw f06-q6"
+                  d="M 31 34 C 31 27.6 33.7 25 37 25 C 40.3 25 43 27.6 43 34"
+                />
+                <path class="f06-draw f06-slash" d="M 9 41 L 39 7" />
+              </svg>
+              <div class="f06-label">Sin filas</div>
+            </div>
+
+            <!-- Card 3 · lower-left · «Sin repetir tres veces lo mismo» · struck-through loop -->
+            <div class="f06-card f06-c3">
+              <svg class="f06-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <path class="f06-draw f06-l1" d="M 12 16 L 32 16 C 35.3 16 38 18.7 38 22 L 38 27" />
+                <path class="f06-draw f06-l2" d="M 34 23 L 38 27.5 L 42 23" />
+                <path class="f06-draw f06-l3" d="M 36 32 L 16 32 C 12.7 32 10 29.3 10 26 L 10 21" />
+                <path class="f06-draw f06-l4" d="M 6 25.5 L 10 21 L 14 25.5" />
+                <path class="f06-draw f06-slash" d="M 9 41 L 39 7" />
+              </svg>
+              <div class="f06-label">Sin repetir tres veces lo mismo</div>
+            </div>
+
+            <!-- Card 4 · lower-right · «A cualquier hora» · clock self-draws, then the hands
+                 SWEEP (svg-icon-enrichment) — a FINITE tween, no loop. -->
+            <div class="f06-card f06-c4">
+              <svg class="f06-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <circle class="f06-draw f06-dial" cx="24" cy="24" r="17" />
+                <line
+                  class="f06-draw f06-hand-hour"
+                  x1="24"
+                  y1="24"
+                  x2="24"
+                  y2="16"
+                  transform="rotate(0 24 24)"
+                />
+                <line
+                  class="f06-draw f06-hand-min"
+                  x1="24"
+                  y1="24"
+                  x2="24"
+                  y2="11"
+                  transform="rotate(0 24 24)"
+                />
+                <circle class="f06-pivot" cx="24" cy="24" r="2" />
+              </svg>
+              <div class="f06-label">A cualquier hora</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layer 5 — chrome -->
+        <div class="f06-eyebrow">REPORTAR AHORA ES</div>
+        <div class="f06-close">Reportar toma menos de un minuto.</div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        (function () {
+          window.__timelines = window.__timelines || {};
+
+          var ROOT = document.querySelector('[data-composition-id="06-beneficios"]');
+          var q = function (s) {
+            return ROOT.querySelector(s);
+          };
+          var qa = function (s) {
+            return Array.prototype.slice.call(ROOT.querySelectorAll(s));
+          };
+
+          /* The SHOT is 8.107s (locked to the real voice). The clip layers run 8.607s so the
+             ground stays painted underneath the outgoing crossfade; the timeline itself ends
+             at 8.107 and the slot simply holds its final frame. Nothing arrives after 8.107. */
+          var SHOT = 8.107;
+
+          /* ───────────────────────────────────────────────────────────────────────────────
+             svg-path-draw — set every stroked icon element up from MEASURED geometry
+             (getTotalLength()), never a magic number. A 2% over-estimate is safe at both
+             ends: too large merely delays the first visible pixel, too small clips the end.
+             ─────────────────────────────────────────────────────────────────────────────── */
+          qa(".f06-draw").forEach(function (p) {
+            var len = p.getTotalLength() * 1.02;
+            p.style.strokeDasharray = String(len);
+            p.style.strokeDashoffset = String(len);
+          });
+
+          /* ───────────────────────────────────────────────────────────────────────────────
+             motion-blur-streak (Path A) — one blur proxy per card. GSAP cannot tween an SVG
+             attribute directly, so we tween a plain { v } object and write stdDeviation back
+             each frame. SEEDED AT SETUP so a seek to t=0 renders the streaked start rather
+             than a momentarily-sharp pre-frame.
+             ─────────────────────────────────────────────────────────────────────────────── */
+          var PEAK_BLUR = 18;
+          var blurProxies = [0, 1, 2, 3].map(function (i) {
+            var node = document.getElementById("f06-blur-node-" + i);
+            var proxy = { v: PEAK_BLUR };
+            proxy.write = function () {
+              /* symmetric — the smear is depth-wise (a camera push), not directional */
+              node.setAttribute("stdDeviation", proxy.v + " " + proxy.v);
+            };
+            proxy.write();
+            return proxy;
+          });
+
+          var tl = gsap.timeline({ paused: true });
+
+          /* ═══════════════ THE GROUND — settles once, then parallaxes and rests ═══════════
+             Distinct layers move at distinct rates. The deeper the layer, the LESS it moves:
+             the wallpaper numeral drifts 14px, the substrate 30px, the cards ~1400px in Z.
+             Every drift is a decelerating fromTo that has effectively come to REST by the
+             time the closing line lands — Scene 5 demands stillness, not a lingering drift.  */
+
+          /* Bloom — blooms up once and reposes. (Opacity here is safe and intended: this is
+             a 5–10% radial gradient, not the wallpaper numeral.) */
+          tl.fromTo(
+            q(".f06-bloom"),
+            { opacity: 0, scale: 1.06 },
+            { opacity: 1, scale: 1, duration: 1.5, ease: "power3.out" },
+            0,
+          );
+
+          /* Substrate — the geometric bed. Parallaxes behind the cards, slower than they move. */
+          tl.fromTo(
+            q(".f06-substrate"),
+            { x: 10, y: 30 },
+            { x: 0, y: 0, duration: 7.2, ease: "power2.out" },
+            0,
+          );
+
+          /* Wallpaper numeral — the DEEPEST layer, so it moves the LEAST (a true parallax).
+             TRANSFORM ONLY. No tween anywhere in this file touches this element's opacity —
+             its 6% alpha is locked inside the stroke colour and cannot be brightened by any
+             tween, seek, or timeline restart. THIS IS THE v1 BUG, engineered away. */
+          tl.fromTo(
+            q(".f06-wall"),
+            { x: 6, y: 14 },
+            { x: 0, y: 0, duration: 7.6, ease: "power2.out" },
+            0,
+          );
+
+          /* ═══════════ SCENE 1 (0.0–1.9s) — eyebrow, then the FIRST card from deep Z ══════ */
+
+          /* Eyebrow lands early — the frame has readable content well before t = 0.5s. */
+          tl.fromTo(
+            q(".f06-eyebrow"),
+            { opacity: 0, y: 18 },
+            { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+            0.02,
+          );
+
+          /* ───────────────────────────────────────────────────────────────────────────────
+             THE SIGNATURE MOVE — grid-card-assemble's staggered self-assembling cascade,
+             instantiated as a 3D DEPTH arrival (spring-pop-entrance in its SMOOTH register:
+             power3.out, long tail, NO overshoot — bouncy easing is banned here).
+
+             Each card starts at z = -1400 inside a 1600px perspective, so it projects at
+             1600 / (1600 + 1400) ≈ 53% of its resting size and GROWS to 100% as it rushes
+             the camera. That grow IS spring-pop's scale: 0→1, produced by real depth rather
+             than a flat scale tween — which is precisely what v1 lacked.
+
+             The stagger is NOT the rule's ~0.06s group cascade: the shot spec puts each card
+             on its OWN spoken cue, so the cadence is the voice's, ~1.3–1.6s apart. Never
+             simultaneous, never front-loaded.
+             ─────────────────────────────────────────────────────────────────────────────── */
+          var CARD_AT = [0.55, 2.0, 3.35, 4.95]; /* Sin llamadas · Sin filas · Sin repetir · A cualquier hora */
+          var MOVE_DUR = 0.62; /* inside motion-blur-streak's 0.25–0.6s band (a streak is fast) */
+          var MOVE_EASE = "power3.out"; /* out-family: velocity front-loaded, so peak blur == peak speed */
+          var Z_FROM = -1400;
+
+          var cards = qa(".f06-card");
+          cards.forEach(function (el, i) {
+            /* Position: the flight from deep Z. fromTo (immediateRender) pins every card to
+               its collapsed, invisible, far-away state at t=0 — so a seek to any frame before
+               its cue shows nothing, and a seek to t=0 is exactly correct. */
+            tl.fromTo(
+              el,
+              { z: Z_FROM, y: 18, rotationX: 8, opacity: 0 },
+              {
+                z: 0,
+                y: 0,
+                rotationX: 0,
+                opacity: 1,
+                duration: MOVE_DUR,
+                ease: MOVE_EASE,
+              },
+              CARD_AT[i],
+            );
+
+            /* Blur envelope: SAME window, SAME ease as the position tween. That lock is the
+               whole rule — peak blur coincides with peak speed, and the card is razor-sharp
+               the instant it stops. Never blurred once settled. */
+            var proxy = blurProxies[i];
+            tl.to(
+              proxy,
+              {
+                v: 0,
+                duration: MOVE_DUR,
+                ease: MOVE_EASE,
+                onUpdate: proxy.write,
+              },
+              CARD_AT[i],
+            );
+          });
+
+          /* The label rises while its card is still settling, so it reads as part of the card
+             arriving rather than as a separate event. */
+          var labels = qa(".f06-label");
+          labels.forEach(function (el, i) {
+            tl.fromTo(
+              el,
+              { opacity: 0, y: 14 },
+              { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+              CARD_AT[i] + 0.34,
+            );
+          });
+
+          /* ───────────────────────────────────────────────────────────────────────────────
+             svg-path-draw — each icon traces itself on its own card's beat.
+             power2.out on strokes: a pen decelerates as the hand lifts; it never bounces
+             (back.out / elastic.out are wrong here by construction). Sequential segments
+             overlap at ~70–80% of the previous segment's duration so the eye reads one
+             continuous line rather than N separate animations.
+             ─────────────────────────────────────────────────────────────────────────────── */
+          function draw(sel, at, dur) {
+            tl.to(q(sel), { strokeDashoffset: 0, duration: dur, ease: "power2.out" }, at);
+          }
+
+          /* Card 1 — the handset traces, then the strike-through cancels it */
+          draw(".f06-c1 .f06-phone", 0.85, 0.58);
+          draw(".f06-c1 .f06-slash", 1.29, 0.32);
+
+          /* Card 2 — three queued figures (head → shoulders), then the strike-through */
+          draw(".f06-c2 .f06-q1", 2.28, 0.26);
+          draw(".f06-c2 .f06-q2", 2.38, 0.32);
+          draw(".f06-c2 .f06-q3", 2.38, 0.26);
+          draw(".f06-c2 .f06-q4", 2.48, 0.32);
+          draw(".f06-c2 .f06-q5", 2.48, 0.26);
+          draw(".f06-c2 .f06-q6", 2.58, 0.32);
+          draw(".f06-c2 .f06-slash", 2.78, 0.32);
+
+          /* Card 3 — the repeat loop (run → arrowhead → return run → arrowhead), then struck */
+          draw(".f06-c3 .f06-l1", 3.62, 0.44);
+          draw(".f06-c3 .f06-l2", 3.98, 0.18);
+          draw(".f06-c3 .f06-l3", 4.07, 0.44);
+          draw(".f06-c3 .f06-l4", 4.43, 0.18);
+          draw(".f06-c3 .f06-slash", 4.52, 0.32);
+
+          /* Card 4 — the clock draws: dial, then both hands, then the pivot settles in */
+          draw(".f06-c4 .f06-dial", 5.22, 0.6);
+          draw(".f06-c4 .f06-hand-hour", 5.7, 0.22);
+          draw(".f06-c4 .f06-hand-min", 5.76, 0.26);
+          tl.fromTo(
+            q(".f06-c4 .f06-pivot"),
+            { opacity: 0 },
+            { opacity: 1, duration: 0.22, ease: "power1.out" },
+            5.86,
+          );
+
+          /* ───────────────────────────────────────────────────────────────────────────────
+             svg-icon-enrichment — the clock WAKES UP: its hands sweep once the outline has
+             drawn. FINITE (a single tween; no repeat, no yoyo).
+
+             Rotation is written with the SVG `transform` ATTRIBUTE — rotate(deg cx cy) —
+             and deliberately NOT with a CSS transform + transform-origin. For a thin <line>
+             the CSS origin resolves in the element's own bbox-local coordinates, so "24 24"
+             would land OUTSIDE the line and the hand would fly along an off-centre arc
+             instead of pivoting in place. This is the rule's headline trap.
+             ─────────────────────────────────────────────────────────────────────────────── */
+          var handHour = q(".f06-c4 .f06-hand-hour");
+          var handMin = q(".f06-c4 .f06-hand-min");
+
+          /* Pin both hands to 12 o'clock at t=0 so any backward seek lands on a known state. */
+          tl.set([handHour, handMin], { attr: { transform: "rotate(0 24 24)" } }, 0);
+
+          var SWEEP_AT = 6.08;
+          var SWEEP_DUR = 1.02; /* finite; resolves well before the frame settles */
+          var MIN_REVOLUTIONS = 1.5; /* long hand — non-integer, so it rests off 12 o'clock */
+          var HOUR_REVOLUTIONS = 0.3; /* short hand — visibly slower, as a clock should read */
+          var sweep = { t: 0 };
+          tl.to(
+            sweep,
+            {
+              t: 1,
+              duration: SWEEP_DUR,
+              ease: "none" /* linear: the constant rate IS the point of a sweeping hand */,
+              onUpdate: function () {
+                handMin.setAttribute(
+                  "transform",
+                  "rotate(" + 360 * MIN_REVOLUTIONS * sweep.t + " 24 24)",
+                );
+                handHour.setAttribute(
+                  "transform",
+                  "rotate(" + 360 * HOUR_REVOLUTIONS * sweep.t + " 24 24)",
+                );
+              },
+            },
+            SWEEP_AT,
+          );
+
+          /* ═══════════ SCENE 5 (6.5–8.107s) — the closing line; the grid HOLDS ════════════
+             The back-half zoom-out is FORBIDDEN. Stillness, with subtle jitter at most.      */
+          tl.fromTo(
+            q(".f06-close"),
+            { opacity: 0, y: 18 },
+            { opacity: 1, y: 0, duration: 0.72, ease: "power3.out" },
+            6.58,
+          );
+
+          /* sine-wave-loop at the LOW end of its range — subtle jitter, nothing more. Applied
+             to the assembled grid as ONE collective body (per-card jitter would read as four
+             competing motions). A single finite cycle, and an amplitude envelope damps the
+             last 20% to ZERO — so the frame is genuinely, completely still when the crossfade
+             to Frame 7 begins, rather than being handed off mid-drift.
+
+             GSAP tweens no transform on .f06-grid, so writing style.transform here creates no
+             conflict. A 2D transform on a preserve-3d parent keeps the cards' 3D intact. */
+          var grid = q(".f06-grid");
+          var JITTER_AT = 6.3;
+          var JITTER_DUR = SHOT - JITTER_AT; /* 1.807s */
+          var CYCLES = 1;
+          var Y_AMP = 2; /* px  — low end; the grid is four concurrent elements */
+          var SCALE_AMP = 0.0025; /* low end */
+          var FADE_FRAC = 0.2; /* last 20% ramps the amplitude to absolute zero */
+          var phase = { p: 0 };
+          tl.to(
+            phase,
+            {
+              p: Math.PI * 2 * CYCLES,
+              duration: JITTER_DUR,
+              ease: "none" /* the sine supplies the curve; easing the phase would distort it */,
+              onUpdate: function () {
+                var t = phase.p / (Math.PI * 2 * CYCLES); /* 0 → 1 across the jitter window */
+                var env = t < 1 - FADE_FRAC ? 1 : (1 - t) / FADE_FRAC;
+                var s = Math.sin(phase.p); /* sin(0) = 0 → no jump when the jitter begins */
+                grid.style.transform =
+                  "translateY(" + s * Y_AMP * env + "px) scale(" + (1 + s * SCALE_AMP * env) + ")";
+              },
+            },
+            JITTER_AT,
+          );
+
+          /* No exit tween: this is not the final frame. The root transition IS the exit. */
+
+          window.__timelines["06-beneficios"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>
