@@ -1463,21 +1463,22 @@ class TicketController extends Controller
         }
         
         // 2. Buscar documentos en GLPI (glpi_documents_items + glpi_documents)
+        // glpi_documents NO almacena el tamaño del archivo: el tamaño se lee del disco.
         $glpiDocuments = DB::table('glpi_documents_items as di')
-            ->select('d.id', 'd.name', 'd.filename', 'd.filepath', 'd.mime', 'd.filesize')
+            ->select('d.id', 'd.name', 'd.filename', 'd.filepath', 'd.mime')
             ->join('glpi_documents as d', 'di.documents_id', '=', 'd.id')
             ->where('di.itemtype', 'Ticket')
             ->where('di.items_id', $id)
             ->where('d.is_deleted', 0)
             ->get();
-        
+
         foreach ($glpiDocuments as $doc) {
             // GLPI guarda archivos en /var/lib/glpi/files/_documents/
             // El filepath tiene formato como "PDF/abc123.pdf"
             $attachments[] = [
                 'name' => $doc->name ?: $doc->filename,
                 'url' => '/glpi-files/' . $doc->filepath,
-                'size' => $doc->filesize ?? 0,
+                'size' => $this->glpiDocumentSize($doc->filepath),
                 'mime' => $doc->mime,
                 'source' => 'glpi',
                 'glpi_id' => $doc->id,
@@ -1957,16 +1958,50 @@ class TicketController extends Controller
     /**
      * Servir archivos de documentos de GLPI
      */
-    public function serveGlpiFile($path)
+    /**
+     * Rutas posibles donde GLPI guarda sus documentos, para un filepath dado.
+     *
+     * Compartida por serveGlpiFile() (que los sirve) y glpiDocumentSize() (que lee
+     * su tamaño), para que ambas resuelvan los archivos igual.
+     */
+    private function glpiDocumentPaths(string $path): array
     {
-        // Rutas posibles donde GLPI guarda sus archivos
-        $possiblePaths = [
+        return [
             '/var/lib/glpi/files/_documents/' . $path,
             '/var/www/glpi/files/_documents/' . $path,
             '/opt/glpi/files/_documents/' . $path,
             base_path('../glpi/files/_documents/' . $path),
             env('GLPI_FILES_PATH', '/var/lib/glpi/files/_documents/') . $path,
         ];
+    }
+
+    /**
+     * Tamaño real de un documento de GLPI, leído del disco.
+     *
+     * La tabla glpi_documents no guarda el tamaño (no existe la columna `filesize`),
+     * así que se consulta el archivo. Si no se encuentra —por ejemplo, si el montaje
+     * de archivos de GLPI no es accesible desde este servidor— devuelve 0 en lugar
+     * de romper la vista del caso.
+     */
+    private function glpiDocumentSize(?string $filepath): int
+    {
+        if (empty($filepath)) {
+            return 0;
+        }
+
+        foreach ($this->glpiDocumentPaths($filepath) as $candidate) {
+            if (is_file($candidate)) {
+                return (int) (@filesize($candidate) ?: 0);
+            }
+        }
+
+        return 0;
+    }
+
+    public function serveGlpiFile($path)
+    {
+        // Rutas posibles donde GLPI guarda sus archivos
+        $possiblePaths = $this->glpiDocumentPaths($path);
 
         foreach ($possiblePaths as $filePath) {
             if (file_exists($filePath)) {
