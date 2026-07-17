@@ -322,7 +322,8 @@ export default function ReportarCaso() {
     };
 
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
+    // onKeyDown, no onKeyPress: onKeyPress está obsoleto y no dispara para todas las teclas.
+    const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             e.stopPropagation();
@@ -334,36 +335,7 @@ export default function ReportarCaso() {
 
     // Si hay éxito, mostrar pantalla de confirmación
     if (flash?.success) {
-        return (
-            <>
-                <Head title="Reporte Enviado - HelpDesk HUV" />
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-                    <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] border border-slate-100 p-8 max-w-md w-full text-center">
-                        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
-                            <CheckCircle className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h1 className="text-xl font-bold text-[#2d3e5e] mb-2">¡Reporte Enviado!</h1>
-                        <p className="text-slate-500 text-sm mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
-
-                        <div className="bg-[#2d3e5e] text-white rounded-lg p-5 mb-6">
-                            <p className="text-xs text-white/70 uppercase tracking-wider mb-1">Número de caso</p>
-                            <p className="text-3xl font-bold">#{flash.success.ticket_id}</p>
-                        </div>
-
-                        <p className="text-xs text-slate-500 mb-6">
-                            Guarda este número para hacer seguimiento de tu caso.
-                        </p>
-
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="w-full bg-[#2d3e5e] text-white py-3 px-6 rounded-lg font-semibold hover:bg-[#3d5583] transition-colors text-sm"
-                        >
-                            Crear Nuevo Reporte
-                        </button>
-                    </div>
-                </div>
-            </>
-        );
+        return <PantallaEnviado ticketId={flash.success.ticket_id} />;
     }
 
     return (
@@ -416,7 +388,10 @@ export default function ReportarCaso() {
                         </div>
 
                         {/* Chat Messages */}
-                        <div id="chat-messages" ref={messagesContainerRef} role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="Conversación con Evarisbot" className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                        {/* tabIndex={0}: la conversación se autodesplaza al final, así que sin ratón
+                            no había forma de volver a leer lo que Evarisbot preguntó antes. Al ser
+                            enfocable, el teclado puede entrar y desplazarla con las flechas. */}
+                        <div id="chat-messages" ref={messagesContainerRef} tabIndex={0} role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="Conversación con Evarisbot" className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2d3e5e]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
                             {/* Timestamp */}
                             <div className="flex justify-center">
                                 <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
@@ -458,7 +433,7 @@ export default function ReportarCaso() {
                                     aria-label="Escribe tu mensaje"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
-                                    onKeyPress={handleKeyPress}
+                                    onKeyDown={handleKeyDown}
                                     placeholder="Escribe tu mensaje..."
                                     className="w-full bg-slate-50 text-slate-700 text-sm rounded-full py-3.5 pl-5 pr-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus:bg-white transition-all border border-slate-200 placeholder-slate-500"
                                     autoFocus
@@ -648,10 +623,14 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
         }
     }, [isNew, message.role]);
 
+    // Quién habla se transmite solo por posición y color (derecha/navy = tú, izquierda/gris = el
+    // bot). Un lector de pantalla no percibe ninguna de las dos cosas: sin esta etiqueta oculta
+    // oye las preguntas y sus propias respuestas seguidas, sin saber cuál es cuál.
     if (message.role === 'user') {
         return (
             <div ref={messageRef} className="flex justify-end">
                 <div className="max-w-[80%] bg-[#2d3e5e] text-white px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-line">
+                    <span className="sr-only">Tú dijiste: </span>
                     {message.content}
                 </div>
             </div>
@@ -665,6 +644,7 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
             </div>
             <div className="flex flex-col space-y-2">
                 <div className="bg-slate-50 p-3.5 rounded-2xl rounded-tl-none text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                    <span className="sr-only">Evarisbot dice: </span>
                     {message.content}
                 </div>
             </div>
@@ -672,16 +652,85 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
     );
 }
 
+/**
+ * Pantalla de confirmación tras enviar el reporte.
+ *
+ * Va en su propio componente porque necesita hooks y el padre la devuelve desde un `return`
+ * temprano. Resuelve dos fallos reales: al enviar, el foco volvía al inicio del documento y no
+ * se anunciaba nada, así que quien usa lector de pantalla no sabía si el reporte se había
+ * enviado ni recibía su número de seguimiento — y el número es la única forma de hacer
+ * seguimiento del caso.
+ */
+function PantallaEnviado({ ticketId }: { ticketId: number | string }) {
+    const headingRef = useRef<HTMLHeadingElement>(null);
+
+    useEffect(() => {
+        headingRef.current?.focus();
+    }, []);
+
+    return (
+        <>
+            <Head title="Reporte Enviado - HelpDesk HUV" />
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+                <div
+                    role="status"
+                    className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] border border-slate-100 p-8 max-w-md w-full text-center"
+                >
+                    <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                        <CheckCircle className="w-8 h-8 text-green-600" aria-hidden="true" />
+                    </div>
+                    {/* tabIndex={-1} lo hace enfocable por código sin meterlo en el orden de tabulación */}
+                    <h1
+                        ref={headingRef}
+                        tabIndex={-1}
+                        className="text-xl font-bold text-[#2d3e5e] mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus-visible:ring-offset-2 rounded"
+                    >
+                        ¡Reporte Enviado!
+                    </h1>
+                    <p className="text-slate-500 text-sm mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
+
+                    <div className="bg-[#2d3e5e] text-white rounded-lg p-5 mb-6">
+                        <p className="text-xs text-white/70 uppercase tracking-wider mb-1" aria-hidden="true">Número de caso</p>
+                        {/* El "#" y los dígitos sueltos no se leen bien: se dicta el número aparte. */}
+                        <p className="text-3xl font-bold" aria-hidden="true">#{ticketId}</p>
+                        <span className="sr-only">Tu número de caso es {String(ticketId).split('').join(' ')}.</span>
+                    </div>
+
+                    <p className="text-xs text-slate-500 mb-6">
+                        Guarda este número para hacer seguimiento de tu caso.
+                    </p>
+
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="w-full bg-[#2d3e5e] text-white py-3 px-6 rounded-lg font-semibold hover:bg-[#3d5583] transition-colors text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus-visible:ring-offset-2"
+                    >
+                        Crear Nuevo Reporte
+                    </button>
+                </div>
+            </div>
+        </>
+    );
+}
+
 // Componente Timeline para el resumen
 function TimelineItem({ label, value, placeholder, isActive }: { label: string; value?: string; placeholder?: string; isActive?: boolean }) {
     const filled = !!value;
+    // El punto de color es la ÚNICA señal de estado (verde=listo, naranja=en curso, gris=pendiente).
+    // El color no llega a quien no lo ve, así que el estado se dice también con palabras.
+    const estado = filled ? 'completado' : isActive ? 'respondiendo ahora' : 'pendiente';
     return (
         <li className="relative">
-            <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
-                filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
-            }`}></span>
+            <span
+                aria-hidden="true"
+                className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
+                    filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
+                }`}
+            ></span>
             <div className="flex flex-col">
-                <span className="text-xs text-slate-500 font-medium mb-1">{label}</span>
+                <span className="text-xs text-slate-500 font-medium mb-1">
+                    {label}
+                    <span className="sr-only"> — {estado}</span>
+                </span>
                 <span className={`text-sm font-medium ${
                     filled ? 'text-slate-800' : 'text-slate-500 italic'
                 }`}>

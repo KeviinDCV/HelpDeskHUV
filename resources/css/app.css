@@ -80,7 +80,10 @@
     --destructive-foreground: oklch(0.577 0.245 27.325);
     --border: oklch(0.98 0 0);
     --input: oklch(0.98 0 0);
-    --ring: oklch(0.97 0 0);
+    /* Indicador de foco. Estaba en oklch(0.97 0 0) = #f5f5f5: 1.09:1 sobre blanco, es decir
+       invisible — quien navega con teclado no veía dónde estaba en NINGUNA pantalla de la app.
+       WCAG 2.2 (2.4.11 Focus Appearance / 1.4.11) exige 3:1. El navy institucional da 10.7:1. */
+    --ring: #2d3e5e;
     --chart-1: oklch(0.646 0.222 41.116);
     --chart-2: oklch(0.6 0.118 184.704);
     --chart-3: oklch(0.398 0.07 227.392);
@@ -778,4 +781,22 @@ html.dark {
 .driver-popover-next-btn {
     background: #2c4370 !important;
     color: #fff !important;
+}
+
+/* --- Accesibilidad del tour (driver.js) ---
+   El tour se lanza SOLO en la primera visita, así que esto le pasa al 100% del personal.
+   driver.js no dibuja indicador de foco: su único estilo :focus cambia el fondo a #f7f7f7,
+   que sobre blanco da 1.07:1 — invisible. Quien navega con teclado queda encerrado en un
+   diálogo de 7 pasos sin ver en qué botón está. WCAG 2.4.7 exige foco visible. */
+.driver-popover-footer button:focus-visible,
+.driver-popover-close-btn:focus-visible {
+    outline: 3px solid #2d3e5e !important;
+    outline-offset: 2px !important;
+}
+
+/* La × de cerrar viene con `all: unset` (que elimina el contorno del navegador) y color
+   #d2d2d2: 1.51:1 sobre blanco. Con el overlay al 70% tapando la pantalla, la salida más
+   obvia del tour era prácticamente invisible para quien tiene baja visión. Ahora 10.7:1. */
+.driver-popover-close-btn {
+    color: #2d3e5e !important;
 }
