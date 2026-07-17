@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
     Accessibility, 
     ZoomIn, 
@@ -33,7 +33,19 @@ const defaultSettings: AccessibilitySettings = {
 export function AccessibilityMenu() {
     const [isOpen, setIsOpen] = useState(false);
     const [settings, setSettings] = useState<AccessibilitySettings>(defaultSettings);
-    const [guidePosition, setGuidePosition] = useState(0);
+
+    // Referencia al botón disparador para devolverle el foco al cerrar el panel
+    const triggerRef = useRef<HTMLButtonElement>(null);
+
+    // La guía de lectura se posiciona escribiendo directo al DOM (cero re-renders por mousemove)
+    const guideRef = useRef<HTMLDivElement>(null);
+    const guidePositionRef = useRef(0);
+
+    // Cierra el panel y devuelve el foco al botón que lo abrió
+    const closePanel = useCallback(() => {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+    }, []);
 
     // Cargar configuración guardada
     useEffect(() => {
@@ -51,25 +63,45 @@ export function AccessibilityMenu() {
         applySettings(settings);
     }, [settings]);
 
-    // Guía de lectura - seguir el mouse
+    // Guía de lectura - seguir el mouse.
+    // Se escribe directamente al DOM y se agrupan los eventos con requestAnimationFrame:
+    // ningún mousemove provoca un re-render de React.
     useEffect(() => {
         if (!settings.readingGuide) return;
-        
-        const handleMouseMove = (e: MouseEvent) => {
-            setGuidePosition(e.clientY);
+
+        let rafId: number | null = null;
+
+        const applyPosition = () => {
+            rafId = null;
+            if (guideRef.current) {
+                guideRef.current.style.transform = `translateY(${guidePositionRef.current}px)`;
+            }
         };
-        
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
+
+        // Restaurar la última posición conocida al reactivar la guía
+        applyPosition();
+
+        const handleMouseMove = (e: MouseEvent) => {
+            guidePositionRef.current = e.clientY;
+            if (rafId === null) {
+                rafId = requestAnimationFrame(applyPosition);
+            }
+        };
+
+        window.addEventListener('mousemove', handleMouseMove, { passive: true });
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            if (rafId !== null) cancelAnimationFrame(rafId);
+        };
     }, [settings.readingGuide]);
 
-    // Cerrar el panel con la tecla Escape
+    // Cerrar el panel con la tecla Escape (devolviendo el foco al botón disparador)
     useEffect(() => {
         if (!isOpen) return;
-        const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false); };
+        const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') closePanel(); };
         document.addEventListener('keydown', onEsc);
         return () => document.removeEventListener('keydown', onEsc);
-    }, [isOpen]);
+    }, [isOpen, closePanel]);
 
     const applySettings = (s: AccessibilitySettings) => {
         const root = document.documentElement;
@@ -328,20 +360,24 @@ export function AccessibilityMenu() {
                 }
             `}</style>
 
-            {/* Guía de lectura */}
+            {/* Guía de lectura: la posición la actualiza el handler de mousemove vía guideRef */}
             {settings.readingGuide && (
-                <div 
+                <div
+                    ref={guideRef}
                     className="reading-guide-line"
-                    style={{ top: guidePosition - 20 }}
+                    style={{ top: -20, transform: 'translateY(0px)', willChange: 'transform' }}
                 />
             )}
 
             {/* Botón flotante de accesibilidad */}
             <button
                 id="accessibility-button"
+                ref={triggerRef}
                 onClick={() => setIsOpen(!isOpen)}
                 className="fixed left-4 bottom-4 z-[9999] w-14 h-14 bg-[#2d3e5e] hover:bg-[#3d5583] text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-300"
                 aria-label="Menú de accesibilidad"
+                aria-expanded={isOpen}
+                aria-controls="accessibility-panel"
                 title="Opciones de accesibilidad"
             >
                 <Accessibility className="w-7 h-7" />
@@ -349,15 +385,20 @@ export function AccessibilityMenu() {
 
             {/* Panel de accesibilidad */}
             {isOpen && (
-                <div className="fixed left-4 bottom-20 z-[9999] w-80 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+                <div
+                    id="accessibility-panel"
+                    role="dialog"
+                    aria-label="Opciones de accesibilidad"
+                    className="fixed left-4 bottom-20 z-[9999] w-80 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-300"
+                >
                     {/* Header */}
                     <div className="bg-[#2d3e5e] text-white px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Accessibility className="w-5 h-5" />
                             <span className="font-semibold">Accesibilidad</span>
                         </div>
-                        <button 
-                            onClick={() => setIsOpen(false)}
+                        <button
+                            onClick={closePanel}
                             className="p-1 hover:bg-white/20 rounded transition-colors"
                             aria-label="Cerrar menú"
                         >

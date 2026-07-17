@@ -341,7 +341,14 @@ export default function ReportarCaso() {
     return (
         <>
             <Head title="Reportar Problema - HelpDesk HUV" />
-            <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden">
+            {/* h-dvh + overflow-y-auto (antes h-screen + overflow-hidden): la altura fija sigue
+                acotando el chat para que el hilo conserve su scroll interno, pero ahora lo que se
+                desborda es ALCANZABLE. Con overflow-hidden, al ampliar el texto (el propio menú de
+                accesibilidad llega al 150%, o el zoom de solo-texto de Firefox) el bloque inferior
+                del aside —con el botón de enviar— quedaba recortado y sin forma de llegar a él.
+                WCAG 1.4.4 (Redimensionar texto) y 1.4.10 (Reflujo). dvh además evita que la barra
+                dinámica del navegador móvil recorte el final. */}
+            <div className="h-dvh bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-y-auto">
                 {/* Header */}
                 <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
                     <img
@@ -359,9 +366,21 @@ export default function ReportarCaso() {
                 </header>
 
                 {/* Main Content */}
-                <main className="w-full max-w-6xl flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 flex-1 min-h-0 overflow-hidden">
+                {/* Sin overflow-hidden: era el segundo recorte. Con el texto ampliado el contenido
+                    excede la altura de <main>, y clipar aquí hacía inalcanzable el botón de enviar.
+                    Dejándolo desbordar, el scroll del contenedor de arriba sí llega hasta él.
+                    El recorte visual de las esquinas redondeadas no se pierde: la <section> del chat
+                    y el panel del aside ya tienen su propio rounded-xl + overflow-hidden. */}
+                <main className="w-full max-w-6xl flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 flex-1 min-h-0">
                     {/* Chat Section */}
-                    <section className="flex-1 lg:flex-none lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100 min-h-0">
+                    {/* min-h-64 en vez de min-h-0: con min-h-0 el hilo se aplastaba sin límite al
+                        ampliar el texto — a 28px de raíz en móvil quedaba en 42px de alto, una línea
+                        escasa, y el usuario perdía la conversación que acababa de ampliar para poder
+                        leer. El suelo va en rem, así que escala con el texto: cuando ya no cabe,
+                        el contenido desborda y el contenedor de arriba lo hace desplazable en vez de
+                        comprimirlo. A tamaño normal no llega a aplicarse (el hilo mide bastante más),
+                        así que el layout no cambia. */}
+                    <section className="flex-1 lg:flex-none lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100 min-h-64">
                         {/* Chat Header */}
                         <div id="chat-header" className="bg-[#2d3e5e] p-4 flex items-center justify-between z-10">
                             <div className="flex items-center space-x-3">
@@ -456,7 +475,9 @@ export default function ReportarCaso() {
                     </section>
 
                     {/* Summary Panel */}
-                    <aside id="summary-panel" className="lg:order-none shrink-0 lg:flex-1 lg:col-span-4 flex flex-col lg:h-full">
+                    {/* aria-label: sin nombre, este landmark se anunciaba sólo como "complementario",
+                        indistinguible de cualquier otro al navegar por regiones. */}
+                    <aside id="summary-panel" aria-label="Resumen del reporte" className="lg:order-none shrink-0 lg:flex-1 lg:col-span-4 flex flex-col lg:h-full">
                         <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col h-full border border-slate-100 overflow-hidden">
                             {/* Summary Header */}
                             <div className="p-3 sm:p-4 lg:p-5 bg-[#2d3e5e] shrink-0">
@@ -476,7 +497,26 @@ export default function ReportarCaso() {
                             </div>
 
                             {/* Summary Content */}
-                            <div className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                            {/* aria-live="polite": Evarisbot rellena estos campos conforme avanza la
+                                conversación, pero el cambio ocurre lejos del foco (que está en el
+                                input del chat), así que no se anunciaba nada: quien usa lector de
+                                pantalla no sabía que su nombre ya se había registrado.
+                                Va aquí, en el contenedor de los VALORES, y no en el <aside>: si
+                                envolviera también la cabecera "Resumen", cada cambio rehaciría el
+                                anuncio del panel entero. aria-atomic="false" para que sólo se lea el
+                                campo que cambió, no los cuatro cada vez.
+                                tabIndex={0}: es un contenedor desplazable; sin ser enfocable no había
+                                forma de recorrerlo con el teclado (WCAG 2.1.1). role="group" para que
+                                el aria-label se exponga (un div genérico no lo anuncia). */}
+                            <div
+                                role="group"
+                                aria-label="Campos del reporte"
+                                aria-live="polite"
+                                aria-atomic="false"
+                                tabIndex={0}
+                                className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2d3e5e]"
+                                style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}
+                            >
                                 {/* Mobile: Compact horizontal layout */}
                                 <div className="lg:hidden flex flex-wrap gap-2 text-xs">
                                     <div className={`px-2 py-1 rounded-full border ${formData.reporter_name ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>

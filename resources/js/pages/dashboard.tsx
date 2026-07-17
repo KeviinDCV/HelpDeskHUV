@@ -358,7 +358,11 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <h3 className="font-medium text-gray-900 text-sm sm:text-base line-clamp-2 sm:truncate">{ticket.name}</h3>
+                                                        {/* h2, no h3: el h1 de la sección es "Reportes Públicos" y cada caso cuelga
+                                                            directamente de él. El salto h1→h3 rompía la navegación por encabezados,
+                                                            que es como un lector de pantalla recorre la lista. El estilo no cambia:
+                                                            lo fija la clase, no la etiqueta. */}
+                                                        <h2 className="font-medium text-gray-900 text-sm sm:text-base line-clamp-2 sm:truncate">{ticket.name}</h2>
                                                         <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2 hidden sm:block">
                                                             {stripHtml(ticket.content).substring(0, 150)}...
                                                         </p>

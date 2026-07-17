@@ -131,13 +131,15 @@ export function InputWithHistory({
                         <button
                             type="button"
                             tabIndex={-1}
+                            // Solo contenía un icono SVG: se anunciaba como "botón" a secas.
+                            aria-label="Ocultar sugerencias"
                             className="text-gray-400 hover:text-gray-600"
                             onMouseDown={(e) => {
                                 e.preventDefault();
                                 setShowSuggestions(false);
                             }}
                         >
-                            <X className="h-3 w-3" />
+                            <X className="h-3 w-3" aria-hidden="true" />
                         </button>
                     </div>
                     {filtered.map((suggestion, idx) => (

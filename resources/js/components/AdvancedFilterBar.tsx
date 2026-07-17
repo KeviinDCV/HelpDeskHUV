@@ -657,28 +657,35 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
                     {/* Controles de búsqueda (solo en la primera fila) */}
                     {index === 0 && (
                         <div className="flex items-center gap-1 ml-auto shrink-0">
+                            {/* focus:outline-none quitaba el contorno del navegador sin poner nada
+                                a cambio: el botón principal de la barra era invisible al teclado.
+                                Los inputs de al lado sí traían anillo de reemplazo; este no. */}
                             <button
                                 type="button"
                                 onClick={handleSearch}
-                                className="h-[26px] px-3 text-[11px] font-medium rounded-sm bg-[#2c4370] hover:bg-[#3d5583] text-white border border-[#2c4370] focus:outline-none"
+                                className="h-[26px] px-3 text-[11px] font-medium rounded-sm bg-[#2c4370] hover:bg-[#3d5583] text-white border border-[#2c4370] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2c4370] focus-visible:ring-offset-1"
                             >
                                 Buscar
                             </button>
+                            {/* OJO: este botón no hace nada (onClick vacío). Se le pone nombre
+                                accesible por coherencia, pero está sin implementar. */}
                             <button
                                 type="button"
                                 onClick={() => {}}
-                                className="w-[26px] h-[26px] flex items-center justify-center text-gray-400 hover:text-[#2c4370]"
+                                className="w-[26px] h-[26px] flex items-center justify-center text-gray-400 hover:text-[#2c4370] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2c4370] rounded-sm"
+                                aria-label="Guardar búsqueda"
                                 title="Guardar búsqueda"
                             >
-                                <Star className="w-3.5 h-3.5" />
+                                <Star className="w-3.5 h-3.5" aria-hidden="true" />
                             </button>
                             <button
                                 type="button"
                                 onClick={handleReset}
-                                className="w-[26px] h-[26px] flex items-center justify-center text-gray-400 hover:text-gray-700"
+                                className="w-[26px] h-[26px] flex items-center justify-center text-gray-400 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2c4370] rounded-sm"
+                                aria-label="Restablecer búsqueda"
                                 title="Restablecer búsqueda"
                             >
-                                <RotateCcw className="w-3.5 h-3.5" />
+                                <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                             </button>
                         </div>
                     )}

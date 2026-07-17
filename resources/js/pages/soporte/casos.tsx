@@ -125,6 +125,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [solveDate, setSolveDate] = React.useState('');
     const [solving, setSolving] = React.useState(false);
     const [solveError, setSolveError] = React.useState<string | null>(null);
+    const [solutionError, setSolutionError] = React.useState<string | null>(null);
 
     // Estados de filtros
     const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
@@ -199,6 +200,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         setTicketToSolve(ticket);
         setSolution('');
         setSolveError(null);
+        setSolutionError(null);
         // Por defecto, usar fecha y hora actual en zona horaria local
         const now = new Date();
         const year = now.getFullYear();
@@ -216,9 +218,11 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         console.log('confirmSolve called', { ticketToSolve, solution, solveDate });
 
         if (!ticketToSolve || !solution.trim()) {
-            alert('Debe ingresar una solución');
+            setSolutionError('Debe ingresar una descripción de la solución.');
             return;
         }
+
+        setSolutionError(null);
 
         // Validar fecha antes de enviar
         if (solveDate && ticketToSolve.date) {
@@ -1192,29 +1196,37 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
                     {/* Mensaje de error */}
                     {solveError && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm rounded">
+                        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm rounded">
                             {solveError}
                         </div>
                     )}
 
                     <div className="space-y-4 py-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="solve-solution" className="block text-sm font-medium text-gray-700 mb-2">
                                 Descripción de la solución <span className="text-red-500">*</span>
                             </label>
                             <textarea
+                                id="solve-solution"
                                 value={solution}
-                                onChange={(e) => setSolution(e.target.value)}
+                                onChange={(e) => {
+                                    setSolution(e.target.value);
+                                    if (solutionError) setSolutionError(null);
+                                }}
                                 placeholder="Describe cómo se resolvió el problema..."
+                                aria-invalid={!!solutionError}
+                                aria-describedby={solutionError ? 'solve-solution-error' : undefined}
                                 className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px] text-sm"
                                 autoFocus
                             />
+                            {solutionError && <p id="solve-solution-error" role="alert" className="text-red-600 text-xs mt-1">{solutionError}</p>}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="solve-date" className="block text-sm font-medium text-gray-700 mb-2">
                                 Fecha y hora de solución
                             </label>
                             <Input
+                                id="solve-date"
                                 type="datetime-local"
                                 value={solveDate}
                                 onChange={(e) => setSolveDate(e.target.value)}

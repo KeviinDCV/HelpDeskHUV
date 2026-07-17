@@ -5,7 +5,17 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
-/* Variante dark deshabilitada */
+/* La variante `dark:` se ata a la clase .dark, que es como esta app decide su tema
+   (la pone app.blade.php, y de ella cuelgan los overrides de más abajo).
+
+   Antes aquí solo había un comentario diciendo que estaba deshabilitada — pero era falso:
+   sin esta directiva, Tailwind v4 compila `dark:` como @media (prefers-color-scheme: dark),
+   es decir, atada al AJUSTE DEL SISTEMA OPERATIVO en vez de al tema de la app. Eso rompía
+   por los dos lados: con el SO en oscuro y la app en claro, las 53 clases `dark:` del
+   proyecto (en button, input, select, badge…) pintaban colores de tema oscuro sobre una UI
+   clara — los mensajes de error caían a 2.77:1 sobre blanco; y con la app en oscuro y el SO
+   en claro, no se aplicaban en absoluto. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
     --font-sans:
