@@ -3,8 +3,9 @@ import { DashboardCards } from '@/components/dashboard-cards';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, usePage } from '@inertiajs/react';
 import { ViewTabs } from '@/components/view-tabs';
-import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, X, MapPin, Tag, User, Loader2, Users, CheckSquare } from 'lucide-react';
+import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, MapPin, Tag, User, Loader2, Users, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { stripHtml } from '@/lib/strip-html';
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -431,228 +432,239 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             </div>
 
             {/* Modal de Detalles */}
-            {detailModal.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 rounded-2xl">
-                        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white rounded-t-2xl">
-                            <h2 className="text-lg font-semibold text-gray-900">Detalles del Caso</h2>
-                            <button onClick={() => setDetailModal({ open: false, ticket: null, loading: false })} className="p-1 hover:bg-gray-100 rounded-lg">
-                                <X className="w-5 h-5" />
-                            </button>
+            <Dialog
+                open={detailModal.open}
+                onOpenChange={(abierto) => {
+                    if (!abierto) setDetailModal({ open: false, ticket: null, loading: false });
+                }}
+            >
+                <DialogContent className="bg-white shadow-xl sm:max-w-2xl max-h-[90vh] border border-gray-200 rounded-2xl p-0 gap-0 flex flex-col overflow-hidden">
+                    <DialogHeader className="p-4 pr-10 border-b bg-white rounded-t-2xl shrink-0 text-left">
+                        <DialogTitle className="text-lg font-semibold text-gray-900">Detalles del Caso</DialogTitle>
+                    </DialogHeader>
+                    {detailModal.loading ? (
+                        <div className="p-12 flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 animate-spin text-[#2c4370]" aria-hidden="true" />
                         </div>
-                        {detailModal.loading ? (
-                            <div className="p-12 flex items-center justify-center">
-                                <Loader2 className="w-8 h-8 animate-spin text-[#2c4370]" />
+                    ) : detailModal.ticket && (
+                        <div className="p-4 space-y-4 overflow-y-auto">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm text-gray-500">#{detailModal.ticket.id}</span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${priorityColors[detailModal.ticket.priority]}`}>
+                                    {detailModal.ticket.priority_name}
+                                </span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[detailModal.ticket.status]}`}>
+                                    {detailModal.ticket.status_name}
+                                </span>
                             </div>
-                        ) : detailModal.ticket && (
-                            <div className="p-4 space-y-4">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm text-gray-500">#{detailModal.ticket.id}</span>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${priorityColors[detailModal.ticket.priority]}`}>
-                                        {detailModal.ticket.priority_name}
-                                    </span>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[detailModal.ticket.status]}`}>
-                                        {detailModal.ticket.status_name}
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-semibold text-gray-900">{detailModal.ticket.name}</h3>
-                                
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    {detailModal.ticket.category_name && (
-                                        <div className="flex items-center gap-2">
-                                            <Tag className="w-4 h-4 text-gray-400" />
-                                            <span className="text-gray-600">{detailModal.ticket.category_name}</span>
-                                        </div>
-                                    )}
-                                    {detailModal.ticket.location_name && (
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="w-4 h-4 text-gray-400" />
-                                            <span className="text-gray-600">{detailModal.ticket.location_name}</span>
-                                        </div>
-                                    )}
-                                    {detailModal.ticket.assigned_tech && (
-                                        <div className="flex items-center gap-2">
-                                            <User className="w-4 h-4 text-gray-400" />
-                                            <span className="text-gray-600">{detailModal.ticket.assigned_tech}</span>
-                                        </div>
-                                    )}
+                            <h3 className="text-xl font-semibold text-gray-900">{detailModal.ticket.name}</h3>
+
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                {detailModal.ticket.category_name && (
                                     <div className="flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-gray-400" />
-                                        <span className="text-gray-600">
-                                            {new Date(detailModal.ticket.date_creation).toLocaleString('es-CO')}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="border-t pt-4">
-                                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Descripción</h4>
-                                    <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-200">{detailModal.ticket.content}</div>
-                                </div>
-
-                                {/* Solución del caso */}
-                                {detailModal.ticket.solution && (
-                                    <div className="border-t pt-4">
-                                        <h4 className="text-sm font-semibold text-green-700 mb-2">Solución</h4>
-                                        <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                                            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">{detailModal.ticket.solution.content}</div>
-                                            <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
-                                                <span>Resuelto por: <strong>{detailModal.ticket.solution.solved_by || 'Usuario del sistema'}</strong></span>
-                                                <span>{new Date(detailModal.ticket.solution.date_creation).toLocaleString('es-CO')}</span>
-                                            </div>
-                                        </div>
+                                        <Tag className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                                        <span className="text-gray-600">{detailModal.ticket.category_name}</span>
                                     </div>
                                 )}
-
-                                <div className="flex justify-end gap-2 pt-4 border-t">
-                                    <Button variant="outline" onClick={() => setDetailModal({ open: false, ticket: null, loading: false })}>
-                                        Cerrar
-                                    </Button>
-                                    {detailModal.ticket.status === 1 && (
-                                        <>
-                                            <Button
-                                                onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); takeTicket(detailModal.ticket!.id); }}
-                                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
-                                            >
-                                                <UserPlus className="w-4 h-4 mr-1" />
-                                                Tomar
-                                            </Button>
-                                            {isAdmin && (
-                                                <Button
-                                                    className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
-                                                    onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); openAssignModal(detailModal.ticket!.id, detailModal.ticket!.name); }}
-                                                >
-                                                    <Users className="w-4 h-4 mr-1" />
-                                                    Asignar
-                                                </Button>
-                                            )}
-                                        </>
-                                    )}
+                                {detailModal.ticket.location_name && (
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                                        <span className="text-gray-600">{detailModal.ticket.location_name}</span>
+                                    </div>
+                                )}
+                                {detailModal.ticket.assigned_tech && (
+                                    <div className="flex items-center gap-2">
+                                        <User className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                                        <span className="text-gray-600">{detailModal.ticket.assigned_tech}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                                    <span className="text-gray-600">
+                                        {new Date(detailModal.ticket.date_creation).toLocaleString('es-CO')}
+                                    </span>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                </div>
-            )}
+
+                            <div className="border-t pt-4">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2">Descripción</h4>
+                                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-200">{detailModal.ticket.content}</div>
+                            </div>
+
+                            {/* Solución del caso */}
+                            {detailModal.ticket.solution && (
+                                <div className="border-t pt-4">
+                                    <h4 className="text-sm font-semibold text-green-700 mb-2">Solución</h4>
+                                    <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                                        <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">{detailModal.ticket.solution.content}</div>
+                                        <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
+                                            <span>Resuelto por: <strong>{detailModal.ticket.solution.solved_by || 'Usuario del sistema'}</strong></span>
+                                            <span>{new Date(detailModal.ticket.solution.date_creation).toLocaleString('es-CO')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-2 pt-4 border-t">
+                                <Button variant="outline" onClick={() => setDetailModal({ open: false, ticket: null, loading: false })}>
+                                    Cerrar
+                                </Button>
+                                {detailModal.ticket.status === 1 && (
+                                    <>
+                                        <Button
+                                            onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); takeTicket(detailModal.ticket!.id); }}
+                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                        >
+                                            <UserPlus className="w-4 h-4 mr-1" aria-hidden="true" />
+                                            Tomar
+                                        </Button>
+                                        {isAdmin && (
+                                            <Button
+                                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                                onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); openAssignModal(detailModal.ticket!.id, detailModal.ticket!.name); }}
+                                            >
+                                                <Users className="w-4 h-4 mr-1" aria-hidden="true" />
+                                                Asignar
+                                            </Button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             {/* Modal de Asignación */}
-            {assignModal.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white shadow-xl max-w-md w-full border border-gray-200 rounded-2xl">
-                        <div className="flex items-center justify-between p-4 border-b">
-                            <h2 className="text-lg font-semibold text-gray-900">Asignar Caso</h2>
-                            <button onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100 rounded-lg">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            <p className="text-sm text-gray-600">
-                                Asignar el caso <strong>"{assignModal.ticketName}"</strong> a:
-                            </p>
-                            <Select value={selectedTech} onValueChange={setSelectedTech}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Seleccionar técnico..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {technicians?.map((tech) => (
-                                        <SelectItem key={tech.id} value={tech.id.toString()}>
-                                            {tech.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex justify-end gap-2 p-4 border-t">
-                            <Button variant="outline" onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })}>
-                                Cancelar
-                            </Button>
-                            <Button
-                                onClick={assignTicket}
-                                disabled={!selectedTech || assigning}
-                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
-                            >
-                                {assigning ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                        Asignando...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Users className="w-4 h-4 mr-1" />
-                                        Asignar
-                                    </>
-                                )}
-                            </Button>
-                        </div>
+            <Dialog
+                open={assignModal.open}
+                onOpenChange={(abierto) => {
+                    if (!abierto) setAssignModal({ open: false, ticketId: null, ticketName: '' });
+                }}
+            >
+                <DialogContent
+                    aria-describedby="assign-modal-description"
+                    className="bg-white shadow-xl sm:max-w-md border border-gray-200 rounded-2xl p-0 gap-0"
+                >
+                    <DialogHeader className="p-4 pr-10 border-b text-left">
+                        <DialogTitle className="text-lg font-semibold text-gray-900">Asignar Caso</DialogTitle>
+                    </DialogHeader>
+                    <div className="p-4 space-y-4">
+                        <DialogDescription id="assign-modal-description" className="text-sm text-gray-600">
+                            Asignar el caso <strong>"{assignModal.ticketName}"</strong> a:
+                        </DialogDescription>
+                        <Select value={selectedTech} onValueChange={setSelectedTech}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Seleccionar técnico..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {technicians?.map((tech) => (
+                                    <SelectItem key={tech.id} value={tech.id.toString()}>
+                                        {tech.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                </div>
-            )}
+                    <div className="flex justify-end gap-2 p-4 border-t">
+                        <Button variant="outline" onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={assignTicket}
+                            disabled={!selectedTech || assigning}
+                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                        >
+                            {assigning ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" aria-hidden="true" />
+                                    Asignando...
+                                </>
+                            ) : (
+                                <>
+                                    <Users className="w-4 h-4 mr-1" aria-hidden="true" />
+                                    Asignar
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Modal de Solución */}
-            {solveModal.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white shadow-xl max-w-lg w-full border border-gray-200 rounded-2xl">
-                        <div className="flex items-center justify-between p-4 border-b">
-                            <h2 className="text-lg font-semibold text-gray-900">Resolver Caso</h2>
-                            <button onClick={() => setSolveModal({ open: false, ticketId: null, ticketName: '' })} className="p-1 hover:bg-gray-100 rounded-lg">
-                                <X className="w-5 h-5" />
-                            </button>
+            <Dialog
+                open={solveModal.open}
+                onOpenChange={(abierto) => {
+                    if (!abierto) {
+                        setSolveModal({ open: false, ticketId: null, ticketName: '' });
+                        setSolveDate('');
+                    }
+                }}
+            >
+                <DialogContent
+                    aria-describedby="solve-modal-description"
+                    className="bg-white shadow-xl sm:max-w-lg border border-gray-200 rounded-2xl p-0 gap-0"
+                >
+                    <DialogHeader className="p-4 pr-10 border-b text-left">
+                        <DialogTitle className="text-lg font-semibold text-gray-900">Resolver Caso</DialogTitle>
+                    </DialogHeader>
+                    <div className="p-4 space-y-4">
+                        <DialogDescription id="solve-modal-description" className="text-sm text-gray-600">
+                            Resolver el caso <strong>"{solveModal.ticketName}"</strong>
+                        </DialogDescription>
+                        <div>
+                            <label htmlFor="solve-solution" className="block text-sm font-medium text-gray-700 mb-2">
+                                Descripción de la solución <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                id="solve-solution"
+                                value={solution}
+                                onChange={(e) => setSolution(e.target.value)}
+                                placeholder="Describe cómo se resolvió el problema..."
+                                className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px]"
+                                autoFocus
+                            />
                         </div>
-                        <div className="p-4 space-y-4">
-                            <p className="text-sm text-gray-600">
-                                Resolver el caso <strong>"{solveModal.ticketName}"</strong>
+                        <div>
+                            <label htmlFor="solve-date" className="block text-sm font-medium text-gray-700 mb-2">
+                                Fecha y hora de solución
+                            </label>
+                            <input
+                                id="solve-date"
+                                type="datetime-local"
+                                value={solveDate}
+                                onChange={(e) => setSolveDate(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Por defecto se usa la fecha y hora actual. Puede modificarla si la solución fue en otro momento.
                             </p>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Descripción de la solución <span className="text-red-500">*</span>
-                                </label>
-                                <textarea
-                                    value={solution}
-                                    onChange={(e) => setSolution(e.target.value)}
-                                    placeholder="Describe cómo se resolvió el problema..."
-                                    className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px]"
-                                    autoFocus
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Fecha y hora de solución
-                                </label>
-                                <input
-                                    type="datetime-local"
-                                    value={solveDate}
-                                    onChange={(e) => setSolveDate(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Por defecto se usa la fecha y hora actual. Puede modificarla si la solución fue en otro momento.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 p-4 border-t">
-                            <Button variant="outline" onClick={() => { setSolveModal({ open: false, ticketId: null, ticketName: '' }); setSolveDate(''); }}>
-                                Cancelar
-                            </Button>
-                            <Button
-                                onClick={solveTicket}
-                                disabled={!solution.trim() || solving}
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                                {solving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                        Resolviendo...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckSquare className="w-4 h-4 mr-1" />
-                                        Resolver
-                                    </>
-                                )}
-                            </Button>
                         </div>
                     </div>
-                </div>
-            )}
+                    <div className="flex justify-end gap-2 p-4 border-t">
+                        <Button variant="outline" onClick={() => { setSolveModal({ open: false, ticketId: null, ticketName: '' }); setSolveDate(''); }}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={solveTicket}
+                            disabled={!solution.trim() || solving}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            {solving ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" aria-hidden="true" />
+                                    Resolviendo...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckSquare className="w-4 h-4 mr-1" aria-hidden="true" />
+                                    Resolver
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

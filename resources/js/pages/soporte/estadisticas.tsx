@@ -165,18 +165,21 @@ export default function Estadisticas({
                             <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Filtros</h2>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+                            {/* Cada label lleva htmlFor y cada control su id: sin esto el panel se
+                                anunciaba como dos campos de fecha anónimos y cuatro botones
+                                «Todos»/«Todas» indistinguibles entre sí. */}
                             <div>
-                                <label className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9" />
+                                <label htmlFor="est-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
+                                <Input id="est-desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9" />
                             </div>
                             <div>
-                                <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9" />
+                                <label htmlFor="est-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
+                                <Input id="est-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9" />
                             </div>
                             <div>
-                                <label className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                <label htmlFor="est-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                    <SelectTrigger id="est-estado" className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Todos</SelectItem>
                                         <SelectItem value="1">Nuevo</SelectItem>
@@ -188,9 +191,9 @@ export default function Estadisticas({
                                 </Select>
                             </div>
                             <div>
-                                <label className="text-xs text-gray-600 mb-1 block">Prioridad</label>
+                                <label htmlFor="est-prioridad" className="text-xs text-gray-600 mb-1 block">Prioridad</label>
                                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                    <SelectTrigger id="est-prioridad" className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Todas</SelectItem>
                                         <SelectItem value="1">Muy alta</SelectItem>
@@ -202,9 +205,9 @@ export default function Estadisticas({
                                 </Select>
                             </div>
                             <div>
-                                <label className="text-xs text-gray-600 mb-1 block">Técnico</label>
+                                <label htmlFor="est-tecnico" className="text-xs text-gray-600 mb-1 block">Técnico</label>
                                 <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                    <SelectTrigger id="est-tecnico" className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Todos</SelectItem>
                                         {technicians.map(t => (
@@ -214,9 +217,9 @@ export default function Estadisticas({
                                 </Select>
                             </div>
                             <div>
-                                <label className="text-xs text-gray-600 mb-1 block">Categoría</label>
+                                <label htmlFor="est-categoria" className="text-xs text-gray-600 mb-1 block">Categoría</label>
                                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                    <SelectTrigger id="est-categoria" className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Todas</SelectItem>
                                         {categories.map(c => (

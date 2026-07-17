@@ -187,9 +187,13 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden p-2 hover:bg-[#3d5583] transition-colors"
-            aria-label="Menú"
+            // Sin aria-expanded el usuario de lector de pantalla oía "botón Menú" sin saber si
+            // ya lo había desplegado, y lo cerraba sin querer. Es la única navegación en móvil.
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu-panel"
+            aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
 
           {/* Logo - Clicable para ir al Dashboard */}
@@ -417,7 +421,15 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
       )}
 
       {/* Mobile Menu Panel */}
-      <div className={`lg:hidden fixed top-14 left-0 bottom-0 w-72 bg-[#2c4370] z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Cerrado, el panel solo se desplaza fuera de pantalla (-translate-x-full): seguía en el
+          DOM y era enfocable, así que al tabular desde la hamburguesa el foco desaparecía hacia
+          elementos invisibles. `inert` (nativo en React 19) lo saca del foco y del árbol de
+          accesibilidad sin romper la transición — a diferencia de display:none. */}
+      <div
+        id="mobile-menu-panel"
+        inert={!mobileMenuOpen}
+        className={`lg:hidden fixed top-14 left-0 bottom-0 w-72 bg-[#2c4370] z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
         {/* Mobile Search Button */}
         <div className="p-3 border-b border-[#3d5583] shrink-0">
           <button

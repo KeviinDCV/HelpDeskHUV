@@ -164,10 +164,23 @@ export function NotificationsDropdown() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-[#3d5583] relative">
-          <Bell className="h-5 w-5" />
+        {/* El botón solo contiene un icono SVG y el número: sin aria-label se anunciaba como
+            "botón" a secas, o como "botón 9+" cuando había pendientes — engañoso. Está en el
+            header global, así que afectaba a todas las pantallas. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={unreadCount > 0
+            ? `Notificaciones (${unreadCount} sin leer)`
+            : 'Notificaciones'}
+          className="text-white hover:bg-[#3d5583] relative"
+        >
+          <Bell className="h-5 w-5" aria-hidden="true" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+            <span
+              aria-hidden="true"
+              className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+            >
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -177,13 +190,17 @@ export function NotificationsDropdown() {
         <div className="flex items-center justify-between px-3 py-2 border-b">
           <span className="font-semibold text-sm">Notificaciones</span>
           {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllAsRead}
-              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+            // DropdownMenuItem, no <button>: Radix da role="menu" al contenedor y mueve el foco
+            // solo entre [role="menuitem"]. Como <button> normal, esta acción era inalcanzable
+            // con teclado. preventDefault() en onSelect evita que el menú se cierre, para que se
+            // vea cómo las notificaciones pasan a leídas.
+            <DropdownMenuItem
+              onSelect={(e) => { e.preventDefault(); handleMarkAllAsRead(); }}
+              className="text-xs text-blue-600 flex items-center gap-1 px-2 py-1 cursor-pointer"
             >
-              <CheckCheck className="h-3 w-3" />
+              <CheckCheck className="h-3 w-3" aria-hidden="true" />
               Marcar todo leído
-            </button>
+            </DropdownMenuItem>
           )}
         </div>
         
@@ -203,16 +220,20 @@ export function NotificationsDropdown() {
               const colorClass = colorMap[notification.color] || colorMap.blue
               
               return (
-                <div
+                // DropdownMenuItem, no <div onClick>: aporta role="menuitem", navegación por
+                // flechas y activación con Enter. Como <div> era imposible abrir una notificación
+                // sin ratón. `sr-only` dice si está sin leer, que hasta ahora era solo un tinte azul.
+                <DropdownMenuItem
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`px-3 py-2.5 border-b last:border-b-0 cursor-pointer hover:bg-accent transition-colors ${
+                  onSelect={() => handleNotificationClick(notification)}
+                  className={`block px-3 py-2.5 border-b last:border-b-0 cursor-pointer rounded-none ${
                     !notification.read ? 'bg-blue-500/10' : ''
                   }`}
                 >
+                  {!notification.read && <span className="sr-only">Sin leer. </span>}
                   <div className="flex gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${colorClass}`}>
-                      <IconComponent className="h-4 w-4" />
+                      <IconComponent className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
@@ -224,17 +245,19 @@ export function NotificationsDropdown() {
                             <button
                               onClick={(e) => handleMarkAsRead(notification.id, e)}
                               className="p-1 hover:bg-muted rounded"
+                              aria-label={`Marcar como leída: ${notification.title}`}
                               title="Marcar como leído"
                             >
-                              <Check className="h-3 w-3 text-muted-foreground" />
+                              <Check className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                             </button>
                           )}
                           <button
                             onClick={(e) => handleDelete(notification.id, e)}
                             className="p-1 hover:bg-muted rounded"
+                            aria-label={`Eliminar notificación: ${notification.title}`}
                             title="Eliminar"
                           >
-                            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" aria-hidden="true" />
                           </button>
                         </div>
                       </div>
@@ -246,7 +269,7 @@ export function NotificationsDropdown() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </DropdownMenuItem>
               )
             })
           )}

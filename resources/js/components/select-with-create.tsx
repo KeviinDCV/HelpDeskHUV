@@ -142,7 +142,10 @@ export function SelectWithCreate({
             </div>
 
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-sm">
+                {/* Este diálogo no tiene descripción a propósito: el título ya lo dice todo.
+                    Se declara explícitamente para que Radix no avise, en vez de silenciarlo
+                    para toda la app desde dialog.tsx (que rompía el enlace de los demás). */}
+                <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>{createLabel}</DialogTitle>
                     </DialogHeader>

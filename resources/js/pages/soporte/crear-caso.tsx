@@ -59,6 +59,24 @@ interface Category {
     completename: string;
 }
 
+/** Traduce las claves que devuelve Laravel a la etiqueta que el usuario ve en el formulario. */
+const ETIQUETAS_CAMPO: Record<string, string> = {
+    name: 'Título',
+    content: 'Descripción',
+    date: 'Fecha Apertura',
+    status: 'Estado',
+    priority: 'Prioridad',
+    locations_id: 'Localización',
+    itilcategories_id: 'Categoría',
+    requester_id: 'Solicitante',
+    observer_ids: 'Observador',
+    assigned_ids: 'Asignado a',
+    time_to_resolve: 'Tiempo Solución',
+    internal_time_to_resolve: 'Tiempo Interno',
+    attachments: 'Adjuntos',
+    items: 'Elementos Asociados',
+};
+
 interface CreateTicketProps {
     users: User[];
     locations: Location[];
@@ -89,6 +107,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
     const [newCategoryParent, setNewCategoryParent] = React.useState('');
     const [creatingCategory, setCreatingCategory] = React.useState(false);
     const [categoryError, setCategoryError] = React.useState('');
+    const errorSummaryRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (flash.success) {
@@ -194,7 +213,13 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                 setSelectedItems([]);
                 setSelectedItemType('');
                 setAvailableItems([]);
-            }
+            },
+            // Sin esto, un 422 dejaba la página MUDA: el formulario solo pintaba errors.name, así
+            // que fallar por "Asignado a" (obligatorio) no mostraba nada. El botón volvía de
+            // "Creando..." a "Crear Caso" y el usuario se quedaba sin saber qué había pasado.
+            onError: () => {
+                requestAnimationFrame(() => errorSummaryRef.current?.focus());
+            },
         });
     };
 
@@ -290,6 +315,29 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                             </div>
 
                             <form onSubmit={handleSubmit} className="p-4">
+                                {/* Resumen de errores. Laravel devuelve las claves del formulario
+                                    ("assigned_ids"), que no significan nada para quien usa la app:
+                                    se traducen a la etiqueta que ve en pantalla. */}
+                                {Object.keys(errors).length > 0 && (
+                                    <div
+                                        ref={errorSummaryRef}
+                                        role="alert"
+                                        tabIndex={-1}
+                                        className="mb-4 border border-red-200 bg-red-50 p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                                    >
+                                        <p className="text-sm font-semibold text-red-800">
+                                            No se pudo crear el caso. Revise {Object.keys(errors).length === 1 ? 'este campo' : 'estos campos'}:
+                                        </p>
+                                        <ul className="mt-1 list-disc list-inside space-y-0.5">
+                                            {Object.entries(errors).map(([campo, mensaje]) => (
+                                                <li key={campo} className="text-xs text-red-700">
+                                                    <span className="font-medium">{ETIQUETAS_CAMPO[campo] ?? campo}:</span> {mensaje as string}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     {/* Título - Fila 1 (Full width) */}
                                     <div className="md:col-span-4">
