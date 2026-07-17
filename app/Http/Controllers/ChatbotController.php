@@ -26,7 +26,9 @@ class ChatbotController extends Controller
     private function callAI(array $messages, string $model = 'auto'): array
     {
         // Proveedor 1: Groq (rápido, 30 RPM gratis)
-        $groqKey = env('GROQ_API_KEY');
+        // config(), no env(): con `config:cache` env() devuelve null fuera de config/ y
+        // el chat se quedaría mudo sin dejar rastro. Ver config/services.php.
+        $groqKey = config('services.groq.key');
         if ($groqKey) {
             try {
                 $response = Http::timeout(15)->connectTimeout(5)->withHeaders([
@@ -50,7 +52,7 @@ class ChatbotController extends Controller
         }
 
         // Proveedor 2: OpenRouter (respaldo)
-        $openRouterKey = env('OPENROUTER_API_KEY');
+        $openRouterKey = config('services.openrouter.key');
         if ($openRouterKey) {
             $fallbackModels = $model === 'auto'
                 ? ['z-ai/glm-4.5-air:free', 'mistralai/mistral-small-3.1-24b-instruct:free']
@@ -83,6 +85,15 @@ class ChatbotController extends Controller
                     ]);
                 }
             }
+        }
+
+        // Sin ninguna clave configurada, los dos bloques de arriba se saltan enteros y sus
+        // Log::warning nunca llegan a ejecutarse: el chat se quedaba mudo sin dejar rastro.
+        // Se registra explícitamente para que el fallo sea diagnosticable.
+        if (!$groqKey && !$openRouterKey) {
+            \Log::error('Chatbot sin proveedor de IA: no hay GROQ_API_KEY ni OPENROUTER_API_KEY. '
+                . 'Si se acaba de ejecutar `config:cache`, revisar que las claves estén en el .env '
+                . 'y volver a cachear la configuración.');
         }
 
         return ['response' => $response ?? null, 'provider' => null];

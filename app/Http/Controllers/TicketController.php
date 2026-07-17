@@ -1956,23 +1956,76 @@ class TicketController extends Controller
     }
 
     /**
-     * Servir archivos de documentos de GLPI
-     */
-    /**
-     * Rutas posibles donde GLPI guarda sus documentos, para un filepath dado.
+     * Directorios donde GLPI puede tener montados sus documentos.
      *
-     * Compartida por serveGlpiFile() (que los sirve) y glpiDocumentSize() (que lee
-     * su tamaño), para que ambas resuelvan los archivos igual.
+     * Son BASES, no rutas ya compuestas: nada de usuario se concatena aquí. Componer la
+     * ruta final es trabajo de resolveGlpiDocument(), que además comprueba la contención.
      */
-    private function glpiDocumentPaths(string $path): array
+    private function glpiDocumentBases(): array
     {
         return [
-            '/var/lib/glpi/files/_documents/' . $path,
-            '/var/www/glpi/files/_documents/' . $path,
-            '/opt/glpi/files/_documents/' . $path,
-            base_path('../glpi/files/_documents/' . $path),
-            env('GLPI_FILES_PATH', '/var/lib/glpi/files/_documents/') . $path,
+            '/var/lib/glpi/files/_documents/',
+            '/var/www/glpi/files/_documents/',
+            '/opt/glpi/files/_documents/',
+            base_path('../glpi/files/_documents/'),
+            // config(), no env(): con `config:cache` env() devuelve null fuera de config/.
+            config('services.glpi.files_path', '/var/lib/glpi/files/_documents/'),
         ];
+    }
+
+    /**
+     * Resuelve un filepath relativo de GLPI a un archivo real en disco.
+     *
+     * Devuelve la ruta absoluta solo si el archivo existe **y queda dentro** del directorio
+     * base. Ese segundo requisito es la barrera anti path-traversal: `realpath()` colapsa los
+     * `../`, así que comparar el resultado contra la base detecta cualquier intento de salir
+     * del directorio de documentos. Sin esta comprobación, un filepath como `../../../.env`
+     * resolvería fuera y se serviría.
+     *
+     * Devuelve null si no se encuentra o si el intento sale del directorio.
+     */
+    private function resolveGlpiDocument(?string $relative): ?string
+    {
+        if (empty($relative)) {
+            return null;
+        }
+
+        // Un byte nulo hace que realpath() lance ValueError en PHP 8. Puede venir del path
+        // pedido (intento de "null byte injection") o de una base mal configurada, así que se
+        // descarta de entrada en vez de dejar que reviente la petición.
+        if (str_contains($relative, "\0")) {
+            return null;
+        }
+
+        foreach ($this->glpiDocumentBases() as $base) {
+            // Config corrupta (p. ej. un GLPI_FILES_PATH guardado en UTF-16): se ignora esa
+            // base y se sigue con las demás. Un .env mal pegado no debe tumbar los adjuntos.
+            if (!is_string($base) || $base === '' || str_contains($base, "\0")) {
+                continue;
+            }
+
+            $realBase = realpath($base);
+
+            // Ese montaje no existe en este servidor: se prueba el siguiente.
+            if ($realBase === false) {
+                continue;
+            }
+
+            $candidate = realpath(rtrim($base, '/\\') . DIRECTORY_SEPARATOR . ltrim($relative, '/\\'));
+
+            if ($candidate === false || !is_file($candidate)) {
+                continue;
+            }
+
+            // Contención: el archivo resuelto DEBE colgar del directorio base.
+            if (!str_starts_with($candidate, $realBase . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            return $candidate;
+        }
+
+        return null;
     }
 
     /**
@@ -1985,59 +2038,56 @@ class TicketController extends Controller
      */
     private function glpiDocumentSize(?string $filepath): int
     {
-        if (empty($filepath)) {
-            return 0;
-        }
+        $file = $this->resolveGlpiDocument($filepath);
 
-        foreach ($this->glpiDocumentPaths($filepath) as $candidate) {
-            if (is_file($candidate)) {
-                return (int) (@filesize($candidate) ?: 0);
-            }
-        }
-
-        return 0;
+        return $file === null ? 0 : (int) (@filesize($file) ?: 0);
     }
 
+    /**
+     * Servir archivos de documentos de GLPI.
+     *
+     * El {path} de la ruta lo controla el usuario y acepta barras (`->where('path', '.*')`),
+     * así que NO puede concatenarse contra un directorio sin más: un `../` escaparía del
+     * directorio de documentos y convertiría este endpoint en lectura arbitraria de archivos
+     * del servidor (incluido el .env). Dos barreras independientes lo impiden:
+     *
+     *   1. Lista blanca: solo se sirven filepath que GLPI tenga REGISTRADOS en glpi_documents.
+     *      Se consulta la base ANTES de tocar el disco — el orden importa.
+     *   2. Contención: resolveGlpiDocument() exige que la ruta resuelta quede dentro del
+     *      directorio base, por si el propio dato de la base viniera con `../`.
+     */
     public function serveGlpiFile($path)
     {
-        // Rutas posibles donde GLPI guarda sus archivos
-        $possiblePaths = $this->glpiDocumentPaths($path);
-
-        foreach ($possiblePaths as $filePath) {
-            if (file_exists($filePath)) {
-                $mimeType = mime_content_type($filePath);
-                $fileName = basename($path);
-                
-                return response()->file($filePath, [
-                    'Content-Type' => $mimeType,
-                    'Content-Disposition' => 'inline; filename="' . $fileName . '"',
-                ]);
-            }
-        }
-
-        // Si no se encuentra, intentar buscar en la BD el documento por su filepath
         $doc = DB::table('glpi_documents')
             ->where('filepath', $path)
+            ->where('is_deleted', 0)
             ->first();
 
-        if ($doc) {
-            // Intentar con el SHA1SUM que GLPI usa para nombrar archivos
-            foreach ($possiblePaths as $basePath) {
-                $dirPath = dirname($basePath);
-                if (is_dir($dirPath)) {
-                    // GLPI guarda archivos con nombres SHA1
-                    $sha1Path = $dirPath . '/' . $doc->sha1sum;
-                    if (file_exists($sha1Path)) {
-                        return response()->file($sha1Path, [
-                            'Content-Type' => $doc->mime ?? 'application/octet-stream',
-                            'Content-Disposition' => 'inline; filename="' . ($doc->filename ?? basename($path)) . '"',
-                        ]);
-                    }
-                }
-            }
+        // No es un documento que GLPI conozca: no se toca el disco siquiera.
+        if (!$doc) {
+            abort(404, 'Archivo no encontrado');
         }
 
-        abort(404, 'Archivo no encontrado');
+        $file = $this->resolveGlpiDocument($doc->filepath);
+
+        // GLPI también nombra archivos con su SHA1; se busca junto al filepath registrado.
+        if ($file === null && !empty($doc->sha1sum)) {
+            $dir = trim(dirname($doc->filepath), '.' . DIRECTORY_SEPARATOR . '/');
+            $file = $this->resolveGlpiDocument($dir === '' ? $doc->sha1sum : $dir . '/' . $doc->sha1sum);
+        }
+
+        if ($file === null) {
+            abort(404, 'Archivo no encontrado');
+        }
+
+        // El nombre va en una cabecera: basename() + quitar comillas y saltos evita que un
+        // filename raro en la base rompa o inyecte la Content-Disposition.
+        $fileName = str_replace(['"', "\r", "\n"], '', basename($doc->filename ?: $doc->filepath));
+
+        return response()->file($file, [
+            'Content-Type' => $doc->mime ?: (mime_content_type($file) ?: 'application/octet-stream'),
+            'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+        ]);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

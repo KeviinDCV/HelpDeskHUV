@@ -56,7 +56,7 @@ class InventoryController extends Controller
             'agent_version' => 'nullable|string|max:50',
         ]);
 
-        $expected = (string) config('services.agent.enrollment_secret', env('AGENT_ENROLLMENT_SECRET', ''));
+        $expected = (string) config('services.agent.enrollment_secret', '');
         if ($expected === '' || ! hash_equals($expected, $data['enrollment_secret'])) {
             Log::warning('Agent register: enrollment_secret inválido', [
                 'ip' => $request->ip(),
@@ -69,7 +69,7 @@ class InventoryController extends Controller
         }
 
         // Usuario "técnico" propietario de los tokens emitidos por auto-registro.
-        $ownerName = (string) config('services.agent.token_owner', env('AGENT_TOKEN_OWNER', 'Kechavarro'));
+        $ownerName = (string) config('services.agent.token_owner', 'Kechavarro');
         $owner = \App\Models\User::where('name', $ownerName)->first();
         if (! $owner) {
             $owner = \App\Models\User::query()->orderBy('id')->first();

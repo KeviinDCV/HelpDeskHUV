@@ -163,7 +163,7 @@ PROMPT;
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                'Authorization' => 'Bearer ' . config('services.openrouter.key'),
                 'HTTP-Referer' => config('app.url'),
                 'X-Title' => config('app.name'),
                 'Content-Type' => 'application/json',
@@ -525,7 +525,7 @@ PROMPT;
 
             // Llamar a la IA para clasificación inteligente
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+                'Authorization' => 'Bearer ' . config('services.openrouter.key'),
                 'HTTP-Referer' => config('app.url'),
                 'X-Title' => config('app.name'),
                 'Content-Type' => 'application/json',

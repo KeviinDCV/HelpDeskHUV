@@ -372,10 +372,13 @@ export default function ReportarCaso() {
             <div className="h-screen bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-hidden">
                 {/* Header */}
                 <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
-                    <img 
-                        src="/images/huv-h.png" 
-                        alt="Hospital Universitario del Valle" 
-                        className="h-12 sm:h-16 lg:h-20 object-contain mb-1 sm:mb-2"
+                    <img
+                        src="/images/huv-h-160.webp"
+                        alt="Hospital Universitario del Valle"
+                        width={566}
+                        height={160}
+                        fetchPriority="high"
+                        className="h-12 sm:h-16 lg:h-20 w-auto object-contain mb-1 sm:mb-2"
                     />
                     <div className="text-center">
                         <h1 className="text-base sm:text-lg lg:text-xl font-bold text-[#2d3e5e] tracking-tight leading-none">Reporte Sistemas HUV</h1>
@@ -392,7 +395,7 @@ export default function ReportarCaso() {
                             <div className="flex items-center space-x-3">
                                 <div className="relative">
                                     <div className="w-10 h-10 bg-white/20 rounded-full overflow-hidden">
-                                        <img src="/images/Evaris.png" alt="" className="w-full h-full object-cover" />
+                                        <img src="/images/evaris-avatar.webp" alt="" width={40} height={40} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#2d3e5e] rounded-full"></div>
                                 </div>
@@ -431,7 +434,7 @@ export default function ReportarCaso() {
                             {isLoading && (
                                 <div className="flex items-start space-x-3 max-w-[90%]">
                                     <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden">
-                                        <img src="/images/Evaris.png" alt="" className="w-full h-full object-cover" />
+                                        <img src="/images/evaris-avatar.webp" alt="" width={32} height={32} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="bg-slate-50 px-4 py-3 rounded-2xl rounded-tl-none">
                                         <span className="sr-only">Evarisbot está escribiendo…</span>
@@ -658,7 +661,7 @@ function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean 
     return (
         <div ref={messageRef} className="flex items-start space-x-3 max-w-[90%]">
             <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden mt-1">
-                <img src="/images/Evaris.png" alt="" className="w-full h-full object-cover" />
+                <img src="/images/evaris-avatar.webp" alt="" width={32} height={32} className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col space-y-2">
                 <div className="bg-slate-50 p-3.5 rounded-2xl rounded-tl-none text-slate-600 text-sm leading-relaxed whitespace-pre-line">

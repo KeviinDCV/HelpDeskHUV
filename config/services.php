@@ -53,4 +53,40 @@ return [
         'token_owner' => env('AGENT_TOKEN_OWNER', 'Kechavarro'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Proveedores de IA
+    |--------------------------------------------------------------------------
+    |
+    | Los usa Evarisbot (el chat de /reportar) y la mejora automática de los
+    | reportes públicos. Groq es el primario y OpenRouter el respaldo.
+    |
+    | IMPORTANTE: leerlos con env() desde un controlador NO funciona en producción.
+    | `php artisan config:cache` hace que env() devuelva null fuera de estos archivos
+    | de config, así que las claves quedaban vacías y Evarisbot dejaba de responder
+    | sin ningún error visible. Deben leerse siempre con config('services.…').
+    |
+    */
+    'groq' => [
+        'key' => env('GROQ_API_KEY'),
+    ],
+
+    'openrouter' => [
+        'key' => env('OPENROUTER_API_KEY'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | GLPI
+    |--------------------------------------------------------------------------
+    |
+    | files_path: directorio donde GLPI guarda sus documentos. Solo hace falta si
+    | el montaje no está en una de las rutas habituales que ya prueba el sistema
+    | (/var/lib/glpi, /var/www/glpi, /opt/glpi).
+    |
+    */
+    'glpi' => [
+        'files_path' => env('GLPI_FILES_PATH', '/var/lib/glpi/files/_documents/'),
+    ],
+
 ];
