@@ -5,6 +5,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ViewTabs } from '@/components/view-tabs';
 import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, X, MapPin, Tag, User, Loader2, Users, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { stripHtml } from '@/lib/strip-html';
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import gsap from 'gsap';
@@ -235,12 +236,6 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                 fetchTickets();
             },
         });
-    };
-
-    const stripHtml = (html: string) => {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
     };
 
     // Handle tab change with GSAP animation

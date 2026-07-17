@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Wrench, Edit, Monitor, Paperclip, Download, FileText, FileImage } from 'lucide-react';
 import { useState } from 'react';
 import { csrfHeaders } from '@/lib/csrf';
+import { stripHtml } from '@/lib/strip-html';
 
 interface Ticket {
     id: number;
@@ -101,12 +102,6 @@ export default function VerCaso({ ticket, requester, technician, ticketItems, at
     const [showSolution, setShowSolution] = useState(false);
     const [solution, setSolution] = useState('');
     const [processing, setProcessing] = useState(false);
-
-    const stripHtml = (html: string) => {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
-    };
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '-';

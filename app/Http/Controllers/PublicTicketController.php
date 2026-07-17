@@ -39,11 +39,16 @@ class PublicTicketController extends Controller
             'itilcategories_id' => 'nullable',
         ]);
 
-        // Defensa en profundidad (XSS): esta ruta es PÚBLICA y anónima. El contenido es texto plano
-        // (el frontend lo renderiza como texto), así que eliminamos cualquier markup antes de persistir.
-        $validated['content'] = strip_tags($validated['content']);
-        $validated['name'] = strip_tags($validated['name']);
-        $validated['reporter_name'] = strip_tags($validated['reporter_name']);
+        // Defensa en profundidad (XSS): esta ruta es PÚBLICA, anónima y está exenta de CSRF.
+        // Se limpia TODO campo de texto, no una lista escogida a mano: el ticket resultante lo abren
+        // técnicos autenticados, así que cualquier markup que sobreviva se ejecutaría en su sesión.
+        // formatContent() vuelve a limpiar en el punto de interpolación (ver plain()), porque este
+        // saneado se hace ANTES del análisis con IA y la IA puede reescribir campos más abajo.
+        foreach ($validated as $field => $value) {
+            if (is_string($value)) {
+                $validated[$field] = strip_tags($value);
+            }
+        }
 
         // ANÁLISIS PROFUNDO CON IA - Clasificar categoría y elemento correctamente
         $analysis = $this->analyzeAndClassify($validated);
@@ -180,9 +185,12 @@ PROMPT;
                 if (preg_match('/\{[^}]+\}/', $content, $jsonMatch)) {
                     $parsed = json_decode($jsonMatch[0], true);
                     if ($parsed && isset($parsed['name']) && isset($parsed['content'])) {
+                        // La salida del modelo no es de confianza: la instrucción del prompt de no
+                        // emitir HTML es una petición, no un límite. El título va directo a
+                        // glpi_tickets.name, así que se limpia antes de persistirlo.
                         return [
-                            'name' => substr($parsed['name'], 0, 255),
-                            'content' => $parsed['content'],
+                            'name' => substr($this->plain($parsed['name']), 0, 255),
+                            'content' => $this->plain($parsed['content']),
                         ];
                     }
                 }
@@ -196,6 +204,22 @@ PROMPT;
             'name' => $data['name'],
             'content' => $data['content'],
         ];
+    }
+
+    /**
+     * Texto plano seguro para interpolar en el contenido de un ticket.
+     *
+     * El contenido de un reporte público se compone con datos de un formulario ANÓNIMO y con la
+     * respuesta de un modelo de IA. Ninguna de las dos fuentes es de confianza: pedirle a la IA
+     * "no incluyas HTML" en el prompt es una petición, no un límite de seguridad.
+     *
+     * Se limpia aquí, en el punto de uso, y no solo en store(): así cualquier campo que se
+     * interpole en el futuro queda cubierto por construcción, sin depender de que alguien
+     * recuerde añadirlo a una lista. Esa dependencia es justamente lo que falló antes.
+     */
+    private function plain(?string $value): string
+    {
+        return trim(strip_tags((string) $value));
     }
 
     /**
@@ -214,29 +238,31 @@ PROMPT;
         ];
 
         $lines = [];
-        
+
         // Descripción del problema (lo más importante primero)
-        $lines[] = $improvedContent;
+        $lines[] = $this->plain($improvedContent);
         $lines[] = "";
-        
+
         // Información del equipo
         if (!empty($data['equipment_ecom'])) {
-            $lines[] = "ECOM: " . strtoupper($data['equipment_ecom']);
+            $lines[] = "ECOM: " . strtoupper($this->plain($data['equipment_ecom']));
         }
-        
+
         if (!empty($data['device_type'])) {
-            $deviceLabel = $deviceLabels[$data['device_type']] ?? $data['device_type'];
+            // Ojo: device_type puede haber sido reescrito por la IA en store() DESPUÉS del
+            // saneado inicial, y si no está en el mapa se interpola su valor tal cual.
+            $deviceLabel = $deviceLabels[$data['device_type']] ?? $this->plain($data['device_type']);
             $lines[] = "Tipo de equipo: {$deviceLabel}";
         }
-        
+
         $lines[] = "";
         $lines[] = "--- Datos del reportante ---";
-        $lines[] = "Nombre: {$data['reporter_name']}";
-        $lines[] = "Cargo: {$data['reporter_position']}";
-        $lines[] = "Área: {$data['reporter_service']}";
-        
+        $lines[] = "Nombre: " . $this->plain($data['reporter_name']);
+        $lines[] = "Cargo: " . $this->plain($data['reporter_position']);
+        $lines[] = "Área: " . $this->plain($data['reporter_service']);
+
         if (!empty($data['reporter_extension'])) {
-            $lines[] = "Extensión: {$data['reporter_extension']}";
+            $lines[] = "Extensión: " . $this->plain($data['reporter_extension']);
         }
 
         return implode("\n", $lines);
