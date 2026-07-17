@@ -361,6 +361,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     <div>
                                         <Label htmlFor="locations_id" className="text-xs">Localización</Label>
                                         <SearchableSelect
+                                            id="locations_id"
                                             options={locations.map(loc => ({ value: loc.id.toString(), label: loc.completename || loc.short_name }))}
                                             value={data.locations_id}
                                             onValueChange={(value) => setData('locations_id', value)}
@@ -375,6 +376,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                         <Label htmlFor="itilcategories_id" className="text-xs">Categoría *</Label>
                                         <div className="mt-1 flex items-center gap-1">
                                             <SearchableSelect
+                                                id="itilcategories_id"
                                                 options={categoryList.map(cat => ({ value: cat.id.toString(), label: cat.completename }))}
                                                 value={data.itilcategories_id}
                                                 onValueChange={(value) => setData('itilcategories_id', value)}
@@ -523,6 +525,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                     <div className="md:col-span-2">
                                         <Label htmlFor="item_id" className="text-xs text-gray-500">Seleccionar elemento</Label>
                                         <SearchableSelect
+                                            id="item_id"
                                             options={availableItems.map(item => ({ value: item.id.toString(), label: item.name }))}
                                             onValueChange={addSelectedItem}
                                             placeholder="Buscar elemento..."
@@ -702,6 +705,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                             <div>
                                 <Label htmlFor="new_category_parent" className="text-xs">Categoría padre (opcional)</Label>
                                 <SearchableSelect
+                                    id="new_category_parent"
                                     options={[
                                         { value: '', label: 'Ninguna (categoría principal)' },
                                         ...categoryList.map(cat => ({ value: cat.id.toString(), label: cat.completename })),
