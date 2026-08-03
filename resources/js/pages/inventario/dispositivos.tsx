@@ -22,7 +22,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
+import AdvancedFilterBar, { FilterRow, FieldDef, activeFilterRows } from '@/components/AdvancedFilterBar';
 
 interface Peripheral {
     id: number;

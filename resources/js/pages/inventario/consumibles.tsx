@@ -1,7 +1,7 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { Head, router, usePage, Link } from '@inertiajs/react';
-import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
+import AdvancedFilterBar, { FilterRow, FieldDef, activeFilterRows } from '@/components/AdvancedFilterBar';
 import {
     Table,
     TableBody,

@@ -256,43 +256,23 @@ export default function DispositivosRed({ networkequipments, states, manufacture
     };
 
     // ─── Advanced Filter Handlers ────────────────────────────────────
+
+    /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel básico. */
     const handleAdvancedSearch = (filterRows: FilterRow[]) => {
         setAdvancedFilters(filterRows);
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            page: 1,
-            advanced_filters: JSON.stringify(filterRows),
-        };
-        if (searchValue) params.search = searchValue;
-        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (deviceCategory && deviceCategory !== 'all') params.device_category = deviceCategory;
-        router.get('/inventario/dispositivos-red', params, { preserveState: false });
+
+        const avanzados = activeFilterRows(filterRows);
+        go(buildParams(
+            avanzados.length > 0
+                ? { advanced_filters: JSON.stringify(avanzados) }
+                : { advanced_filters: undefined }
+        ));
     };
 
+    /** "Restablecer" de la barra avanzada: vacía SOLO sus filas; el panel se respeta. */
     const handleAdvancedReset = () => {
         setAdvancedFilters([]);
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            page: 1,
-        };
-        if (searchValue) params.search = searchValue;
-        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (deviceCategory && deviceCategory !== 'all') params.device_category = deviceCategory;
-        router.get('/inventario/dispositivos-red', params, { preserveState: false });
+        go(buildParams({ advanced_filters: undefined }));
     };
 
     // ─── Network Equipment Field Definitions for Advanced Filter ─────
