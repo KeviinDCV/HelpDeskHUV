@@ -624,7 +624,15 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
 
                         {/* Panel de Filtros Rápidos */}
                         {showFilters && (
-                            <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
+                            <section aria-label="Filtros rápidos" className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
+                                {/* Rótulo de zona: sin él, este "Aplicar filtros" y el "Buscar" de
+                                    la barra de arriba parecen el mismo control duplicado. */}
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <Filter className="w-3 h-3 text-gray-400 shrink-0" aria-hidden="true" />
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                        Filtros rápidos
+                                    </span>
+                                </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
                                     <div>
                                         <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
@@ -733,8 +741,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             onClick={clearFilters}
                                             className="h-8 text-xs text-gray-600"
                                         >
-                                            <X className="h-3 w-3 mr-1" />
-                                            Limpiar
+                                            <X className="h-3 w-3 mr-1" aria-hidden="true" />
+                                            Limpiar filtros
                                         </Button>
                                     )}
                                     <Button
@@ -742,10 +750,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         onClick={applyFilters}
                                         className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
                                     >
-                                        Aplicar
+                                        Aplicar filtros
                                     </Button>
                                 </div>
-                            </div>
+                            </section>
                         )}
 
                         {/* Stats */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus, Search, Star, RotateCcw } from 'lucide-react';
+import { Plus, Minus, Search, Star, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -604,7 +604,16 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
     // ─── Render ─────────────────────────────────────────────────────────────
 
     return (
-        <div className="bg-gray-50 border-b border-gray-200">
+        // Zona identificada: esta barra y el panel "Filtros" son dos buscadores distintos,
+        // cada uno con su botón ("Buscar" aquí, "Aplicar filtros" allí). Sin un rótulo que
+        // diga de quién es cada botón, se confunden.
+        <section aria-label="Búsqueda avanzada" className="bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center gap-1.5 px-2 pt-1.5">
+                <SlidersHorizontal className="w-3 h-3 text-gray-400 shrink-0" aria-hidden="true" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                    Búsqueda avanzada
+                </span>
+            </div>
             {rows.map((row, index) => (
                 <div
                     key={row.id}
@@ -717,6 +726,6 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
                     )}
                 </div>
             ))}
-        </div>
+        </section>
     );
 }

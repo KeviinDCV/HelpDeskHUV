@@ -389,7 +389,12 @@ export default function Computadores({ computers, states, manufacturers, types, 
 
                         {/* Panel de Filtros */}
                         {showFilters && (
-                            <div className="px-6 py-4 bg-gray-50 border-b">
+                            <section aria-label="Filtros rápidos" className="px-6 py-4 bg-gray-50 border-b">
+                                {/* Rótulo de zona: distingue este "Aplicar filtros" del "Buscar" de la barra de arriba. */}
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <Filter className="w-3 h-3 text-gray-400 shrink-0" aria-hidden="true" />
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Filtros rápidos</span>
+                                </div>
                                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div>
                                         <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
@@ -476,7 +481,7 @@ export default function Computadores({ computers, states, manufacturers, types, 
                                         Aplicar filtros
                                     </Button>
                                 </div>
-                            </div>
+                            </section>
                         )}
 
                         {/* Stats */}
