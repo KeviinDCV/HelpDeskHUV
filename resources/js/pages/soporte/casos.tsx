@@ -338,7 +338,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
      * Junta TODOS los filtros activos en un solo juego de parámetros.
      *
      * La pantalla tiene dos zonas de filtrado —la barra avanzada de arriba y el panel
-     * "Opciones"— y cada acción construía su propia lista a mano. Se olvidaban la de la otra
+     * "Filtros"— y cada acción construía su propia lista a mano. Se olvidaban la de la otra
      * zona, así que aplicar unos borraba los otros en silencio: ponías Categoría y fechas,
      * usabas "Buscar" arriba, y volvías con solo el filtro de arriba puesto.
      *
@@ -353,7 +353,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             page: 1,
         };
 
-        // Panel "Opciones" (filtros básicos)
+        // Panel "Filtros" (filtros básicos)
         if (searchValue) params.search = searchValue;
         if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
         if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
@@ -575,10 +575,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                             size="sm"
                                             onClick={() => setShowFilters(!showFilters)}
                                             className={`h-9 flex-1 sm:flex-initial ${excludeMaintenance ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
-                                            title="Opciones adicionales"
+                                            // El panel que despliega son filtros, no ajustes: llamarlo "Opciones"
+                                            // no decía qué hace. Además el resto del inventario ya usa "Filtros".
+                                            aria-expanded={showFilters}
+                                            title={showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
                                         >
-                                            <Filter className="h-4 w-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">Opciones</span>
+                                            <Filter className="h-4 w-4 sm:mr-1" aria-hidden="true" />
+                                            <span className="hidden sm:inline">Filtros</span>
                                         </Button>
                                         <Button
                                             size="sm"
