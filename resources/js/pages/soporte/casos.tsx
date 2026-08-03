@@ -1,6 +1,6 @@
 import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router, Link } from '@inertiajs/react';
+import { Head, router, Link, usePage } from '@inertiajs/react';
 import {
     Table,
     TableBody,
@@ -10,7 +10,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus, Wrench } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus, Wrench, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
 import AdvancedFilterBar, { FilterRow } from '@/components/AdvancedFilterBar';
@@ -109,6 +109,10 @@ interface TicketsProps {
 }
 
 export default function Casos({ tickets, categories, technicians, filters, auth }: TicketsProps) {
+    // Aviso de exportación rechazada por tamaño. Llega como flash tras el redirect del
+    // servidor: sin este banner el usuario pulsaba "Exportar" y no pasaba absolutamente nada.
+    const exportError = usePage<{ flash?: { export_error?: string } }>().props.flash?.export_error;
+    const [exportErrorVisible, setExportErrorVisible] = React.useState(true);
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
@@ -521,6 +525,23 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 />
 
                 <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
+                    {/* Aviso: la exportación superó el límite de filas */}
+                    {exportError && exportErrorVisible && (
+                        <div role="alert" className="mb-4 border border-amber-300 bg-amber-50 px-3 sm:px-4 py-2 sm:py-3 flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2 text-sm text-amber-900">
+                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                                <span>{exportError}</span>
+                            </div>
+                            <button
+                                onClick={() => setExportErrorVisible(false)}
+                                className="shrink-0 text-amber-700 hover:text-amber-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 rounded-sm"
+                                aria-label="Cerrar aviso"
+                            >
+                                <X className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                        </div>
+                    )}
+
                     {/* Banner de filtro especial */}
                     {filters.filter && (
                         <div className="mb-4 bg-[#2c4370] text-white px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">

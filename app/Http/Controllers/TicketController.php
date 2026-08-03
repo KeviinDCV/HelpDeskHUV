@@ -12,6 +12,53 @@ use App\Models\Notification;
 
 class TicketController extends Controller
 {
+    /** Memoria que se reserva para Laravel, la consulta y el resto de la petición (MB). */
+    private const EXPORT_RESERVA_MB = 64;
+
+    /** Coste de memoria por fila exportada, medido sobre esta base de datos (KB). */
+    private const EXPORT_KB_POR_FILA = 10;
+
+    /**
+     * Cuántas filas caben en una exportación a Excel sin agotar la memoria.
+     *
+     * PhpSpreadsheet no escribe en streaming: construye el libro entero en memoria antes de
+     * guardarlo. Medido aquí, 15.000 filas hacen pico de 138 MB — sobreviven con 256M pero
+     * revientan con 128M. Y la tabla completa (~60.000 casos) pasa de 800 MB, que es lo que
+     * hacía fallar la exportación con un 500 sin explicación.
+     *
+     * Por eso el tope NO es un número fijo: se deriva del memory_limit real del servidor, que
+     * no es el mismo en local que en el cPanel de producción. Si hiciera falta exportar más,
+     * la salida no es subir este número sino un escritor en streaming (openspout), que escribe
+     * fila a fila con memoria constante.
+     */
+    private function exportMaxFilas(): int
+    {
+        $limite = trim((string) ini_get('memory_limit'));
+
+        // Sin límite: se acota igual, porque el navegador y Excel también tienen su techo.
+        if ($limite === '' || $limite === '-1') {
+            return 50000;
+        }
+
+        $unidad = strtolower(substr($limite, -1));
+        $valor = (int) $limite;
+        $mb = match ($unidad) {
+            'g' => $valor * 1024,
+            'm' => $valor,
+            'k' => intdiv($valor, 1024),
+            default => intdiv($valor, 1048576), // bytes
+        };
+
+        $disponibleMb = $mb - self::EXPORT_RESERVA_MB;
+        if ($disponibleMb < 8) {
+            return 1000; // servidor muy justo: mínimo utilizable
+        }
+
+        $filas = intdiv($disponibleMb * 1024, self::EXPORT_KB_POR_FILA);
+
+        return max(1000, min($filas, 50000));
+    }
+
     public function index(Request $request)
     {
         $perPage = min((int) $request->input('per_page', 15), 50000);
@@ -429,7 +476,15 @@ class TicketController extends Controller
         $dateTo = $request->input('date_to', '');
         $specialFilter = $request->input('filter', '');
         $excludeMaintenance = $request->input('exclude_maintenance', '');
+        // El frontend SÍ envía advanced_filters al exportar (casos.tsx → handleExport), pero
+        // este método no lo leía: la exportación ignoraba los filtros avanzados y recorría la
+        // tabla entera. Además de devolver datos que no coinciden con lo que el usuario ve en
+        // pantalla, con ~60.000 tickets eso agota la memoria de PHP y la descarga falla.
+        $advancedFilters = $request->input('advanced_filters', '');
 
+        // Debe coincidir con el mapa de index(): si el usuario ordena la tabla por Categoría y
+        // exporta, con un mapa más corto el campo no se reconocía y el Excel salía ordenado por
+        // ID, en otro orden que el de la pantalla.
         $sortableFields = [
             'id' => 't.id',
             'name' => 't.name',
@@ -438,6 +493,10 @@ class TicketController extends Controller
             'date_mod' => 't.date_mod',
             'status' => 't.status',
             'priority' => 't.priority',
+            'category_name' => 'cat.completename',
+            'requester_name' => 't.id', // subconsulta: no ordenable, se cae a ID como en index()
+            'assigned_name' => 't.id',
+            'item_name' => 't.id',
         ];
 
         if (!array_key_exists($sortField, $sortableFields)) {
@@ -656,6 +715,32 @@ class TicketController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
+        }
+
+        // ─── Filtros avanzados GLPI-style ───────────────────────────────────
+        // Mismo bloque que index(): sin esto la exportación no coincide con la pantalla.
+        if ($advancedFilters) {
+            $parsedFilters = json_decode($advancedFilters, true);
+            if (is_array($parsedFilters) && count($parsedFilters) > 0) {
+                $this->applyAdvancedFilters($query, $parsedFilters);
+            }
+        }
+
+        // Tope de seguridad. PhpSpreadsheet mantiene TODAS las celdas en memoria (~7 KB por
+        // fila, que el escritor XLSX prácticamente duplica al guardar), así que una exportación
+        // sin acotar agota la memoria de PHP y el usuario recibe un 500 sin explicación.
+        // Se cuenta antes de construir nada —count() es barato— y se devuelve un mensaje que
+        // dice qué hacer, en vez de reventar.
+        $maxFilas = $this->exportMaxFilas();
+        $totalFilas = (clone $query)->count();
+        if ($totalFilas > $maxFilas) {
+            return back()->with('export_error', sprintf(
+                'La exportación supera el límite: %s casos coinciden con los filtros y este servidor '
+                . 'admite hasta %s por archivo. Acota el rango de fechas o añade más filtros para '
+                . 'reducir el resultado.',
+                number_format($totalFilas, 0, ',', '.'),
+                number_format($maxFilas, 0, ',', '.')
+            ));
         }
 
         $tickets = $query->orderBy($orderByField, $sortDirection)->get();

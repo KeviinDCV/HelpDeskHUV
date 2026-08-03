@@ -49,6 +49,10 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                // Clave propia para los avisos de exportación. No se reutiliza 'error' porque
+                // el modal de resolver caso ya lo consume en su propia respuesta, y compartir
+                // clave haría que un mensaje apareciera en los dos sitios a la vez.
+                'export_error' => fn () => $request->session()->get('export_error'),
             ],
         ];
     }
