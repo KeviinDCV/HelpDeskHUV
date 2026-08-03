@@ -360,8 +360,22 @@ function isDateOperatorWithPresets(operator: string): boolean {
     return ['es', 'no_es', 'antes', 'despues'].includes(operator);
 }
 
-function isNoValueOperator(operator: string): boolean {
+export function isNoValueOperator(operator: string): boolean {
     return ['vacio', 'no_vacio'].includes(operator);
+}
+
+/**
+ * Filas que realmente filtran algo.
+ *
+ * La barra siempre mantiene al menos una fila, que puede estar sin valor. Serializar esa fila
+ * vacía es peligroso: el backend la traduce a `WHERE columna = ''`, que no coincide con nada y
+ * deja la tabla vacía sin explicar por qué. Las páginas usan esto antes de conservar los
+ * filtros avanzados al aplicar los filtros básicos.
+ */
+export function activeFilterRows(rows: FilterRow[]): FilterRow[] {
+    return rows.filter(
+        (r) => isNoValueOperator(r.operator) || String(r.value ?? '').trim() !== ''
+    );
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────────

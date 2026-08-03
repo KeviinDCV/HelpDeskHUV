@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus, Wrench, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import React from 'react';
-import AdvancedFilterBar, { FilterRow } from '@/components/AdvancedFilterBar';
+import AdvancedFilterBar, { FilterRow, activeFilterRows } from '@/components/AdvancedFilterBar';
 import {
     Dialog,
     DialogContent,
@@ -334,15 +334,26 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         }
     };
 
-    const handleSearch = () => {
+    /**
+     * Junta TODOS los filtros activos en un solo juego de parámetros.
+     *
+     * La pantalla tiene dos zonas de filtrado —la barra avanzada de arriba y el panel
+     * "Opciones"— y cada acción construía su propia lista a mano. Se olvidaban la de la otra
+     * zona, así que aplicar unos borraba los otros en silencio: ponías Categoría y fechas,
+     * usabas "Buscar" arriba, y volvías con solo el filtro de arriba puesto.
+     *
+     * Ahora toda acción parte de aquí y solo sobrescribe lo suyo, así que ninguna puede
+     * descartar lo que el usuario configuró en la otra zona. Mismo patrón que historial.tsx.
+     */
+    const buildParams = (overrides: Record<string, any> = {}): Record<string, any> => {
         const params: Record<string, any> = {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-            page: 1
+            page: 1,
         };
 
-        // Solo agregar parámetros si tienen valor
+        // Panel "Opciones" (filtros básicos)
         if (searchValue) params.search = searchValue;
         if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
         if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
@@ -352,12 +363,31 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (dateTo) params.date_to = dateTo;
         if (excludeMaintenance) params.exclude_maintenance = '1';
 
-        router.get('/soporte/casos', params, {
+        // Filtro especial (el banner azul: sin asignar, mis casos…)
+        if (filters.filter) params.filter = filters.filter;
+
+        // Barra avanzada. Se podan las filas sin valor: el backend las traduciría a
+        // `columna = ''` y devolvería cero resultados sin decir por qué.
+        const avanzados = activeFilterRows(advancedFilters);
+        if (avanzados.length > 0) params.advanced_filters = JSON.stringify(avanzados);
+
+        return { ...params, ...overrides };
+    };
+
+    const go = (params: Record<string, any>) => {
+        // Se descartan las claves en undefined para que un override pueda QUITAR un filtro
+        // (p. ej. "Restablecer" de la barra avanzada) sin depender de cómo serialice Inertia.
+        const limpios = Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+        );
+        router.get('/soporte/casos', limpios, {
             preserveState: false,
             preserveScroll: false,
-            replace: true
+            replace: true,
         });
     };
+
+    const handleSearch = () => go(buildParams());
 
     const handlePerPageChange = (value: string) => {
         // Conserva los filtros activos al cambiar "Mostrar". Los parámetros vacíos que
@@ -368,32 +398,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         });
     };
 
-    const applyFilters = () => {
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            page: 1
-        };
+    const applyFilters = () => go(buildParams());
 
-        // Solo agregar parámetros si tienen valor
-        if (searchValue) params.search = searchValue;
-        if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
-        if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
-        if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
-        if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (excludeMaintenance) params.exclude_maintenance = '1';
-
-        console.log('Applying filters:', params);
-        router.get('/soporte/casos', params, {
-            preserveState: false,
-            preserveScroll: false,
-            replace: true
-        });
-    };
-
+    /** "Limpiar": vacía SOLO el panel de opciones; la barra avanzada se respeta. */
     const clearFilters = () => {
         setStatusFilter('all');
         setPriorityFilter('all');
@@ -404,76 +411,50 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         setSearchValue('');
         setExcludeMaintenance(false);
 
-        router.get('/soporte/casos', {
+        const avanzados = activeFilterRows(advancedFilters);
+        go({
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
-            page: 1
-        }, {
-            preserveState: false,
-            preserveScroll: false,
-            replace: true
+            page: 1,
+            ...(filters.filter ? { filter: filters.filter } : {}),
+            ...(avanzados.length > 0 ? { advanced_filters: JSON.stringify(avanzados) } : {}),
         });
     };
 
     // ─── Búsqueda avanzada GLPI-style ───────────────────────────────────────
 
+    /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel de opciones. */
     const handleAdvancedSearch = (filterRows: FilterRow[]) => {
         setAdvancedFilters(filterRows);
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            page: 1,
-            advanced_filters: JSON.stringify(filterRows),
-        };
-        if (excludeMaintenance) params.exclude_maintenance = '1';
-        if (filters.filter) params.filter = filters.filter;
 
-        router.get('/soporte/casos', params, {
-            preserveState: false,
-            preserveScroll: false,
-            replace: true,
-        });
+        const avanzados = activeFilterRows(filterRows);
+        go(buildParams(
+            avanzados.length > 0
+                ? { advanced_filters: JSON.stringify(avanzados) }
+                : { advanced_filters: undefined }
+        ));
     };
 
+    /** "Restablecer" de la barra avanzada: vacía SOLO sus filas; el panel se respeta. */
     const handleAdvancedReset = () => {
         setAdvancedFilters([]);
-        setStatusFilter('all');
-        setPriorityFilter('all');
-        setCategoryFilter('all');
-        setAssignedFilter('all');
-        setDateFrom('');
-        setDateTo('');
-        setSearchValue('');
-
-        router.get('/soporte/casos', {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-            page: 1,
-            exclude_maintenance: excludeMaintenance ? '1' : undefined,
-        }, {
-            preserveState: false,
-            preserveScroll: false,
-            replace: true,
-        });
+        go(buildParams({ advanced_filters: undefined }));
     };
 
+    /**
+     * Exporta exactamente lo que el usuario tiene filtrado, de las DOS zonas.
+     *
+     * Usa el mismo buildParams() que "Aplicar" y "Buscar", así que el Excel no puede volver a
+     * quedarse a medias: antes leía solo los filtros ya aplicados en el servidor, de modo que
+     * lo que estuviera configurado en el panel sin haber pulsado "Aplicar" no llegaba a la
+     * exportación. `page` y `per_page` no aplican a un export: se descartan.
+     */
     const handleExport = () => {
-        const params = new URLSearchParams();
-        params.append('sort', filters.sort);
-        params.append('direction', filters.direction);
-        if (filters.search) params.append('search', filters.search);
-        if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-        if (filters.priority && filters.priority !== 'all') params.append('priority', filters.priority);
-        if (filters.category && filters.category !== 'all') params.append('category', filters.category);
-        if (filters.assigned && filters.assigned !== 'all') params.append('assigned', filters.assigned);
-        if (filters.date_from) params.append('date_from', filters.date_from);
-        if (filters.date_to) params.append('date_to', filters.date_to);
-        if (filters.filter) params.append('filter', filters.filter);
-        if (filters.exclude_maintenance === '1') params.append('exclude_maintenance', '1');
-        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
+        const { page: _p, per_page: _pp, ...exportables } = buildParams();
+        const params = new URLSearchParams(
+            Object.entries(exportables).map(([k, v]) => [k, String(v)])
+        );
         window.location.href = `/soporte/casos/export?${params}`;
     };
 

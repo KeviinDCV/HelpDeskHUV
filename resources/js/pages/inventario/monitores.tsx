@@ -14,7 +14,7 @@ import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import React from 'react';
-import AdvancedFilterBar, { FilterRow, FieldDef } from '@/components/AdvancedFilterBar';
+import AdvancedFilterBar, { FilterRow, FieldDef, activeFilterRows } from '@/components/AdvancedFilterBar';
 import {
     Select,
     SelectContent,
