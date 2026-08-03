@@ -344,8 +344,11 @@ function makeHelpers(fields: FieldDef[], selectOpts: Record<string, { value: str
         const field = getFieldDef(fieldKey);
         if (!field) return '';
         if (field.type === 'select') {
-            const opts = selectOpts[fieldKey];
-            return opts && opts.length > 0 ? opts[0].value : '';
+            // Vacío a propósito. Antes se autoseleccionaba la PRIMERA opción de la lista, así
+            // que elegir un campo activaba un filtro que el usuario nunca había pedido (p. ej.
+            // escoger "Estado" filtraba por "No resueltos" sin más). La fila queda en blanco y
+            // activeFilterRows() la descarta hasta que se elija un valor de verdad.
+            return '';
         }
         if (field.type === 'date') {
             return 'now';
@@ -386,7 +389,16 @@ export default function AdvancedFilterBar({ initialFilters, onSearch, onReset, f
     const activeFields = fields ?? DEFAULT_FILTER_FIELDS;
     const activeSelectOptions = selectOptions ?? DEFAULT_SELECT_OPTIONS;
     const { getFieldDef, getOperatorsForField, getDefaultOperator, getDefaultValue } = makeHelpers(activeFields, activeSelectOptions);
-    const defaultRow = defaultFirstRow ?? (fields ? { field: fields[0]?.key || '', operator: getDefaultOperator(fields[0]?.key || ''), value: '' } : { field: 'estado', operator: 'es', value: 'not_resolved' });
+    // La fila inicial SIEMPRE nace sin valor. Antes, cuando la página no pasaba `fields`
+    // (el caso de Casos), venía precargada con "Estado es No resueltos": un filtro real que
+    // nadie había pedido y que se colaba en cada búsqueda, dejando la tabla vacía al
+    // combinarlo con los filtros del panel. En blanco, activeFilterRows() la descarta hasta
+    // que el usuario elija un valor.
+    const defaultRow = defaultFirstRow ?? {
+        field: fields ? (fields[0]?.key || '') : 'estado',
+        operator: getDefaultOperator(fields ? (fields[0]?.key || '') : 'estado'),
+        value: '',
+    };
     const [rows, setRows] = useState<FilterRow[]>(() => {
         if (initialFilters && initialFilters.length > 0) {
             // Restaurar el nextId basándose en los filtros existentes
