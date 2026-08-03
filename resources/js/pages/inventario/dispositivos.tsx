@@ -137,8 +137,26 @@ export default function Dispositivos({ peripherals, states, manufacturers, types
         router.get('/inventario/dispositivos', params, { preserveState: false });
     };
 
-    const handleSearch = () => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+    /**
+     * Junta TODOS los filtros activos en un solo juego de parámetros.
+     *
+     * La pantalla tiene dos zonas de filtrado —la barra avanzada de arriba y el panel
+     * "Filtros"— y cada acción construía su propia lista a mano. Se olvidaban la de la otra
+     * zona, así que aplicar unos borraba los otros en silencio: ponías Estado y fechas,
+     * usabas "Buscar" arriba, y volvías con solo el filtro de arriba puesto.
+     *
+     * Ahora toda acción parte de aquí y solo sobrescribe lo suyo, así que ninguna puede
+     * descartar lo que el usuario configuró en la otra zona. Mismo patrón que casos.tsx.
+     */
+    const buildParams = (overrides: Record<string, any> = {}): Record<string, any> => {
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+        };
+
+        // Panel "Filtros" (filtros básicos)
         if (searchValue) params.search = searchValue;
         if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
@@ -146,41 +164,60 @@ export default function Dispositivos({ peripherals, states, manufacturers, types
         if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
-        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-        router.get('/inventario/dispositivos', params, { preserveState: false });
+
+        // Barra avanzada. Se podan las filas sin valor: el backend las traduciría a
+        // `columna = ''` y devolvería cero resultados sin decir por qué.
+        const avanzados = activeFilterRows(advancedFilters);
+        if (avanzados.length > 0) params.advanced_filters = JSON.stringify(avanzados);
+
+        return { ...params, ...overrides };
     };
 
-    const applyFilters = () => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
-        if (searchValue) params.search = searchValue;
-        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-        router.get('/inventario/dispositivos', params, { preserveState: false, replace: true });
+    const go = (params: Record<string, any>) => {
+        // Se descartan las claves en undefined para que un override pueda QUITAR un filtro
+        // (p. ej. "Restablecer" de la barra avanzada) sin depender de cómo serialice Inertia.
+        const limpios = Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+        );
+        router.get('/inventario/dispositivos', limpios, {
+            preserveState: false,
+            preserveScroll: false,
+            replace: true,
+        });
     };
 
+    const handleSearch = () => go(buildParams());
+
+    const applyFilters = () => go(buildParams());
+
+    /** "Limpiar filtros": vacía SOLO el panel de filtros; la barra avanzada se respeta. */
     const clearFilters = () => {
         setStateFilter('all'); setManufacturerFilter('all'); setTypeFilter('all'); setLocationFilter('all');
         setDateFrom(''); setDateTo(''); setSearchValue('');
-        setAdvancedFilters([]);
-        router.get('/inventario/dispositivos', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
+
+        const avanzados = activeFilterRows(advancedFilters);
+        go({
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+            ...(avanzados.length > 0 ? { advanced_filters: JSON.stringify(avanzados) } : {}),
+        });
     };
 
+    /**
+     * Exporta exactamente lo que el usuario tiene filtrado, de las DOS zonas.
+     *
+     * Usa el mismo buildParams() que "Aplicar filtros" y "Buscar", así que el Excel no puede
+     * volver a quedarse a medias: antes leía solo los filtros ya aplicados en el servidor, de
+     * modo que lo configurado en el panel sin haber pulsado "Aplicar filtros" no llegaba a la
+     * exportación. `page` y `per_page` no aplican a un export: se descartan.
+     */
     const handleExport = () => {
-        const params = new URLSearchParams();
-        params.append('sort', filters.sort); params.append('direction', filters.direction);
-        if (filters.search) params.append('search', filters.search);
-        if (filters.state && filters.state !== 'all') params.append('state', filters.state);
-        if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
-        if (filters.type && filters.type !== 'all') params.append('type', filters.type);
-        if (filters.location && filters.location !== 'all') params.append('location', filters.location);
-        if (filters.date_from) params.append('date_from', filters.date_from);
-        if (filters.date_to) params.append('date_to', filters.date_to);
-        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
+        const { page: _p, per_page: _pp, ...exportables } = buildParams();
+        const params = new URLSearchParams(
+            Object.entries(exportables).map(([k, v]) => [k, String(v)])
+        );
         window.location.href = `/inventario/dispositivos/export?${params}`;
     };
 
@@ -205,35 +242,23 @@ export default function Dispositivos({ peripherals, states, manufacturers, types
     };
 
     // ─── Advanced Filter Handlers ────────────────────────────────────
+
+    /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel de filtros. */
     const handleAdvancedSearch = (filterRows: FilterRow[]) => {
         setAdvancedFilters(filterRows);
-        const params: Record<string, any> = {
-            per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1,
-            advanced_filters: JSON.stringify(filterRows),
-        };
-        if (searchValue) params.search = searchValue;
-        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        router.get('/inventario/dispositivos', params, { preserveState: false });
+
+        const avanzados = activeFilterRows(filterRows);
+        go(buildParams(
+            avanzados.length > 0
+                ? { advanced_filters: JSON.stringify(avanzados) }
+                : { advanced_filters: undefined }
+        ));
     };
 
+    /** "Restablecer" de la barra avanzada: vacía SOLO sus filas; el panel se respeta. */
     const handleAdvancedReset = () => {
         setAdvancedFilters([]);
-        const params: Record<string, any> = {
-            per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1,
-        };
-        if (searchValue) params.search = searchValue;
-        if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        router.get('/inventario/dispositivos', params, { preserveState: false });
+        go(buildParams({ advanced_filters: undefined }));
     };
 
     // ─── Peripheral Field Definitions for Advanced Filter ────────────

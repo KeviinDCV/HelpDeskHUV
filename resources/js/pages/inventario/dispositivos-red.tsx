@@ -323,23 +323,10 @@ export default function DispositivosRed({ networkequipments, states, manufacture
                             <button
                                 key={cat.key}
                                 onClick={() => {
+                                    // La categoría se pasa como override porque setDeviceCategory
+                                    // aún no se ha reflejado en el estado que lee buildParams().
                                     setDeviceCategory(cat.key);
-                                    const params: Record<string, any> = {
-                                        per_page: filters.per_page,
-                                        sort: filters.sort,
-                                        direction: filters.direction,
-                                        page: 1,
-                                        device_category: cat.key,
-                                    };
-                                    if (searchValue) params.search = searchValue;
-                                    if (stateFilter && stateFilter !== 'all') params.state = stateFilter;
-                                    if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-                                    if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-                                    if (locationFilter && locationFilter !== 'all') params.location = locationFilter;
-                                    if (dateFrom) params.date_from = dateFrom;
-                                    if (dateTo) params.date_to = dateTo;
-                                    if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-                                    router.get('/inventario/dispositivos-red', params, { preserveState: false });
+                                    go(buildParams({ device_category: cat.key }));
                                 }}
                                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                                     deviceCategory === cat.key

@@ -102,36 +102,84 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         router.get('/inventario/consumibles', params, { preserveState: false });
     };
 
-    const handleSearch = () => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
+    /**
+     * Junta TODOS los filtros activos en un solo juego de parámetros.
+     *
+     * La pantalla tiene dos zonas de filtrado —la barra avanzada de arriba y el panel
+     * "Filtros"— y cada acción construía su propia lista a mano. Se olvidaban la de la otra
+     * zona, así que aplicar unos borraba los otros en silencio: ponías Tipo y Fabricante en el
+     * panel, usabas "Buscar" arriba, y volvías con solo el filtro de arriba puesto.
+     *
+     * Ahora toda acción parte de aquí y solo sobrescribe lo suyo, así que ninguna puede
+     * descartar lo que el usuario configuró en la otra zona. Mismo patrón que casos.tsx.
+     */
+    const buildParams = (overrides: Record<string, any> = {}): Record<string, any> => {
+        const params: Record<string, any> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+        };
+
+        // Panel "Filtros" (básicos)
         if (searchValue) params.search = searchValue;
         if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-        router.get('/inventario/consumibles', params, { preserveState: false });
+
+        // Barra avanzada. Se podan las filas sin valor: el backend las traduciría a
+        // `columna = ''` y devolvería cero resultados sin decir por qué.
+        const avanzados = activeFilterRows(advancedFilters);
+        if (avanzados.length > 0) params.advanced_filters = JSON.stringify(avanzados);
+
+        return { ...params, ...overrides };
     };
 
-    const applyFilters = () => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
-        if (searchValue) params.search = searchValue;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-        router.get('/inventario/consumibles', params, { preserveState: false, replace: true });
+    const go = (params: Record<string, any>) => {
+        // Se descartan las claves en undefined para que un override pueda QUITAR un filtro
+        // (p. ej. "Restablecer" de la barra avanzada) sin depender de cómo serialice Inertia.
+        const limpios = Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+        );
+        router.get('/inventario/consumibles', limpios, {
+            preserveState: false,
+            preserveScroll: false,
+            replace: true,
+        });
     };
 
+    const handleSearch = () => go(buildParams());
+
+    const applyFilters = () => go(buildParams());
+
+    /** "Limpiar filtros": vacía SOLO el panel de filtros; la barra avanzada se respeta. */
     const clearFilters = () => {
-        setTypeFilter('all'); setManufacturerFilter('all'); setSearchValue(''); setAdvancedFilters([]);
-        router.get('/inventario/consumibles', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
+        setTypeFilter('all');
+        setManufacturerFilter('all');
+        setSearchValue('');
+
+        const avanzados = activeFilterRows(advancedFilters);
+        go({
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+            ...(avanzados.length > 0 ? { advanced_filters: JSON.stringify(avanzados) } : {}),
+        });
     };
 
+    /**
+     * Exporta exactamente lo que el usuario tiene filtrado, de las DOS zonas.
+     *
+     * Usa el mismo buildParams() que "Aplicar filtros" y "Buscar", así que el Excel no puede
+     * volver a quedarse a medias: antes leía solo los filtros ya aplicados en el servidor, de
+     * modo que lo configurado en el panel sin haber pulsado "Aplicar" no llegaba a la
+     * exportación. `page` y `per_page` no aplican a un export: se descartan.
+     */
     const handleExport = () => {
-        const params = new URLSearchParams();
-        params.append('sort', filters.sort); params.append('direction', filters.direction);
-        if (filters.search) params.append('search', filters.search);
-        if (filters.type && filters.type !== 'all') params.append('type', filters.type);
-        if (filters.manufacturer && filters.manufacturer !== 'all') params.append('manufacturer', filters.manufacturer);
-        if (filters.advanced_filters) params.append('advanced_filters', filters.advanced_filters);
+        const { page: _p, per_page: _pp, ...exportables } = buildParams();
+        const params = new URLSearchParams(
+            Object.entries(exportables).map(([k, v]) => [k, String(v)])
+        );
         window.location.href = `/inventario/consumibles/export?${params}`;
     };
 
@@ -155,23 +203,22 @@ export default function Consumibles({ consumables, types, manufacturers, filters
         setDeleteModal({ open: false, id: null, name: '' });
     };
 
+    /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel de filtros. */
     const handleAdvancedSearch = (rows: FilterRow[]) => {
         setAdvancedFilters(rows);
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
-        if (searchValue) params.search = searchValue;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        params.advanced_filters = JSON.stringify(rows);
-        router.get('/inventario/consumibles', params, { preserveState: false });
+
+        const avanzados = activeFilterRows(rows);
+        go(buildParams(
+            avanzados.length > 0
+                ? { advanced_filters: JSON.stringify(avanzados) }
+                : { advanced_filters: undefined }
+        ));
     };
 
+    /** "Restablecer" de la barra avanzada: vacía SOLO sus filas; el panel se respeta. */
     const handleAdvancedReset = () => {
         setAdvancedFilters([]);
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
-        if (searchValue) params.search = searchValue;
-        if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
-        if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
-        router.get('/inventario/consumibles', params, { preserveState: false });
+        go(buildParams({ advanced_filters: undefined }));
     };
 
     const CONSUMABLE_FIELDS: FieldDef[] = [
