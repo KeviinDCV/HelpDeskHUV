@@ -1,16 +1,29 @@
-import { DashboardHeader, type DashboardStats } from '@/components/dashboard/dashboard-header';
-import { HuvBuilding } from '@/components/dashboard/huv-building';
-import { QueueSummary } from '@/components/dashboard/queue-summary';
-import { PriorityPill, StatusPill, TicketRow, type DashboardTicket } from '@/components/dashboard/ticket-row';
-import { GLPIFooter } from '@/components/glpi-footer';
 import { GLPIHeader } from '@/components/glpi-header';
+import { DashboardCards } from './dashboard-cards-antes';
+import { GLPIFooter } from '@/components/glpi-footer';
+import { Head, router, usePage } from '@inertiajs/react';
+import { ViewTabs } from './view-tabs-antes';
+import { TicketIcon, UserPlus, Clock, CheckCircle, AlertTriangle, Eye, FileText, MapPin, Tag, User, Loader2, Users, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { stripHtml } from '@/lib/strip-html';
+import { useState, useEffect, useRef } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import gsap from 'gsap';
-import { AlertTriangle, CheckCircle, CheckSquare, ChevronRight, Clock, Loader2, MapPin, RefreshCw, Tag, User, UserPlus, Users } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+
+interface Ticket {
+    id: number;
+    name: string;
+    content: string;
+    date: string;
+    date_creation: string;
+    date_mod?: string;
+    priority: number;
+    priority_name: string;
+    status: number;
+    status_name: string;
+    category_name: string | null;
+}
 
 interface Solution {
     id: number;
@@ -19,7 +32,7 @@ interface Solution {
     solved_by: string | null;
 }
 
-interface TicketDetail extends DashboardTicket {
+interface TicketDetail extends Ticket {
     location_name: string | null;
     assigned_tech: string | null;
     solution: Solution | null;
@@ -30,45 +43,55 @@ interface Technician {
     name: string;
 }
 
+interface Stats {
+    publicUnassigned: number;
+    myTickets: number;
+    myPending: number;
+    myResolved: number;
+}
+
 interface DashboardProps {
-    publicTickets: DashboardTicket[];
-    myTickets: DashboardTicket[];
-    stats: DashboardStats;
+    publicTickets: Ticket[];
+    myTickets: Ticket[];
+    stats: Stats;
     technicians: Technician[];
     auth: { user: { name: string; role: string } };
 }
 
-type Lista = 'publicos' | 'mios';
+const priorityColors: Record<number, string> = {
+    1: 'bg-gray-100 text-gray-600',
+    2: 'bg-blue-100 text-blue-600',
+    3: 'bg-yellow-100 text-yellow-700',
+    4: 'bg-orange-100 text-orange-600',
+    5: 'bg-red-100 text-red-600',
+    6: 'bg-red-200 text-red-700',
+};
 
-const reducirMovimiento = () =>
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-function actualizadoHace(desde: number, ahora: number): string {
-    const s = Math.round((ahora - desde) / 1000);
-    if (s < 60) return 'hace un momento';
-    const min = Math.floor(s / 60);
-    return min === 1 ? 'hace 1 min' : `hace ${min} min`;
-}
+const statusColors: Record<number, string> = {
+    1: 'bg-blue-100 text-blue-700',
+    2: 'bg-yellow-100 text-yellow-700',
+    3: 'bg-purple-100 text-purple-700',
+    4: 'bg-orange-100 text-orange-700',
+    5: 'bg-green-100 text-green-700',
+    6: 'bg-gray-100 text-gray-600',
+};
 
 export default function Dashboard({ publicTickets: initialPublicTickets, myTickets: initialMyTickets, stats: initialStats, technicians, auth }: DashboardProps) {
     const { props } = usePage<{ flash?: { success?: string; error?: string } }>();
-    const [lista, setLista] = useState<Lista>('publicos');
+    const [activeTab, setActiveTab] = useState('Reportes Públicos');
     const [taking, setTaking] = useState<number | null>(null);
-    const listaRef = useRef<HTMLDivElement>(null);
-
+    const contentRef = useRef<HTMLDivElement>(null);
+    const previousTabRef = useRef('Reportes Públicos');
+    
     // Estados para datos actualizables
     const [publicTickets, setPublicTickets] = useState(initialPublicTickets);
     const [myTickets, setMyTickets] = useState(initialMyTickets);
     const [stats, setStats] = useState(initialStats);
     const [isRefreshing, setIsRefreshing] = useState(false);
-
-    // Reloj para los tiempos relativos ("hace 12 min") y el sello de la última actualización.
-    const [ahora, setAhora] = useState(() => Date.now());
-    const [actualizado, setActualizado] = useState(() => Date.now());
-
+    
     // Modal de detalles
     const [detailModal, setDetailModal] = useState<{ open: boolean; ticket: TicketDetail | null; loading: boolean }>({ open: false, ticket: null, loading: false });
-
+    
     // Modal de asignación
     const [assignModal, setAssignModal] = useState<{ open: boolean; ticketId: number | null; ticketName: string }>({ open: false, ticketId: null, ticketName: '' });
     const [selectedTech, setSelectedTech] = useState('');
@@ -86,7 +109,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const fetchTickets = async () => {
         // No hacer fetch si la página no está visible
         if (document.visibilityState !== 'visible') return;
-
+        
         setIsRefreshing(true);
         try {
             const response = await fetch('/dashboard/tickets');
@@ -95,8 +118,6 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                 setPublicTickets(data.publicTickets);
                 setMyTickets(data.myTickets);
                 setStats(data.stats);
-                setActualizado(Date.now());
-                setAhora(Date.now());
             }
         } catch (error) {
             // Silenciar errores de conexión cuando la página está en segundo plano
@@ -144,11 +165,6 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
         };
     }, []);
 
-    useEffect(() => {
-        const id = setInterval(() => setAhora(Date.now()), 30_000);
-        return () => clearInterval(id);
-    }, []);
-
     const openDetailModal = async (ticketId: number) => {
         setDetailModal({ open: true, ticket: null, loading: true });
         try {
@@ -157,7 +173,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                 const data = await response.json();
                 setDetailModal({ open: true, ticket: data, loading: false });
             }
-        } catch {
+        } catch (error) {
             setDetailModal({ open: false, ticket: null, loading: false });
         }
     };
@@ -197,7 +213,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
     const solveTicket = () => {
         if (!solveModal.ticketId || !solution.trim()) return;
         setSolving(true);
-        router.post(`/dashboard/solve-ticket/${solveModal.ticketId}`, {
+        router.post(`/dashboard/solve-ticket/${solveModal.ticketId}`, { 
             solution: solution.trim(),
             solve_date: solveDate || undefined
         }, {
@@ -223,36 +239,43 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
         });
     };
 
-    // Cambio de lista: la actual se desvanece y las filas nuevas entran escalonadas. Antes la
-    // tarjeta entera se deslizaba 100 px de lado a lado; con esto el cambio se nota sin marear.
-    const cambiarLista = (nueva: Lista) => {
-        if (nueva === lista) return;
-        if (!listaRef.current || reducirMovimiento()) {
-            setLista(nueva);
-            return;
-        }
-        gsap.to(listaRef.current, { opacity: 0, y: 4, duration: 0.12, ease: 'power1.in', onComplete: () => setLista(nueva) });
+    // Handle tab change with GSAP animation
+    const handleTabChange = (newTab: string) => {
+        if (newTab === activeTab || !contentRef.current) return;
+        
+        const isMovingRight = 
+            (previousTabRef.current === 'Reportes Públicos' && newTab === 'Mis Reportes');
+        
+        // Animate out current content
+        gsap.to(contentRef.current, {
+            x: isMovingRight ? -100 : 100,
+            opacity: 0,
+            duration: 0.3,
+            ease: 'power2.inOut',
+            onComplete: () => {
+                // Change tab
+                setActiveTab(newTab);
+                previousTabRef.current = newTab;
+                
+                // Set initial position for incoming content
+                gsap.set(contentRef.current, {
+                    x: isMovingRight ? 100 : -100,
+                    opacity: 0
+                });
+                
+                // Animate in new content
+                gsap.to(contentRef.current, {
+                    x: 0,
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: 'power2.inOut'
+                });
+            }
+        });
     };
 
-    useLayoutEffect(() => {
-        const el = listaRef.current;
-        if (!el) return;
-        gsap.set(el, { opacity: 1, y: 0 });
-        if (reducirMovimiento()) return;
-        gsap.fromTo(
-            el.querySelectorAll(':scope > ul > li, :scope > [data-vacio]'),
-            { opacity: 0, y: 6 },
-            { opacity: 1, y: 0, duration: 0.24, stagger: 0.03, ease: 'power2.out', clearProps: 'opacity,transform' },
-        );
-    }, [lista]);
-
-    const vistaPublica = lista === 'publicos';
-    const currentTickets = vistaPublica ? publicTickets : myTickets;
-
-    const pestanas: { id: Lista; nombre: string; total: number }[] = [
-        { id: 'publicos', nombre: 'Reportes públicos', total: stats.publicUnassigned },
-        { id: 'mios', nombre: 'Mis reportes', total: stats.myPending },
-    ];
+    const currentTickets = activeTab === 'Reportes Públicos' ? publicTickets : myTickets;
+    const isPublicView = activeTab === 'Reportes Públicos';
 
     return (
         <>
@@ -260,130 +283,153 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
             <div className="min-h-screen flex flex-col">
                 <GLPIHeader />
                 <main className="flex-1 bg-gray-50">
-                    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8">
-                        {/* Flash Messages */}
-                        {props.flash?.success && (
-                            <div role="status" className="flex items-center gap-3 rounded-xl bg-green-50 px-4 py-3 ring-1 ring-inset ring-green-600/20">
-                                <CheckCircle className="size-5 shrink-0 text-green-700" aria-hidden="true" />
-                                <span className="text-sm text-green-800">{props.flash.success}</span>
-                            </div>
-                        )}
-                        {props.flash?.error && (
-                            <div role="alert" className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 ring-1 ring-inset ring-red-600/20">
-                                <AlertTriangle className="size-5 shrink-0 text-red-700" aria-hidden="true" />
-                                <span className="text-sm text-red-800">{props.flash.error}</span>
-                            </div>
-                        )}
+                    <ViewTabs 
+                        activeTab={activeTab} 
+                        onTabChange={handleTabChange}
+                        publicCount={stats.publicUnassigned}
+                        myCount={stats.myTickets}
+                    />
+                    
+                    {/* Flash Messages */}
+                    {props.flash?.success && (
+                        <div className="mx-3 sm:mx-6 mt-4 bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                            <span className="text-green-700 text-sm sm:text-base">{props.flash.success}</span>
+                        </div>
+                    )}
+                    {props.flash?.error && (
+                        <div className="mx-3 sm:mx-6 mt-4 bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+                            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                            <span className="text-red-700 text-sm sm:text-base">{props.flash.error}</span>
+                        </div>
+                    )}
 
-                        <DashboardHeader stats={stats} />
-
-                        <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
-                            <section aria-labelledby="lista-titulo" className="surface-card overflow-hidden">
-                                <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-                                    <div className="min-w-0">
-                                        <h2 id="lista-titulo" className="sr-only">
-                                            {vistaPublica ? 'Reportes públicos' : 'Mis reportes'}
-                                        </h2>
-                                        {/* aria-pressed y no role="tab": filtran una lista en la misma página,
-                                            no conmutan paneles. */}
-                                        <div role="group" aria-label="Lista de casos" className="inline-flex w-full rounded-xl bg-gray-100 p-1 sm:w-auto">
-                                            {pestanas.map((p) => {
-                                                const activa = lista === p.id;
-                                                return (
-                                                    <button
-                                                        key={p.id}
-                                                        type="button"
-                                                        aria-pressed={activa}
-                                                        onClick={() => cambiarLista(p.id)}
-                                                        className={`focus-ring inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm ${
-                                                            activa ? 'elev-1 bg-[#fff] text-gray-900 dark:bg-white/10' : 'text-gray-500 hover:text-gray-900'
-                                                        }`}
-                                                    >
-                                                        {p.nombre}
-                                                        <span
-                                                            aria-hidden="true"
-                                                            className={`min-w-5 rounded-full px-1.5 text-[11px] font-semibold leading-5 tabular-nums ${
-                                                                activa ? 'bg-huv text-white' : 'bg-gray-200 text-gray-600'
-                                                            }`}
-                                                        >
-                                                            {p.total}
-                                                        </span>
-                                                        <span className="sr-only">({p.total} {p.total === 1 ? 'caso' : 'casos'})</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="mt-2 text-xs text-gray-500">
-                                            {vistaPublica
-                                                ? 'Llegan del portal de reportes y aún no tienen técnico. Ordenados por prioridad.'
-                                                : 'Asignados a ti y todavía sin resolver. Ordenados por prioridad.'}
+                    {/* Main Layout - Stack on mobile, side by side on desktop */}
+                    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4">
+                        {/* Main Content */}
+                        <div className="flex-1 min-w-0">
+                            <div ref={contentRef} className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden" style={{ willChange: 'transform' }}>
+                                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                                        {isPublicView ? (
+                                            <TicketIcon className="w-5 h-5 text-[#2c4370] shrink-0" />
+                                        ) : (
+                                            <FileText className="w-5 h-5 text-[#2c4370] shrink-0" />
+                                        )}
+                                        <h1 className="text-base sm:text-lg font-semibold text-gray-800">
+                                            {isPublicView ? 'Reportes Públicos' : 'Mis Reportes'}
+                                        </h1>
+                                        <span className={`text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full ${
+                                            isPublicView ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {isPublicView ? `${stats.publicUnassigned} pendientes` : `${stats.myTickets} activos`}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {currentTickets.length === 0 ? (
+                                    <div className="p-8 sm:p-12 text-center">
+                                        <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
+                                        <p className="text-gray-500 text-sm sm:text-base">
+                                            {isPublicView 
+                                                ? 'No hay reportes públicos pendientes' 
+                                                : 'No tienes reportes abiertos'}
                                         </p>
                                     </div>
-
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 sm:pt-1.5">
-                                        <span className="relative flex size-2" aria-hidden="true">
-                                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-400 opacity-60 motion-reduce:hidden" />
-                                            <span className="relative inline-flex size-2 rounded-full bg-green-500" />
-                                        </span>
-                                        <span>Actualizado {actualizadoHace(actualizado, ahora)}</span>
-                                        <button
-                                            type="button"
-                                            onClick={fetchTickets}
-                                            disabled={isRefreshing}
-                                            aria-label="Actualizar la lista ahora"
-                                            title="Actualizar ahora"
-                                            className="focus-ring inline-flex size-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60"
-                                        >
-                                            <RefreshCw className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
-                                        </button>
+                                ) : (
+                                    <div className="divide-y max-h-[500px] overflow-y-auto">
+                                        {currentTickets.map((ticket) => (
+                                            <div key={ticket.id} className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
+                                                            <span className="text-xs text-gray-400">#{ticket.id}</span>
+                                                            <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded-full ${priorityColors[ticket.priority]}`}>
+                                                                {ticket.priority_name}
+                                                            </span>
+                                                            {!isPublicView && (
+                                                                <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded-full ${statusColors[ticket.status]}`}>
+                                                                    {ticket.status_name}
+                                                                </span>
+                                                            )}
+                                                            {ticket.category_name && (
+                                                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 sm:px-2 py-0.5 rounded-full hidden sm:inline">
+                                                                    {ticket.category_name}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {/* h2, no h3: el h1 de la sección es "Reportes Públicos" y cada caso cuelga
+                                                            directamente de él. El salto h1→h3 rompía la navegación por encabezados,
+                                                            que es como un lector de pantalla recorre la lista. El estilo no cambia:
+                                                            lo fija la clase, no la etiqueta. */}
+                                                        <h2 className="font-medium text-gray-900 text-sm sm:text-base line-clamp-2 sm:truncate">{ticket.name}</h2>
+                                                        <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2 hidden sm:block">
+                                                            {stripHtml(ticket.content).substring(0, 150)}...
+                                                        </p>
+                                                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                                            <span className="flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" />
+                                                                {new Date(ticket.date_creation).toLocaleDateString('es-CO', { 
+                                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+                                                                })}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {/* Action Buttons - Responsive */}
+                                                    <div className="flex gap-1.5 sm:gap-2 shrink-0">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-xs sm:text-sm px-2 sm:px-3"
+                                                            onClick={() => openDetailModal(ticket.id)}
+                                                        >
+                                                            <Eye className="w-4 h-4 sm:mr-1" />
+                                                            <span className="hidden sm:inline">Ver</span>
+                                                        </Button>
+                                                        {isPublicView ? (
+                                                            <>
+                                                                <Button
+                                                                    onClick={() => takeTicket(ticket.id)}
+                                                                    disabled={taking === ticket.id}
+                                                                    size="sm"
+                                                                    className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-xs sm:text-sm px-2 sm:px-3"
+                                                                >
+                                                                    <UserPlus className="w-4 h-4 sm:mr-1" />
+                                                                    <span className="hidden sm:inline">{taking === ticket.id ? 'Tomando...' : 'Tomar'}</span>
+                                                                </Button>
+                                                                {isAdmin && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white text-xs sm:text-sm px-2 sm:px-3"
+                                                                        onClick={() => openAssignModal(ticket.id, ticket.name)}
+                                                                    >
+                                                                        <Users className="w-4 h-4 sm:mr-1" />
+                                                                        <span className="hidden sm:inline">Asignar</span>
+                                                                    </Button>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            /* Mis Reportes - Botón Resolver */
+                                                            <Button
+                                                                onClick={() => openSolveModal(ticket.id, ticket.name)}
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm px-2 sm:px-3"
+                                                            >
+                                                                <CheckSquare className="w-4 h-4 sm:mr-1" />
+                                                                <span className="hidden sm:inline">Resolver</span>
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
-
-                                <div ref={listaRef}>
-                                    {currentTickets.length === 0 ? (
-                                        <div data-vacio className="px-6 py-14 text-center">
-                                            <HuvBuilding className="mx-auto h-24 w-auto text-huv-ink opacity-30" />
-                                            <h3 className="mt-5 text-base font-semibold text-gray-900">
-                                                {vistaPublica ? 'Todo al día' : 'No tienes casos abiertos'}
-                                            </h3>
-                                            <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">
-                                                {vistaPublica
-                                                    ? 'No hay reportes públicos esperando técnico. Esta lista se actualiza sola cada 30 segundos.'
-                                                    : 'Cuando tomes un reporte o te asignen un caso, aparecerá aquí.'}
-                                            </p>
-                                            <Link
-                                                href="/soporte/casos"
-                                                className="focus-ring mt-5 inline-flex h-9 items-center gap-1 rounded-lg px-3.5 text-sm font-medium text-huv-ink ring-1 ring-inset ring-gray-300 transition-colors hover:bg-gray-50 dark:ring-white/15"
-                                            >
-                                                Ver todos los casos
-                                                <ChevronRight className="size-4" aria-hidden="true" />
-                                            </Link>
-                                        </div>
-                                    ) : (
-                                        <ul className="divide-y">
-                                            {currentTickets.map((ticket) => (
-                                                <TicketRow
-                                                    key={ticket.id}
-                                                    ticket={ticket}
-                                                    vistaPublica={vistaPublica}
-                                                    esAdmin={isAdmin}
-                                                    tomando={taking === ticket.id}
-                                                    ahora={ahora}
-                                                    onVer={() => openDetailModal(ticket.id)}
-                                                    onTomar={() => takeTicket(ticket.id)}
-                                                    onAsignar={() => openAssignModal(ticket.id, ticket.name)}
-                                                    onResolver={() => openSolveModal(ticket.id, ticket.name)}
-                                                />
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                            </section>
-
-                            <aside aria-label="Resumen y accesos" className="lg:sticky lg:top-28">
-                                <QueueSummary tickets={currentTickets} vistaPublica={vistaPublica} ahora={ahora} onVer={openDetailModal} />
-                            </aside>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Right Sidebar */}
+                        <DashboardCards stats={stats} />
                     </div>
                 </main>
                 <GLPIFooter />
@@ -402,14 +448,18 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                     </DialogHeader>
                     {detailModal.loading ? (
                         <div className="p-12 flex items-center justify-center">
-                            <Loader2 className="w-8 h-8 animate-spin text-huv-ink" aria-hidden="true" />
+                            <Loader2 className="w-8 h-8 animate-spin text-[#2c4370]" aria-hidden="true" />
                         </div>
                     ) : detailModal.ticket && (
                         <div className="p-4 space-y-4 overflow-y-auto">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm tabular-nums text-gray-500">#{detailModal.ticket.id}</span>
-                                <PriorityPill priority={detailModal.ticket.priority} name={detailModal.ticket.priority_name} />
-                                <StatusPill status={detailModal.ticket.status} name={detailModal.ticket.status_name} />
+                                <span className="text-sm text-gray-500">#{detailModal.ticket.id}</span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${priorityColors[detailModal.ticket.priority]}`}>
+                                    {detailModal.ticket.priority_name}
+                                </span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[detailModal.ticket.status]}`}>
+                                    {detailModal.ticket.status_name}
+                                </span>
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900">{detailModal.ticket.name}</h3>
 
@@ -460,28 +510,27 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                             )}
 
                             <div className="flex justify-end gap-2 pt-4 border-t">
-                                <Button variant="outline" className="rounded-lg" onClick={() => setDetailModal({ open: false, ticket: null, loading: false })}>
+                                <Button variant="outline" onClick={() => setDetailModal({ open: false, ticket: null, loading: false })}>
                                     Cerrar
                                 </Button>
                                 {detailModal.ticket.status === 1 && (
                                     <>
+                                        <Button
+                                            onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); takeTicket(detailModal.ticket!.id); }}
+                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
+                                        >
+                                            <UserPlus className="w-4 h-4 mr-1" aria-hidden="true" />
+                                            Tomar
+                                        </Button>
                                         {isAdmin && (
                                             <Button
-                                                variant="outline"
-                                                className="rounded-lg"
+                                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
                                                 onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); openAssignModal(detailModal.ticket!.id, detailModal.ticket!.name); }}
                                             >
                                                 <Users className="w-4 h-4 mr-1" aria-hidden="true" />
                                                 Asignar
                                             </Button>
                                         )}
-                                        <Button
-                                            onClick={() => { setDetailModal({ open: false, ticket: null, loading: false }); takeTicket(detailModal.ticket!.id); }}
-                                            className="rounded-lg bg-huv hover:bg-huv-hover text-white"
-                                        >
-                                            <UserPlus className="w-4 h-4 mr-1" aria-hidden="true" />
-                                            Tomar
-                                        </Button>
                                     </>
                                 )}
                             </div>
@@ -522,13 +571,13 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                         </Select>
                     </div>
                     <div className="flex justify-end gap-2 p-4 border-t">
-                        <Button variant="outline" className="rounded-lg" onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })}>
+                        <Button variant="outline" onClick={() => setAssignModal({ open: false, ticketId: null, ticketName: '' })}>
                             Cancelar
                         </Button>
                         <Button
                             onClick={assignTicket}
                             disabled={!selectedTech || assigning}
-                            className="rounded-lg bg-huv hover:bg-huv-hover text-white"
+                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
                         >
                             {assigning ? (
                                 <>
@@ -597,13 +646,13 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                         </div>
                     </div>
                     <div className="flex justify-end gap-2 p-4 border-t">
-                        <Button variant="outline" className="rounded-lg" onClick={() => { setSolveModal({ open: false, ticketId: null, ticketName: '' }); setSolveDate(''); }}>
+                        <Button variant="outline" onClick={() => { setSolveModal({ open: false, ticketId: null, ticketName: '' }); setSolveDate(''); }}>
                             Cancelar
                         </Button>
                         <Button
                             onClick={solveTicket}
                             disabled={!solution.trim() || solving}
-                            className="rounded-lg bg-green-700 hover:bg-green-800 text-white"
+                            className="bg-green-600 hover:bg-green-700 text-white"
                         >
                             {solving ? (
                                 <>

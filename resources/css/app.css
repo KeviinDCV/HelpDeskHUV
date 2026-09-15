@@ -110,6 +110,39 @@
     --sidebar-ring: oklch(0.94 0 0);
 }
 
+/* ── Marca HUV ────────────────────────────────────────────────────────────────────────────
+   El navy institucional como token, con su propia variante oscura. Hasta ahora #2c4370 está
+   escrito a mano en cada archivo, y en modo oscuro se queda igual: un botón navy sobre una
+   tarjeta #141414 apenas se separa de ella (1.9:1). En oscuro, huv sube a 3.3:1.
+
+   (Los overrides `.dark .bg-\[\\#2c4370\]` de más abajo no cambian esto: la doble barra los
+   vuelve selectores inválidos y el navegador los descarta. Por eso el encabezado sigue navy
+   en modo oscuro.)
+
+   huv       fondo sólido (botones, acentos)   blanco encima: 9.8:1 claro, 5.6:1 oscuro
+   huv-ink   texto e iconos de acento          8.8:1 sobre #141414 en oscuro
+   huv-soft  tinte suave (pozos de icono, chips) */
+@theme {
+    --color-huv: var(--huv);
+    --color-huv-hover: var(--huv-hover);
+    --color-huv-ink: var(--huv-ink);
+    --color-huv-soft: var(--huv-soft);
+}
+
+:root {
+    --huv: #2c4370;
+    --huv-hover: #3d5583;
+    --huv-ink: #2c4370;
+    --huv-soft: #eef2f8;
+}
+
+.dark {
+    --huv: #4466aa;
+    --huv-hover: #4d70b3;
+    --huv-ink: #93b4ec;
+    --huv-soft: rgb(147 180 236 / 0.12);
+}
+
 /* Tema oscuro - Variables CSS (negro elegante) */
 .dark {
     --background: #09090b;
@@ -809,4 +842,42 @@ html.dark {
    obvia del tour era prácticamente invisible para quien tiene baja visión. Ahora 10.7:1. */
 .driver-popover-close-btn {
     color: #2d3e5e !important;
+}
+
+/* ── Superficies del rediseño ─────────────────────────────────────────────────────────────
+   Utilidades propias en vez de `bg-white shadow-sm rounded-2xl`: esa combinación la captura
+   `.dark [class*="rounded"][class*="shadow"]` y la aplana. Estos nombres no contienen
+   "shadow" ni coinciden con ningún override, así que el modo oscuro es el que se define aquí. */
+@utility surface-card {
+    background-color: #fff;
+    border-radius: 1rem;
+    box-shadow:
+        0 0 0 1px rgb(15 23 42 / 0.06),
+        0 1px 2px rgb(15 23 42 / 0.04),
+        0 6px 16px -8px rgb(15 23 42 / 0.08);
+}
+
+.dark .surface-card {
+    background-color: #141414;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.07);
+}
+
+/* Elevación leve para piezas pequeñas (la pestaña activa). Mismo motivo que surface-card:
+   una clase `shadow-*` junto a `rounded-*` la reescribe el override de modo oscuro. */
+@utility elev-1 {
+    box-shadow:
+        0 0 0 1px rgb(15 23 42 / 0.06),
+        0 1px 2px rgb(15 23 42 / 0.08);
+}
+
+.dark .elev-1 {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+/* Foco visible en el color de marca (en oscuro, el azul claro de huv-ink). */
+@utility focus-ring {
+    &:focus-visible {
+        outline: 2px solid var(--huv-ink);
+        outline-offset: 2px;
+    }
 }
