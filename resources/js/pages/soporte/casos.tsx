@@ -1,5 +1,6 @@
 import AdvancedFilterBar, { FilterRow, activeFilterRows } from '@/components/AdvancedFilterBar';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { ResolverCasoDialog } from '@/components/resolver-caso-dialog';
 import {
     DataTableEmpty,
     DateTimeCell,
@@ -123,13 +124,6 @@ const FILTRO_ESPECIAL: Record<string, string> = {
     my_resolved: 'Resueltos',
 };
 
-/** Fecha y hora local en el formato de <input type="datetime-local"> ("2026-09-15T10:32"). */
-function ahoraLocal(): string {
-    const now = new Date();
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}`;
-}
-
 export default function Casos({ tickets, categories, technicians, filters, auth }: TicketsProps) {
     // Aviso de exportación rechazada por tamaño. Llega como flash tras el redirect del
     // servidor: sin este banner el usuario pulsaba "Exportar" y no pasaba absolutamente nada.
@@ -143,13 +137,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [loadingSolution, setLoadingSolution] = React.useState(false);
     const [showFilters, setShowFilters] = React.useState(false);
 
-    // Estados para resolver caso
+    // Caso que se está resolviendo (el modal es components/resolver-caso-dialog)
     const [ticketToSolve, setTicketToSolve] = React.useState<Ticket | null>(null);
-    const [solution, setSolution] = React.useState('');
-    const [solveDate, setSolveDate] = React.useState('');
-    const [solving, setSolving] = React.useState(false);
-    const [solveError, setSolveError] = React.useState<string | null>(null);
-    const [solutionError, setSolutionError] = React.useState<string | null>(null);
     // El error que el servidor devolvió al resolver ya se muestra en el modal: la página no lo repite.
     const [errorDelModal, setErrorDelModal] = React.useState<string | null>(null);
 
@@ -338,59 +327,6 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 setLoadingSolution(false);
             }
         }
-    };
-
-    const openSolveDialog = (ticket: Ticket) => {
-        setTicketToSolve(ticket);
-        setSolution('');
-        setSolveError(null);
-        setSolutionError(null);
-        // Por defecto, la fecha y hora actual en zona horaria local
-        setSolveDate(ahoraLocal());
-    };
-
-    const closeSolveDialog = () => {
-        setTicketToSolve(null);
-        setSolution('');
-        setSolveDate('');
-    };
-
-    const confirmSolve = () => {
-        if (!ticketToSolve || !solution.trim()) {
-            setSolutionError('Debe ingresar una descripción de la solución.');
-            return;
-        }
-        setSolutionError(null);
-
-        // Validar fecha antes de enviar
-        if (solveDate && ticketToSolve.date && new Date(solveDate) < new Date(ticketToSolve.date.replace(' ', 'T'))) {
-            setSolveError('La fecha de solución no puede ser anterior a la fecha de creación del caso.');
-            return;
-        }
-
-        setSolving(true);
-        setSolveError(null);
-
-        router.post(
-            `/dashboard/solve-ticket/${ticketToSolve.id}`,
-            { solution: solution.trim(), solve_date: solveDate ? solveDate.replace('T', ' ') + ':00' : null },
-            {
-                preserveState: true,
-                onSuccess: (page) => {
-                    const error = (page.props as { flash?: { error?: string } }).flash?.error;
-                    if (error) {
-                        setSolveError(error);
-                        setErrorDelModal(error);
-                        return;
-                    }
-                    closeSolveDialog();
-                },
-                onError: (errors) => {
-                    setSolveError(Object.values(errors).join(', ') || 'Error al resolver');
-                },
-                onFinish: () => setSolving(false),
-            },
-        );
     };
 
     const confirmDelete = () => {
@@ -679,7 +615,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                             {canResolve(ticket) && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => openSolveDialog(ticket)}
+                                                                    onClick={() => setTicketToSolve(ticket)}
                                                                     aria-label={`Resolver caso #${ticket.id}`}
                                                                     title="Resolver"
                                                                     className={cn(btn.ghost, 'size-7 px-0 text-green-700 hover:bg-green-50 hover:text-green-800')}
@@ -810,7 +746,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         onClick={() => {
                                             const t = ticketToView;
                                             setTicketToView(null);
-                                            openSolveDialog(t);
+                                            setTicketToSolve(t);
                                         }}
                                         className={cn(btn.primary, 'bg-green-700 hover:bg-green-800')}
                                     >
@@ -830,83 +766,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                 </DialogContent>
             </Dialog>
 
-            {/* Modal de Resolver Caso */}
-            <Dialog open={!!ticketToSolve} onOpenChange={(abierto) => !abierto && !solving && closeSolveDialog()}>
-                <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[520px]">
-                    <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
-                        <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-                            <CheckSquare className="size-5 text-green-700" aria-hidden="true" />
-                            Resolver caso
-                        </DialogTitle>
-                        <DialogDescription className="text-sm text-gray-500">
-                            #{ticketToSolve?.id} · {ticketToSolve?.name}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-5 px-6 py-5">
-                        {solveError && (
-                            <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/20">
-                                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                                {solveError}
-                            </p>
-                        )}
-                        <div>
-                            <label htmlFor="solve-solution" className="text-sm font-medium text-gray-700">
-                                Descripción de la solución <span className="text-red-600">*</span>
-                            </label>
-                            <textarea
-                                id="solve-solution"
-                                value={solution}
-                                onChange={(e) => {
-                                    setSolution(e.target.value);
-                                    if (solutionError) setSolutionError(null);
-                                }}
-                                placeholder="Describe cómo se resolvió el problema…"
-                                aria-invalid={solutionError ? true : undefined}
-                                aria-describedby={solutionError ? 'solve-solution-error' : undefined}
-                                className={cn(fieldClass, 'mt-1.5 h-auto min-h-[120px] py-2')}
-                                autoFocus
-                            />
-                            {solutionError && (
-                                <p id="solve-solution-error" role="alert" className="mt-1.5 text-sm text-red-600">
-                                    {solutionError}
-                                </p>
-                            )}
-                        </div>
-                        <div>
-                            <label htmlFor="solve-date" className="text-sm font-medium text-gray-700">
-                                Fecha y hora de solución
-                            </label>
-                            <input
-                                id="solve-date"
-                                type="datetime-local"
-                                value={solveDate}
-                                onChange={(e) => setSolveDate(e.target.value)}
-                                aria-describedby="solve-date-hint"
-                                className={cn(fieldClass, 'mt-1.5')}
-                            />
-                            <p id="solve-date-hint" className="mt-1.5 text-xs text-gray-500">
-                                Por defecto, ahora. Cámbiala si la solución fue en otro momento.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
-                        <button type="button" onClick={closeSolveDialog} disabled={solving} className={btn.secondary}>
-                            Cancelar
-                        </button>
-                        <button
-                            type="button"
-                            onClick={confirmSolve}
-                            disabled={!solution.trim() || solving}
-                            className={cn(btn.primary, 'bg-green-700 hover:bg-green-800')}
-                        >
-                            {solving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckSquare aria-hidden="true" />}
-                            {solving ? 'Resolviendo…' : 'Resolver'}
-                        </button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <ResolverCasoDialog caso={ticketToSolve} onClose={() => setTicketToSolve(null)} onServerError={setErrorDelModal} />
         </>
     );
 }

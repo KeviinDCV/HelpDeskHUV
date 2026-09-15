@@ -1,0 +1,10 @@
+# Archivos subidos por usuarios (adjuntos de casos, fotos de perfil): se sirven, nunca se
+# ejecutan ni se interpretan como página del sitio. La validación de TicketController ya
+# rechaza estos tipos; esto cubre además lo que se haya subido antes de esa validación.
+<FilesMatch "(?i)\.(php[0-9]?|phtml|pht|phar|phps|cgi|pl|py|sh|asp|aspx|jsp|shtml|html?|xhtml|svgz?|js|mjs)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>

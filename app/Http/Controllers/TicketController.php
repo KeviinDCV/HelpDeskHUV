@@ -59,6 +59,77 @@ class TicketController extends Controller
         return max(1000, min($filas, 50000));
     }
 
+    /**
+     * Tipos de archivo que se aceptan como adjunto de un caso.
+     *
+     * Los adjuntos van al disco `public`, que el servidor web sirve tal cual. Antes solo se
+     * validaba el tamaño: un .php subido como adjunto quedaba en /storage/... y Apache lo
+     * ejecutaba (la propia vista del caso mostraba la URL). Con lista blanca, además, la regla
+     * `mimes` de Laravel rechaza cualquier archivo con extensión PHP aunque el contenido
+     * parezca una imagen.
+     */
+    private const ADJUNTOS_PERMITIDOS = 'jpg,jpeg,png,gif,webp,bmp,heic,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,rtf,txt,csv,log,zip,rar,7z,msg,eml,mp4,mov,webm';
+
+    /**
+     * Guarda un adjunto con un prefijo aleatorio y el nombre original legible
+     * ("hK2vQ9xP4mTz7LwR_captura-servinte.png"). Antes se guardaba solo con un hash de 40
+     * caracteres, y la vista del caso listaba nombres como "a8f7d9…c2.png".
+     * El prefijo de 16 caracteres mantiene la URL imposible de adivinar.
+     */
+    private function guardarAdjunto(\Illuminate\Http\UploadedFile $file, int|string $ticketId): void
+    {
+        $permitidas = explode(',', self::ADJUNTOS_PERMITIDOS);
+        $extension = strtolower($file->getClientOriginalExtension());
+        if (!in_array($extension, $permitidas, true)) {
+            $extension = $file->guessExtension() ?: 'bin';
+        }
+
+        $base = \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
+        $base = \Illuminate\Support\Str::limit($base !== '' ? $base : 'adjunto', 80, '');
+
+        $file->storeAs(
+            'ticket-attachments/' . $ticketId,
+            \Illuminate\Support\Str::random(16) . '_' . $base . '.' . $extension,
+            'public'
+        );
+    }
+
+    /** Nombre que se muestra de un adjunto guardado en disco (sin el prefijo aleatorio). */
+    private function nombreVisibleAdjunto(string $archivo, int $n): string
+    {
+        if (preg_match('/^[A-Za-z0-9]{16}_(.+)$/', $archivo, $m)) {
+            return $m[1];
+        }
+        // Adjuntos anteriores: solo el hash que generaba store(). Mejor un nombre genérico.
+        if (preg_match('/^[A-Za-z0-9]{40}\.(\w+)$/', $archivo, $m)) {
+            return 'adjunto-' . $n . '.' . strtolower($m[1]);
+        }
+        return $archivo;
+    }
+
+    /** Adjuntos que la app guardó en disco para un caso. */
+    private function adjuntosLocales(int|string $id): array
+    {
+        $adjuntos = [];
+        $ruta = storage_path('app/public/ticket-attachments/' . $id);
+        if (!is_dir($ruta)) {
+            return $adjuntos;
+        }
+        $n = 0;
+        foreach (scandir($ruta) as $archivo) {
+            if ($archivo === '.' || $archivo === '..' || str_starts_with($archivo, '.')) {
+                continue;
+            }
+            $adjuntos[] = [
+                'name' => $this->nombreVisibleAdjunto($archivo, ++$n),
+                'url' => asset('storage/ticket-attachments/' . $id . '/' . rawurlencode($archivo)),
+                'size' => filesize($ruta . '/' . $archivo),
+                'source' => 'local',
+            ];
+        }
+        return $adjuntos;
+    }
+
     public function index(Request $request)
     {
         $perPage = min((int) $request->input('per_page', 15), 50000);
@@ -1095,6 +1166,8 @@ class TicketController extends Controller
             'locations' => $locations,
             'categories' => $categories,
             'itemTypes' => $itemTypes,
+            // El caso recién creado (llega en el redirect de store) para enlazarlo desde el aviso
+            'createdTicketId' => session('created_ticket_id'),
             'auth' => [
                 'user' => auth()->user()
             ]
@@ -1262,17 +1335,34 @@ class TicketController extends Controller
             'status' => 'required|integer|between:1,6',
             'priority' => 'required|integer|between:1,6',
             'locations_id' => 'nullable|integer',
-            'itilcategories_id' => 'nullable|integer',
+            // El formulario siempre la marcó como obligatoria, pero aquí no se exigía: uno de
+            // cada cuatro casos de la base termina "Sin categoría" en Estadísticas.
+            'itilcategories_id' => 'required|integer',
             'requester_id' => 'nullable|integer',
             'observer_ids' => 'nullable|array',
             'observer_ids.*' => 'integer',
             'assigned_ids' => 'required|array|min:1',
             'assigned_ids.*' => 'integer',
             'attachments' => 'nullable|array',
-            'attachments.*' => 'file|max:102400', // 100MB
+            'attachments.*' => 'file|max:102400|mimes:' . self::ADJUNTOS_PERMITIDOS, // 100MB
             'items' => 'nullable|array',
             'items.*.type' => 'string',
             'items.*.id' => 'integer',
+        ], [], [
+            // Nombres que ve el usuario en los mensajes ("El campo asignado a es obligatorio")
+            'name' => 'título',
+            'content' => 'descripción',
+            'date' => 'fecha de apertura',
+            'status' => 'estado',
+            'priority' => 'prioridad',
+            'locations_id' => 'localización',
+            'itilcategories_id' => 'categoría',
+            'requester_id' => 'solicitante',
+            'observer_ids' => 'observadores',
+            'assigned_ids' => 'asignado a',
+            'time_to_resolve' => 'tiempo de solución',
+            'internal_time_to_resolve' => 'tiempo interno de solución',
+            'attachments.*' => 'adjunto',
         ]);
 
         DB::beginTransaction();
@@ -1377,10 +1467,7 @@ class TicketController extends Controller
             // Manejar archivos adjuntos
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
-                    $path = $file->store('ticket-attachments/' . $ticketId, 'public');
-                    
-                    // Aquí podrías guardar información del archivo en una tabla si lo necesitas
-                    // Por ahora solo los guardamos en storage
+                    $this->guardarAdjunto($file, $ticketId);
                 }
             }
 
@@ -1397,11 +1484,15 @@ class TicketController extends Controller
 
             DB::commit();
 
-            return redirect()->route('soporte.crear-caso')->with('success', 'Caso creado exitosamente');
+            return redirect()->route('soporte.crear-caso')
+                ->with('success', "Caso #{$ticketId} creado.")
+                ->with('created_ticket_id', $ticketId);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Error al crear el caso: ' . $e->getMessage())->withInput();
+            // El detalle va al log: en pantalla se veía el SQL que falló.
+            \Log::error('Error al crear el caso', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'No se pudo crear el caso. Inténtalo de nuevo; si el error continúa, avisa a Sistemas.');
         }
     }
 
@@ -1473,8 +1564,9 @@ class TicketController extends Controller
             ->where('tu.type', 1)
             ->first();
 
-        // Obtener técnico asignado (buscar en glpi_users y si no, en users de Laravel)
-        $technician = DB::table('glpi_tickets_users as tu')
+        // Técnicos asignados y observadores (buscar en glpi_users y si no, en users de Laravel).
+        // Antes solo se traía el primer asignado: con dos técnicos, la vista mostraba uno.
+        $personasDelCaso = fn (int $tipo) => DB::table('glpi_tickets_users as tu')
             ->select(
                 'tu.users_id as id',
                 'gu.firstname',
@@ -1484,8 +1576,23 @@ class TicketController extends Controller
             ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
             ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.id')
             ->where('tu.tickets_id', $id)
-            ->where('tu.type', 2)
-            ->first();
+            ->where('tu.type', $tipo)
+            ->get();
+        $technicians = $personasDelCaso(2);
+        $observers = $personasDelCaso(3);
+        $technician = $technicians->first();
+
+        // Mismas reglas que DashboardController::solveTicket, que es donde se resuelve: admin o
+        // técnico asignado, con usuario vinculado a GLPI, y el caso sin resolver ni cerrar.
+        $usuario = auth()->user();
+        $glpiUserId = $usuario->glpi_user_id ?? null;
+        $asignadoAMi = $glpiUserId && $technicians->contains(fn ($t) => (int) $t->id === (int) $glpiUserId);
+        $permissions = [
+            'canEdit' => in_array($usuario->role, ['Administrador', 'Técnico'], true),
+            'canResolve' => $glpiUserId
+                && !in_array((int) $ticket->status, [5, 6], true)
+                && ($usuario->role === 'Administrador' || $asignadoAMi),
+        ];
 
         // Obtener elementos asociados
         $ticketItems = DB::table('glpi_items_tickets as it')
@@ -1529,24 +1636,9 @@ class TicketController extends Controller
             ->first();
 
         // Obtener archivos adjuntos
-        $attachments = [];
-        
-        // 1. Buscar archivos en directorio local (creados por nuestra app)
-        $attachmentPath = storage_path('app/public/ticket-attachments/' . $id);
-        if (is_dir($attachmentPath)) {
-            $files = scandir($attachmentPath);
-            foreach ($files as $file) {
-                if ($file !== '.' && $file !== '..') {
-                    $attachments[] = [
-                        'name' => $file,
-                        'url' => asset('storage/ticket-attachments/' . $id . '/' . $file),
-                        'size' => filesize($attachmentPath . '/' . $file),
-                        'source' => 'local',
-                    ];
-                }
-            }
-        }
-        
+        // 1. Los que guardó esta app en disco
+        $attachments = $this->adjuntosLocales($id);
+
         // 2. Buscar documentos en GLPI (glpi_documents_items + glpi_documents)
         // glpi_documents NO almacena el tamaño del archivo: el tamaño se lee del disco.
         $glpiDocuments = DB::table('glpi_documents_items as di')
@@ -1574,6 +1666,9 @@ class TicketController extends Controller
             'ticket' => $ticket,
             'requester' => $requester,
             'technician' => $technician,
+            'technicians' => $technicians,
+            'observers' => $observers,
+            'permissions' => $permissions,
             'ticketItems' => $ticketItems,
             'attachments' => $attachments,
             'solution' => $solution,
@@ -1675,20 +1770,7 @@ class TicketController extends Controller
         ];
 
         // Obtener archivos adjuntos existentes
-        $attachments = [];
-        $attachmentPath = storage_path('app/public/ticket-attachments/' . $id);
-        if (is_dir($attachmentPath)) {
-            $files = scandir($attachmentPath);
-            foreach ($files as $file) {
-                if ($file !== '.' && $file !== '..') {
-                    $attachments[] = [
-                        'name' => $file,
-                        'url' => asset('storage/ticket-attachments/' . $id . '/' . $file),
-                        'size' => filesize($attachmentPath . '/' . $file),
-                    ];
-                }
-            }
-        }
+        $attachments = $this->adjuntosLocales($id);
 
         // Obtener solución del caso (si existe)
         $solution = DB::table('glpi_itilsolutions')
@@ -1743,7 +1825,7 @@ class TicketController extends Controller
             'items.*.type' => 'string',
             'items.*.id' => 'integer',
             'attachments' => 'nullable|array',
-            'attachments.*' => 'file|max:102400', // 100MB
+            'attachments.*' => 'file|max:102400|mimes:' . self::ADJUNTOS_PERMITIDOS, // 100MB; ver ADJUNTOS_PERMITIDOS
         ]);
 
         // Obtener el estado anterior para comparar
@@ -1839,7 +1921,7 @@ class TicketController extends Controller
             // Manejar archivos adjuntos nuevos
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
-                    $file->store('ticket-attachments/' . $id, 'public');
+                    $this->guardarAdjunto($file, $id);
                 }
             }
 
@@ -1917,6 +1999,25 @@ class TicketController extends Controller
             return redirect()->back()->with('error', 'Caso no encontrado');
         }
 
+        // Mismas reglas que DashboardController::solveTicket (la vista del caso ya resuelve por
+        // ahí). Este endpoint no pedía nada: cualquier usuario podía cerrar cualquier caso.
+        $usuario = auth()->user();
+        $glpiUserId = $usuario->glpi_user_id;
+        $rechazo = match (true) {
+            !$glpiUserId => 'Tu usuario no está vinculado con GLPI. Contacta al administrador.',
+            in_array((int) $ticket->status, [5, 6], true) => 'El caso ya está resuelto o cerrado.',
+            $usuario->role !== 'Administrador' && !DB::table('glpi_tickets_users')
+                ->where('tickets_id', $id)->where('users_id', $glpiUserId)->where('type', 2)->exists()
+                => 'No tienes permiso para resolver este caso.',
+            default => null,
+        };
+        if ($rechazo) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $rechazo], 403);
+            }
+            return redirect()->back()->with('error', $rechazo);
+        }
+
         DB::beginTransaction();
         try {
             // Insertar la solución en glpi_itilsolutions
@@ -1926,7 +2027,9 @@ class TicketController extends Controller
                 'content' => $validated['solution'],
                 'date_creation' => now(),
                 'date_mod' => now(),
-                'users_id' => auth()->id(),
+                // El id de GLPI, como en solveTicket. Guardaba el id de Laravel: "Resuelto por"
+                // mostraba al usuario de GLPI con ese número, y no contaba en "Resueltos".
+                'users_id' => $glpiUserId,
                 'status' => 2, // Aprobado
             ]);
 

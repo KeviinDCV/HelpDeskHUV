@@ -1,0 +1,8 @@
+function c(t){return t?new DOMParser().parseFromString(t,"text/html").body.textContent??"":""}function u(t){const e=new DOMParser().parseFromString(t,"text/html").body;return e.querySelectorAll("br").forEach(r=>r.replaceWith(`
+`)),e.querySelectorAll("li").forEach(r=>r.prepend("• ")),e.querySelectorAll("div, li, tr").forEach(r=>r.append(`
+`)),e.querySelectorAll("p, ul, ol, table, h1, h2, h3, h4, h5, h6, blockquote, pre").forEach(r=>r.append(`
+
+`)),e.textContent??""}function s(t){if(!t)return"";let e=u(t);return/<[a-z][\s\S]*>/i.test(e)&&(e=u(e)),e.replace(/\u00a0/g," ").replace(/[ \t]+\n/g,`
+`).replace(/\n{3,}/g,`
+
+`).trim()}function i(t){return new Date(t.includes("T")?t:t.replace(" ","T"))}function h(t,e=Date.now()){const r=i(t).getTime();if(Number.isNaN(r))return"";const n=Math.floor((e-r)/6e4);if(n<1)return"ahora";if(n<60)return`hace ${n} min`;const o=Math.floor(n/60);if(o<24)return`hace ${o} h`;const a=Math.floor(o/24);return a<7?a===1?"hace 1 día":`hace ${a} días`:i(t).toLocaleDateString("es-CO",{day:"numeric",month:"short"})}function f(t){return i(t).toLocaleString("es-CO",{weekday:"long",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}function l(t){const e=c(t);return/<[a-z][\s\S]*>/i.test(e)?c(e):e}function p(t){const e=l(t),r=e.search(/\n\s*\n|^\s*(ECOM:|Tipo de equipo:|---)/m);return(r===-1?e:e.slice(0,r)).replace(/\s+/g," ").trim()}function m(t){const e=l(t).match(/^\s*Área:\s*(.+)$/m);return e?e[1].trim():null}function d(t){return t?t.split(">").map(e=>e.trim()).filter(Boolean).slice(-2).join(" › "):null}export{m as a,s as b,d as c,f,h,i as p,p as r};

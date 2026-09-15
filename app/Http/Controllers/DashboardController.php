@@ -489,10 +489,26 @@ class DashboardController extends Controller
                 ]);
 
             DB::commit();
-            
+
             \Log::info('Ticket solved successfully', ['ticket_id' => $id]);
 
-            return redirect()->back()->with('success', '¡Ticket resuelto exitosamente!');
+            // Avisar al solicitante, como hacía la vista del caso cuando cerraba por su lado
+            // (TicketController::addSolution). Fuera de la transacción: si el aviso falla, el
+            // caso igual queda resuelto.
+            try {
+                $solicitante = DB::table('glpi_tickets_users')
+                    ->where('tickets_id', $id)
+                    ->where('type', 1)
+                    ->value('users_id');
+                $usuarioLocal = $solicitante ? \App\Models\User::where('glpi_user_id', $solicitante)->first() : null;
+                if ($usuarioLocal && $usuarioLocal->id !== $user->id) {
+                    \App\Models\Notification::createTicketClosed($usuarioLocal->id, $id, $ticket->name);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('solveTicket: no se pudo avisar al solicitante', ['ticket_id' => $id, 'error' => $e->getMessage()]);
+            }
+
+            return redirect()->back()->with('success', "Caso #{$id} resuelto y cerrado.");
 
         } catch (\Exception $e) {
             DB::rollBack();

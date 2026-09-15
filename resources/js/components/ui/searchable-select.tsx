@@ -20,6 +20,9 @@ interface SearchableSelectProps {
     id?: string;
     /** clases extra para el botón disparador */
     triggerClassName?: string;
+    /** Error y ayuda del campo (FormField), para el botón disparador */
+    "aria-describedby"?: string;
+    "aria-invalid"?: boolean | "true";
 }
 
 /**
@@ -41,7 +44,9 @@ export function SearchableSelect({
     loading = false,
     className,
     id,
-    triggerClassName
+    triggerClassName,
+    "aria-describedby": ariaDescribedBy,
+    "aria-invalid": ariaInvalid,
 }: SearchableSelectProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [search, setSearch] = React.useState("");
@@ -170,6 +175,8 @@ export function SearchableSelect({
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
                 aria-controls={isOpen ? listboxId : undefined}
+                aria-describedby={ariaDescribedBy}
+                aria-invalid={ariaInvalid}
                 className={cn(
                     "flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm ring-offset-background",
                     "focus:outline-none focus:ring-1 focus:ring-ring",
