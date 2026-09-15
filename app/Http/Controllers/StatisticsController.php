@@ -23,8 +23,9 @@ class StatisticsController extends Controller
         $technicianId = $request->input('technician_id', '');
         $categoryId = $request->input('category_id', '');
 
-        // Generar clave de cache basada en filtros
-        $cacheKey = 'stats_' . md5(json_encode([
+        // Generar clave de cache basada en filtros. v2: los datos cambiaron de forma (nombres de
+        // GLPI, códigos, meses completos); con la clave vieja se servirían datos con la forma anterior.
+        $cacheKey = 'stats_v2_' . md5(json_encode([
             $dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId
         ]));
 
@@ -32,7 +33,7 @@ class StatisticsController extends Controller
         $hasFilters = $dateFrom || $dateTo || $status || $priority || $technicianId || $categoryId;
         
         if (!$hasFilters) {
-            $cachedData = cache()->remember('stats_full_data', 180, function() {
+            $cachedData = cache()->remember('stats_full_data_v2', 180, function() {
                 return $this->getStatisticsData('', '', '', '', '', '');
             });
             
@@ -78,11 +79,12 @@ class StatisticsController extends Controller
 
     private function getCachedCategories()
     {
-        return cache()->remember('stats_categories', 600, function() {
+        // Con la ruta completa: hay nombres repetidos en ramas distintas ("Preventivo", "Correctivo")
+        return cache()->remember('stats_categories_v2', 600, function() {
             return DB::table('glpi_itilcategories')
                 ->where('is_incident', 1)
-                ->select('id', 'name')
-                ->orderBy('name')
+                ->select('id', 'name', 'completename')
+                ->orderBy('completename')
                 ->get()
                 ->toArray();
         });
@@ -121,39 +123,46 @@ class StatisticsController extends Controller
             $baseQuery->where('glpi_tickets.itilcategories_id', $categoryId);
         }
 
-        // Stats generales
+        // Stats generales, agrupados como en la exportación: en curso = asignado + planificado.
+        // Los cuatro grupos suman el total.
         $stats = [
             'total' => (clone $baseQuery)->count(),
-            'abiertos' => (clone $baseQuery)->where('status', 1)->count(),
-            'en_proceso' => (clone $baseQuery)->where('status', 2)->count(),
-            'pendientes' => (clone $baseQuery)->whereIn('status', [3, 4])->count(),
-            'cerrados' => (clone $baseQuery)->whereIn('status', [5, 6])->count(),
+            'nuevos' => (clone $baseQuery)->where('status', 1)->count(),
+            'en_curso' => (clone $baseQuery)->whereIn('status', [2, 3])->count(),
+            'en_espera' => (clone $baseQuery)->where('status', 4)->count(),
+            'resueltos' => (clone $baseQuery)->whereIn('status', [5, 6])->count(),
         ];
 
-        // Por estado
-        $statusNames = [1 => 'Nuevo', 2 => 'En proceso', 3 => 'Pendiente', 4 => 'Pendiente', 5 => 'Resuelto', 6 => 'Cerrado'];
+        // Por estado. Nombres de GLPI, los mismos del resto de la app y de la exportación: antes
+        // 3 y 4 salían ambos como "Pendiente" (dos filas con la misma etiqueta y cifras distintas).
+        $statusNames = [1 => 'Nuevo', 2 => 'En curso (asignado)', 3 => 'En curso (planificado)', 4 => 'En espera', 5 => 'Resuelto', 6 => 'Cerrado'];
         $byStatusRaw = (clone $baseQuery)
             ->select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
+            ->orderBy('status')
             ->get();
-        
+
         $byStatus = $byStatusRaw->map(function($item) use ($statusNames, $stats) {
             return [
+                'code' => (int) $item->status,
                 'status' => $statusNames[$item->status] ?? 'Desconocido',
                 'count' => $item->count,
                 'percentage' => $stats['total'] > 0 ? ($item->count / $stats['total']) * 100 : 0
             ];
         })->values()->toArray();
 
-        // Por prioridad
-        $priorityNames = [1 => 'Muy alta', 2 => 'Alta', 3 => 'Media', 4 => 'Baja', 5 => 'Muy baja', 6 => 'Muy baja'];
+        // Por prioridad. Escala de GLPI (1 = muy baja … 6 = urgente), como en export(). Estaba
+        // invertida: los casos "Muy alta" salían como "Muy baja", y los urgentes también.
+        $priorityNames = [1 => 'Muy baja', 2 => 'Baja', 3 => 'Media', 4 => 'Alta', 5 => 'Muy alta', 6 => 'Urgente'];
         $byPriorityRaw = (clone $baseQuery)
             ->select('priority', DB::raw('COUNT(*) as count'))
             ->groupBy('priority')
+            ->orderByDesc('priority')
             ->get();
-        
+
         $byPriority = $byPriorityRaw->map(function($item) use ($priorityNames, $stats) {
             return [
+                'code' => (int) $item->priority,
                 'priority' => $priorityNames[$item->priority] ?? 'Sin definir',
                 'count' => $item->count,
                 'percentage' => $stats['total'] > 0 ? ($item->count / $stats['total']) * 100 : 0
@@ -177,7 +186,9 @@ class StatisticsController extends Controller
             ->select(
                 DB::raw("COALESCE(CONCAT(glpi_users.firstname, ' ', glpi_users.realname), 'Sin asignar') as technician"),
                 DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(CASE WHEN glpi_tickets.status IN (1, 2) THEN 1 ELSE 0 END) as abiertos'),
+                // Sin resolver = todo lo que no está resuelto ni cerrado (como en la exportación);
+                // antes dejaba fuera planificados y en espera, y abiertos + cerrados no daba el total.
+                DB::raw('SUM(CASE WHEN glpi_tickets.status IN (1, 2, 3, 4) THEN 1 ELSE 0 END) as abiertos'),
                 DB::raw('SUM(CASE WHEN glpi_tickets.status IN (5, 6) THEN 1 ELSE 0 END) as cerrados')
             )
             ->groupBy('glpi_users.id', 'glpi_users.firstname', 'glpi_users.realname')
@@ -190,36 +201,44 @@ class StatisticsController extends Controller
             ->leftJoin('glpi_itilcategories', 'glpi_tickets.itilcategories_id', '=', 'glpi_itilcategories.id')
             ->select(
                 DB::raw("COALESCE(glpi_itilcategories.name, 'Sin categoría') as category"),
+                'glpi_itilcategories.completename',
                 DB::raw('COUNT(*) as count')
             )
-            ->groupBy('glpi_itilcategories.id', 'glpi_itilcategories.name')
+            ->groupBy('glpi_itilcategories.id', 'glpi_itilcategories.name', 'glpi_itilcategories.completename')
             ->orderByDesc('count')
             ->limit(10)
             ->get()
             ->toArray();
 
-        // Por mes (últimos 12 meses)
-        $byMonth = DB::table('glpi_tickets')
+        // Por mes: los últimos 12 meses de calendario, el actual incluido (va en curso). No usa el
+        // rango de fechas, pero sí los demás filtros; el técnico antes se ignoraba aquí.
+        $desde = now()->subMonths(11)->startOfMonth();
+        $porMes = DB::table('glpi_tickets')
             ->where('is_deleted', 0)
-            ->whereDate('date', '>=', now()->subMonths(12))
+            ->where('date', '>=', $desde)
             ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
             ->when($priority && $priority !== 'all', fn($q) => $q->where('priority', $priority))
             ->when($categoryId && $categoryId !== 'all', fn($q) => $q->where('itilcategories_id', $categoryId))
+            ->when($technicianId && $technicianId !== 'all', fn($q) => $q->whereIn('id', function($sq) use ($technicianId) {
+                $sq->select('tickets_id')->from('glpi_tickets_users')->where('type', 2)->where('users_id', $technicianId);
+            }))
             ->select(
                 DB::raw("DATE_FORMAT(date, '%Y-%m') as month"),
                 DB::raw('COUNT(*) as count')
             )
             ->groupBy(DB::raw("DATE_FORMAT(date, '%Y-%m')"))
-            ->orderBy('month')
-            ->get()
-            ->map(function($item) {
-                $date = \Carbon\Carbon::createFromFormat('Y-m', $item->month);
-                return [
-                    'month' => $date->translatedFormat('M Y'),
-                    'count' => $item->count
-                ];
-            })
-            ->toArray();
+            ->pluck('count', 'month');
+
+        // Los meses sin casos también van (en 0): si faltan, las columnas se corren y el eje miente.
+        $byMonth = [];
+        for ($i = 0; $i < 12; $i++) {
+            $mes = $desde->copy()->addMonths($i);
+            $byMonth[] = [
+                'key' => $mes->format('Y-m'),
+                'month' => $mes->translatedFormat('M Y'),
+                'count' => (int) ($porMes[$mes->format('Y-m')] ?? 0),
+            ];
+        }
 
         // Últimos casos
         $recentCases = (clone $baseQuery)
@@ -232,6 +251,7 @@ class StatisticsController extends Controller
                     'id' => $item->id,
                     'name' => $item->name,
                     'status' => $statusNames[$item->status] ?? 'Desconocido',
+                    'status_code' => (int) $item->status,
                     'priority' => $item->priority,
                     'created_at' => $item->created_at
                 ];
@@ -425,6 +445,12 @@ class StatisticsController extends Controller
         if ($status && $status !== 'all') $baseQuery->where('status', $status);
         if ($priority && $priority !== 'all') $baseQuery->where('priority', $priority);
         if ($categoryId && $categoryId !== 'all') $baseQuery->where('itilcategories_id', $categoryId);
+        // El filtro de técnico se aplicaba en pantalla pero no aquí: el Excel traía a todos.
+        if ($technicianId && $technicianId !== 'all') {
+            $baseQuery->whereIn('id', function($q) use ($technicianId) {
+                $q->select('tickets_id')->from('glpi_tickets_users')->where('type', 2)->where('users_id', $technicianId);
+            });
+        }
 
         $total = (clone $baseQuery)->count();
         $nuevos = (clone $baseQuery)->where('status', 1)->count();
@@ -556,6 +582,11 @@ class StatisticsController extends Controller
             ->where('glpi_tickets.is_deleted', 0)
             ->when($dateFrom, fn($q) => $q->whereDate('glpi_tickets.date', '>=', $dateFrom))
             ->when($dateTo, fn($q) => $q->whereDate('glpi_tickets.date', '<=', $dateTo))
+            // Los mismos filtros que la tabla de técnicos en pantalla
+            ->when($status && $status !== 'all', fn($q) => $q->where('glpi_tickets.status', $status))
+            ->when($priority && $priority !== 'all', fn($q) => $q->where('glpi_tickets.priority', $priority))
+            ->when($technicianId && $technicianId !== 'all', fn($q) => $q->where('glpi_tickets_users.users_id', $technicianId))
+            ->when($categoryId && $categoryId !== 'all', fn($q) => $q->where('glpi_tickets.itilcategories_id', $categoryId))
             ->select(
                 DB::raw("COALESCE(CONCAT(glpi_users.firstname, ' ', glpi_users.realname), 'Sin asignar') as technician"),
                 DB::raw('COUNT(*) as total'),
@@ -626,9 +657,16 @@ class StatisticsController extends Controller
         $sheet->setCellValue("D{$row}", 'Variación');
         $this->applyHeaderStyle($sheet, "A{$row}:D{$row}", $secondaryColor);
 
+        // Mismo período y filtros que la gráfica mensual en pantalla
         $byMonth = DB::table('glpi_tickets')
             ->where('is_deleted', 0)
-            ->whereDate('date', '>=', now()->subMonths(12))
+            ->where('date', '>=', now()->subMonths(11)->startOfMonth())
+            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
+            ->when($priority && $priority !== 'all', fn($q) => $q->where('priority', $priority))
+            ->when($categoryId && $categoryId !== 'all', fn($q) => $q->where('itilcategories_id', $categoryId))
+            ->when($technicianId && $technicianId !== 'all', fn($q) => $q->whereIn('id', function($sq) use ($technicianId) {
+                $sq->select('tickets_id')->from('glpi_tickets_users')->where('type', 2)->where('users_id', $technicianId);
+            }))
             ->select(
                 DB::raw("DATE_FORMAT(date, '%Y-%m') as month"),
                 DB::raw('COUNT(*) as created'),

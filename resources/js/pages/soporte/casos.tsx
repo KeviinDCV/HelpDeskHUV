@@ -1,34 +1,31 @@
-import { GLPIHeader } from '@/components/glpi-header';
-import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router, Link, usePage } from '@inertiajs/react';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Edit, Trash2, Filter, X, CheckSquare, Loader2, Plus, Wrench, AlertTriangle } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import React from 'react';
 import AdvancedFilterBar, { FilterRow, activeFilterRows } from '@/components/AdvancedFilterBar';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+    DataTableEmpty,
+    DateTimeCell,
+    DataTableFilters,
+    DataTablePagination,
+    DataTableToolbar,
+    FilterLabel,
+    SortableHead,
+    TruncatedText,
+    formatTableDate,
+    type Paginator,
+} from '@/components/data-table';
+import { FlashBanner } from '@/components/flash-banner';
+import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { PageHeader } from '@/components/page-header';
+import { PriorityPill, StatusPill } from '@/components/ticket-pills';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { categoriaCorta } from '@/lib/ticket-format';
+import { btn, fieldClass, filterSelectClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { AlertTriangle, CheckSquare, Download, Filter, Loader2, Pencil, Plus, Trash2, Wrench, X } from 'lucide-react';
+import React from 'react';
 
 interface User {
     id: number;
@@ -54,7 +51,7 @@ interface Technician {
 interface Ticket {
     id: number;
     name: string;
-    entity_name: string;
+    entity_name: string | null;
     date: string;
     date_mod: string;
     status: number;
@@ -71,21 +68,8 @@ interface Ticket {
     users_id_recipient: number;
 }
 
-interface PaginationLinks {
-    url: string | null;
-    label: string;
-    active: boolean;
-}
-
 interface TicketsProps {
-    tickets: {
-        data: Ticket[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: PaginationLinks[];
-    };
+    tickets: Paginator & { data: Ticket[] };
     categories: Category[];
     technicians: Technician[];
     filters: {
@@ -108,28 +92,66 @@ interface TicketsProps {
     };
 }
 
+const RUTA = '/soporte/casos';
+
+type Params = Record<string, string | number | undefined>;
+
+const ESTADOS = [
+    ['1', 'Nuevo'],
+    ['2', 'En curso (asignado)'],
+    ['3', 'En curso (planificado)'],
+    ['4', 'En espera'],
+    ['5', 'Resuelto'],
+    ['6', 'Cerrado'],
+];
+const PRIORIDADES = [
+    ['1', 'Muy baja'],
+    ['2', 'Baja'],
+    ['3', 'Media'],
+    ['4', 'Alta'],
+    ['5', 'Muy alta'],
+    ['6', 'Urgente'],
+];
+
+// Las mismas opciones que ya tenía esta página.
+const FILAS = [15, 20, 50, 100, 500, 1000, 5000, 10000, 50000];
+
+const FILTRO_ESPECIAL: Record<string, string> = {
+    unassigned: 'Sin asignar',
+    my_cases: 'Mis casos',
+    my_pending: 'Sin resolver',
+    my_resolved: 'Resueltos',
+};
+
+/** Fecha y hora local en el formato de <input type="datetime-local"> ("2026-09-15T10:32"). */
+function ahoraLocal(): string {
+    const now = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}`;
+}
+
 export default function Casos({ tickets, categories, technicians, filters, auth }: TicketsProps) {
     // Aviso de exportación rechazada por tamaño. Llega como flash tras el redirect del
     // servidor: sin este banner el usuario pulsaba "Exportar" y no pasaba absolutamente nada.
     const exportError = usePage<{ flash?: { export_error?: string } }>().props.flash?.export_error;
     const [exportErrorVisible, setExportErrorVisible] = React.useState(true);
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
-    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [ticketToDelete, setTicketToDelete] = React.useState<Ticket | null>(null);
-    const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
     const [ticketToView, setTicketToView] = React.useState<Ticket | null>(null);
     const [ticketSolution, setTicketSolution] = React.useState<{ content: string; solved_by: string | null; date_creation: string } | null>(null);
     const [loadingSolution, setLoadingSolution] = React.useState(false);
     const [showFilters, setShowFilters] = React.useState(false);
 
     // Estados para resolver caso
-    const [solveDialogOpen, setSolveDialogOpen] = React.useState(false);
     const [ticketToSolve, setTicketToSolve] = React.useState<Ticket | null>(null);
     const [solution, setSolution] = React.useState('');
     const [solveDate, setSolveDate] = React.useState('');
     const [solving, setSolving] = React.useState(false);
     const [solveError, setSolveError] = React.useState<string | null>(null);
     const [solutionError, setSolutionError] = React.useState<string | null>(null);
+    // El error que el servidor devolvió al resolver ya se muestra en el modal: la página no lo repite.
+    const [errorDelModal, setErrorDelModal] = React.useState<string | null>(null);
 
     // Estados de filtros
     const [statusFilter, setStatusFilter] = React.useState(filters.status || 'all');
@@ -146,36 +168,24 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             try {
                 const parsed = JSON.parse(filters.advanced_filters);
                 if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            } catch {}
+            } catch {
+                /* filtro corrupto en la URL: se ignora */
+            }
         }
         return [];
     });
 
-    const hasActiveFilters = (statusFilter && statusFilter !== 'all') ||
-        (priorityFilter && priorityFilter !== 'all') ||
-        (categoryFilter && categoryFilter !== 'all') ||
-        (assignedFilter && assignedFilter !== 'all') ||
-        dateFrom || dateTo || filters.filter || excludeMaintenance || filters.advanced_filters;
+    const filtrosActivos = [
+        statusFilter !== 'all',
+        priorityFilter !== 'all',
+        categoryFilter !== 'all',
+        assignedFilter !== 'all',
+        !!dateFrom,
+        !!dateTo,
+        excludeMaintenance,
+    ].filter(Boolean).length;
 
-    const getSpecialFilterLabel = () => {
-        switch (filters.filter) {
-            case 'unassigned': return 'Sin asignar';
-            case 'my_cases': return 'Mis casos';
-            case 'my_pending': return 'Sin resolver';
-            case 'my_resolved': return 'Resueltos';
-            default: return null;
-        }
-    };
-
-    const clearSpecialFilter = () => {
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: filters.sort,
-            direction: filters.direction,
-        };
-        if (excludeMaintenance) params.exclude_maintenance = '1';
-        router.get('/soporte/casos', params, { preserveState: false });
-    };
+    const filtroEspecial = filters.filter ? FILTRO_ESPECIAL[filters.filter] ?? null : null;
 
     // Verificar si el usuario puede eliminar un ticket
     const canDelete = (ticket: Ticket) => {
@@ -187,151 +197,13 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         return false;
     };
 
-    // Verificar si el usuario puede editar (Admin y Técnico pueden editar)
-    const canEdit = () => {
-        return auth.user.role === 'Administrador' || auth.user.role === 'Técnico';
-    };
+    // Admin y Técnico pueden editar
+    const canEdit = auth.user.role === 'Administrador' || auth.user.role === 'Técnico';
 
-    // Verificar si el usuario puede resolver el ticket (asignado a él o es admin)
+    // Resolver: asignado a él (o admin) y que no esté ya resuelto o cerrado
     const canResolve = (ticket: Ticket) => {
-        if (auth.user.role === 'Administrador') return true;
-        // El ticket debe estar asignado a este usuario y no estar cerrado/resuelto
-        return ticket.assigned_user_id === auth.user.id && ticket.status !== 5 && ticket.status !== 6;
-    };
-
-    // Abrir modal de resolver
-    const openSolveDialog = (ticket: Ticket) => {
-        setTicketToSolve(ticket);
-        setSolution('');
-        setSolveError(null);
-        setSolutionError(null);
-        // Por defecto, usar fecha y hora actual en zona horaria local
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-        setSolveDate(localDateTime);
-        setSolveDialogOpen(true);
-    };
-
-    // Confirmar resolución
-    const confirmSolve = () => {
-        console.log('confirmSolve called', { ticketToSolve, solution, solveDate });
-
-        if (!ticketToSolve || !solution.trim()) {
-            setSolutionError('Debe ingresar una descripción de la solución.');
-            return;
-        }
-
-        setSolutionError(null);
-
-        // Validar fecha antes de enviar
-        if (solveDate && ticketToSolve.date) {
-            const solveDateObj = new Date(solveDate);
-            const ticketDateObj = new Date(ticketToSolve.date);
-            if (solveDateObj < ticketDateObj) {
-                setSolveError('La fecha de solución no puede ser anterior a la fecha de creación del caso.');
-                return;
-            }
-        }
-
-        setSolving(true);
-        setSolveError(null);
-
-        // Formatear fecha para el backend
-        const formattedDate = solveDate ? solveDate.replace('T', ' ') + ':00' : null;
-
-        console.log('Sending POST to:', `/dashboard/solve-ticket/${ticketToSolve.id}`, { solution: solution.trim(), solve_date: formattedDate });
-
-        // Usar router.post de Inertia
-        router.post(`/dashboard/solve-ticket/${ticketToSolve.id}`, {
-            solution: solution.trim(),
-            solve_date: formattedDate
-        }, {
-            preserveState: true,
-            onSuccess: (page: any) => {
-                console.log('onSuccess called', page.props?.flash);
-                setSolving(false);
-
-                // Verificar si hay mensaje de error en flash
-                if (page.props?.flash?.error) {
-                    setSolveError(page.props.flash.error);
-                    return;
-                }
-
-                // Si no hay error, cerrar el modal
-                setSolveDialogOpen(false);
-                setTicketToSolve(null);
-                setSolution('');
-                setSolveDate('');
-            },
-            onError: (errors: any) => {
-                console.log('onError called', errors);
-                setSolving(false);
-                const errorMsg = typeof errors === 'object' ? Object.values(errors).join(', ') : 'Error al resolver';
-                setSolveError(errorMsg);
-            },
-            onFinish: () => {
-                console.log('onFinish called');
-                setSolving(false);
-            }
-        });
-    };
-
-    const handleDeleteClick = (ticket: Ticket) => {
-        setTicketToDelete(ticket);
-        setDeleteDialogOpen(true);
-    };
-
-    const confirmDelete = () => {
-        if (ticketToDelete) {
-            router.delete(`/soporte/casos/${ticketToDelete.id}`, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setDeleteDialogOpen(false);
-                    setTicketToDelete(null);
-                }
-            });
-        }
-    };
-
-    const handleSort = (field: string) => {
-        const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-
-        // Construir parámetros solo con valores no vacíos
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: field,
-            direction: newDirection,
-        };
-
-        // Solo agregar filtros que tengan valor
-        if (filters.search) params.search = filters.search;
-        if (filters.status) params.status = filters.status;
-        if (filters.priority) params.priority = filters.priority;
-        if (filters.category) params.category = filters.category;
-        if (filters.assigned) params.assigned = filters.assigned;
-        if (filters.date_from) params.date_from = filters.date_from;
-        if (filters.date_to) params.date_to = filters.date_to;
-        if (filters.filter) params.filter = filters.filter;
-        if (filters.exclude_maintenance === '1') params.exclude_maintenance = '1';
-        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-
-        router.get('/soporte/casos', params, {
-            preserveState: false,
-            preserveScroll: true
-        });
-    };
-
-    const handlePageChange = (url: string | null) => {
-        if (url) {
-            router.visit(url, {
-                preserveScroll: true
-            });
-        }
+        if (ticket.status === 5 || ticket.status === 6) return false;
+        return auth.user.role === 'Administrador' || ticket.assigned_user_id === auth.user.id;
     };
 
     /**
@@ -343,10 +215,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
      * usabas "Buscar" arriba, y volvías con solo el filtro de arriba puesto.
      *
      * Ahora toda acción parte de aquí y solo sobrescribe lo suyo, así que ninguna puede
-     * descartar lo que el usuario configuró en la otra zona. Mismo patrón que historial.tsx.
+     * descartar lo que el usuario configuró en la otra zona.
      */
-    const buildParams = (overrides: Record<string, any> = {}): Record<string, any> => {
-        const params: Record<string, any> = {
+    const buildParams = (overrides: Params = {}): Params => {
+        const params: Params = {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
@@ -363,7 +235,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (dateTo) params.date_to = dateTo;
         if (excludeMaintenance) params.exclude_maintenance = '1';
 
-        // Filtro especial (el banner azul: sin asignar, mis casos…)
+        // Filtro especial (llega desde el dashboard: sin asignar, mis casos…)
         if (filters.filter) params.filter = filters.filter;
 
         // Barra avanzada. Se podan las filas sin valor: el backend las traduciría a
@@ -374,33 +246,20 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         return { ...params, ...overrides };
     };
 
-    const go = (params: Record<string, any>) => {
-        // Se descartan las claves en undefined para que un override pueda QUITAR un filtro
-        // (p. ej. "Restablecer" de la barra avanzada) sin depender de cómo serialice Inertia.
-        const limpios = Object.fromEntries(
-            Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
-        );
-        router.get('/soporte/casos', limpios, {
-            preserveState: false,
-            preserveScroll: false,
-            replace: true,
-        });
+    const go = (params: Params) => {
+        // Se descartan las claves en undefined para que un override pueda QUITAR un filtro.
+        const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+        router.get(RUTA, limpios, { preserveState: false, preserveScroll: false, replace: true });
     };
 
-    const handleSearch = () => go(buildParams());
-
-    const handlePerPageChange = (value: string) => {
-        // Conserva los filtros activos al cambiar "Mostrar". Los parámetros vacíos que
-        // esto envíe los maneja bien el backend (chequeo truthy en los filtros de casos).
-        router.get('/soporte/casos', { ...filters, per_page: value }, {
-            preserveState: false,
-            preserveScroll: true,
-        });
+    // Ordenar y cambiar filas por página también pasan por buildParams: antes leían los filtros
+    // ya aplicados en el servidor, con la misma trampa que buildParams vino a quitar.
+    const handleSort = (field: string) => {
+        const direction = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
+        go(buildParams({ sort: field, direction }));
     };
 
-    const applyFilters = () => go(buildParams());
-
-    /** "Limpiar": vacía SOLO el panel de opciones; la barra avanzada se respeta. */
+    /** "Limpiar filtros": vacía SOLO el panel; la barra avanzada y el filtro especial se respetan. */
     const clearFilters = () => {
         setStatusFilter('all');
         setPriorityFilter('all');
@@ -422,18 +281,14 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         });
     };
 
-    // ─── Búsqueda avanzada GLPI-style ───────────────────────────────────────
+    // Quitar el filtro especial conserva los demás (antes los descartaba todos).
+    const clearSpecialFilter = () => go(buildParams({ filter: undefined }));
 
-    /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel de opciones. */
+    /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel de filtros. */
     const handleAdvancedSearch = (filterRows: FilterRow[]) => {
         setAdvancedFilters(filterRows);
-
         const avanzados = activeFilterRows(filterRows);
-        go(buildParams(
-            avanzados.length > 0
-                ? { advanced_filters: JSON.stringify(avanzados) }
-                : { advanced_filters: undefined }
-        ));
+        go(buildParams(avanzados.length > 0 ? { advanced_filters: JSON.stringify(avanzados) } : { advanced_filters: undefined }));
     };
 
     /** "Restablecer" de la barra avanzada: vacía SOLO sus filas; el panel se respeta. */
@@ -443,19 +298,15 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     /**
-     * Exporta exactamente lo que el usuario tiene filtrado, de las DOS zonas.
-     *
-     * Usa el mismo buildParams() que "Aplicar" y "Buscar", así que el Excel no puede volver a
-     * quedarse a medias: antes leía solo los filtros ya aplicados en el servidor, de modo que
-     * lo que estuviera configurado en el panel sin haber pulsado "Aplicar" no llegaba a la
-     * exportación. `page` y `per_page` no aplican a un export: se descartan.
+     * Exporta exactamente lo que el usuario tiene filtrado, de las DOS zonas: el mismo
+     * buildParams() que "Aplicar filtros" y "Buscar". `page` y `per_page` no aplican.
      */
     const handleExport = () => {
-        const { page: _p, per_page: _pp, ...exportables } = buildParams();
-        const params = new URLSearchParams(
-            Object.entries(exportables).map(([k, v]) => [k, String(v)])
-        );
-        window.location.href = `/soporte/casos/export?${params}`;
+        const exportables = buildParams();
+        delete exportables.page;
+        delete exportables.per_page;
+        const params = new URLSearchParams(Object.entries(exportables).map(([k, v]) => [k, String(v)]));
+        window.location.href = `${RUTA}/export?${params}`;
     };
 
     // Reporte de Mantenimiento Preventivo + Repotenciación/Actualización de computadores.
@@ -466,212 +317,243 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (filters.date_from) params.append('date_from', filters.date_from);
         if (filters.date_to) params.append('date_to', filters.date_to);
         const qs = params.toString();
-        window.location.href = `/soporte/casos/export-mantenimiento${qs ? `?${qs}` : ''}`;
+        window.location.href = `${RUTA}/export-mantenimiento${qs ? `?${qs}` : ''}`;
     };
 
-    const getSortIcon = (field: string) => {
-        if (filters.sort !== field) return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
-        return filters.direction === 'asc'
-            ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
-            : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
-    };
-
-    // Función para obtener el color del estado
-    const getStatusColor = (status: number) => {
-        switch (status) {
-            case 1: return 'bg-blue-100 text-blue-800'; // Nuevo
-            case 2: return 'bg-yellow-100 text-yellow-800'; // En curso (asignado)
-            case 3: return 'bg-yellow-100 text-yellow-800'; // En curso (planificado)
-            case 4: return 'bg-orange-100 text-orange-800'; // En espera
-            case 5: return 'bg-green-100 text-green-800'; // Resuelto
-            case 6: return 'bg-gray-100 text-gray-800'; // Cerrado
-            default: return 'bg-gray-100 text-gray-800';
+    const openView = async (ticket: Ticket) => {
+        setTicketToView(ticket);
+        setTicketSolution(null);
+        // La solución solo existe si el caso está resuelto o cerrado
+        if (ticket.status === 5 || ticket.status === 6) {
+            setLoadingSolution(true);
+            try {
+                const response = await fetch(`/dashboard/ticket/${ticket.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.solution) setTicketSolution(data.solution);
+                }
+            } catch {
+                /* sin conexión: el modal dice que no hay solución registrada */
+            } finally {
+                setLoadingSolution(false);
+            }
         }
     };
+
+    const openSolveDialog = (ticket: Ticket) => {
+        setTicketToSolve(ticket);
+        setSolution('');
+        setSolveError(null);
+        setSolutionError(null);
+        // Por defecto, la fecha y hora actual en zona horaria local
+        setSolveDate(ahoraLocal());
+    };
+
+    const closeSolveDialog = () => {
+        setTicketToSolve(null);
+        setSolution('');
+        setSolveDate('');
+    };
+
+    const confirmSolve = () => {
+        if (!ticketToSolve || !solution.trim()) {
+            setSolutionError('Debe ingresar una descripción de la solución.');
+            return;
+        }
+        setSolutionError(null);
+
+        // Validar fecha antes de enviar
+        if (solveDate && ticketToSolve.date && new Date(solveDate) < new Date(ticketToSolve.date.replace(' ', 'T'))) {
+            setSolveError('La fecha de solución no puede ser anterior a la fecha de creación del caso.');
+            return;
+        }
+
+        setSolving(true);
+        setSolveError(null);
+
+        router.post(
+            `/dashboard/solve-ticket/${ticketToSolve.id}`,
+            { solution: solution.trim(), solve_date: solveDate ? solveDate.replace('T', ' ') + ':00' : null },
+            {
+                preserveState: true,
+                onSuccess: (page) => {
+                    const error = (page.props as { flash?: { error?: string } }).flash?.error;
+                    if (error) {
+                        setSolveError(error);
+                        setErrorDelModal(error);
+                        return;
+                    }
+                    closeSolveDialog();
+                },
+                onError: (errors) => {
+                    setSolveError(Object.values(errors).join(', ') || 'Error al resolver');
+                },
+                onFinish: () => setSolving(false),
+            },
+        );
+    };
+
+    const confirmDelete = () => {
+        if (!ticketToDelete) return;
+        setDeleting(true);
+        router.delete(`${RUTA}/${ticketToDelete.id}`, {
+            preserveScroll: true,
+            onFinish: () => {
+                setDeleting(false);
+                setTicketToDelete(null);
+            },
+        });
+    };
+
+    const orden = { sort: filters.sort, direction: filters.direction, onSort: handleSort };
+    const columnas = canEdit ? 12 : 11;
 
     return (
         <>
             <Head title="HelpDesk HUV - Casos" />
-            <div className="min-h-screen flex flex-col bg-gray-50">
+            <div className="flex min-h-screen flex-col bg-gray-50">
                 <GLPIHeader
                     breadcrumb={
                         <div className="flex items-center gap-2 text-sm">
-                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
                             <span className="text-gray-400">/</span>
-                            <Link href="/soporte/casos" className="text-gray-600 hover:text-[#2c4370] hover:underline">Soporte</Link>
+                            <Link href={RUTA} className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Soporte
+                            </Link>
                             <span className="text-gray-400">/</span>
                             <span className="font-medium text-gray-900">Casos</span>
                         </div>
                     }
                 />
 
-                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    {/* Aviso: la exportación superó el límite de filas */}
-                    {exportError && exportErrorVisible && (
-                        <div role="alert" className="mb-4 border border-amber-300 bg-amber-50 px-3 sm:px-4 py-2 sm:py-3 flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-2 text-sm text-amber-900">
-                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-                                <span>{exportError}</span>
-                            </div>
-                            <button
-                                onClick={() => setExportErrorVisible(false)}
-                                className="shrink-0 text-amber-700 hover:text-amber-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 rounded-sm"
-                                aria-label="Cerrar aviso"
-                            >
-                                <X className="w-4 h-4" aria-hidden="true" />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Banner de filtro especial */}
-                    {filters.filter && (
-                        <div className="mb-4 bg-[#2c4370] text-white px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-sm sm:text-base">
-                                <Filter className="w-4 h-4 shrink-0" />
-                                <span className="font-medium">{getSpecialFilterLabel()}</span>
-                                <span className="text-white/70">({tickets.total})</span>
-                            </div>
-                            <button onClick={clearSpecialFilter} className="flex items-center gap-1 hover:bg-white/20 px-2 py-1 transition-colors text-sm">
-                                <X className="w-4 h-4" />
-                                <span>Quitar</span>
-                            </button>
-                        </div>
-                    )}
-
-                    <div className="bg-white shadow border border-gray-200">
-                        {/* Header */}
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
-                                    {filters.filter ? getSpecialFilterLabel() : 'Casos'}
-                                </h1>
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                                    <div className="relative flex-1 sm:flex-initial">
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar..."
-                                            className="w-full sm:w-64 pr-10 h-9"
-                                            value={searchValue}
-                                            onChange={(e) => setSearchValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    handleSearch();
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="absolute right-0 top-0 h-full px-3"
-                                            onClick={handleSearch}
-                                            aria-label="Buscar"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowFilters(!showFilters)}
-                                            className={`h-9 flex-1 sm:flex-initial ${excludeMaintenance ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
-                                            // El panel que despliega son filtros, no ajustes: llamarlo "Opciones"
-                                            // no decía qué hace. Además el resto del inventario ya usa "Filtros".
-                                            aria-expanded={showFilters}
-                                            title={showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
-                                        >
-                                            <Filter className="h-4 w-4 sm:mr-1" aria-hidden="true" />
-                                            <span className="hidden sm:inline">Filtros</span>
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
-                                            onClick={handleExport}
-                                        >
-                                            <span className="hidden sm:inline">Exportar</span>
-                                            <span className="sm:hidden">Excel</span>
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-9 flex-1 sm:flex-initial border-[#2c4370] text-[#2c4370] hover:bg-[#2c4370] hover:text-white"
-                                            onClick={handleExportMantenimiento}
-                                            title="Descargar Excel: Mantenimiento Preventivo y Repotenciación/Actualización de computadores (equipos activos, del 1 de enero a hoy)"
-                                        >
-                                            <Wrench className="h-4 w-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">Mant./Repot.</span>
-                                        </Button>
-                                        <Link href="/soporte/crear-caso">
-                                            <Button
-                                                size="sm"
-                                                className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
-                                            >
-                                                <Plus className="h-4 w-4 sm:mr-1" />
-                                                <span className="hidden sm:inline">Crear Caso</span>
-                                            </Button>
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Barra de Filtros Avanzados GLPI-style */}
-                        <AdvancedFilterBar
-                            initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
-                            onSearch={handleAdvancedSearch}
-                            onReset={handleAdvancedReset}
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
+                        <PageHeader
+                            title={filtroEspecial ?? 'Casos'}
+                            description={filtroEspecial ? 'Vista filtrada desde las cifras del panel principal.' : 'Todos los casos de la mesa de ayuda, con sus filtros y exportaciones.'}
+                            actions={
+                                <>
+                                    <button type="button" onClick={handleExport} className={btn.secondary}>
+                                        <Download aria-hidden="true" />
+                                        Exportar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleExportMantenimiento}
+                                        className={btn.secondary}
+                                        title="Excel de Mantenimiento Preventivo y Repotenciación/Actualización de computadores (equipos activos, del 1 de enero a hoy, o el rango de fechas filtrado)"
+                                    >
+                                        <Wrench aria-hidden="true" />
+                                        Informe de mantenimiento
+                                    </button>
+                                    <Link href="/soporte/crear-caso" className={btn.primary}>
+                                        <Plus aria-hidden="true" />
+                                        Crear caso
+                                    </Link>
+                                </>
+                            }
                         />
 
-                        {/* Panel de Filtros Rápidos */}
-                        {showFilters && (
-                            <section aria-label="Filtros rápidos" className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
-                                {/* Rótulo de zona: sin él, este "Aplicar filtros" y el "Buscar" de
-                                    la barra de arriba parecen el mismo control duplicado. */}
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <Filter className="w-3 h-3 text-gray-400 shrink-0" aria-hidden="true" />
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                                        Filtros rápidos
-                                    </span>
+                        {/* Aviso: la exportación superó el límite de filas */}
+                        {exportError && exportErrorVisible && (
+                            <div role="alert" className="flex items-start justify-between gap-3 rounded-xl bg-yellow-50 px-4 py-3 ring-1 ring-inset ring-yellow-600/25">
+                                <div className="flex items-start gap-3 text-sm text-yellow-800">
+                                    <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                                    <p>{exportError}</p>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setExportErrorVisible(false)}
+                                    aria-label="Cerrar aviso"
+                                    className="focus-ring shrink-0 rounded text-yellow-800 hover:text-yellow-900"
+                                >
+                                    <X className="size-4" aria-hidden="true" />
+                                </button>
+                            </div>
+                        )}
+
+                        <FlashBanner ignoreError={errorDelModal} />
+
+                        {/* Filtro especial: llega desde las cifras del dashboard */}
+                        {filtroEspecial && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-huv-soft px-4 py-2.5 text-sm text-huv-ink">
+                                <p className="flex items-center gap-2">
+                                    <Filter className="size-4 shrink-0" aria-hidden="true" />
+                                    Mostrando <strong className="font-semibold">{filtroEspecial.toLowerCase()}</strong>
+                                    <span className="opacity-80">· {tickets.total.toLocaleString('es-CO')} casos</span>
+                                </p>
+                                <button type="button" onClick={clearSpecialFilter} className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium hover:bg-white/70 dark:hover:bg-white/10">
+                                    <X className="size-4" aria-hidden="true" />
+                                    Quitar filtro
+                                </button>
+                            </div>
+                        )}
+
+                        <section aria-label="Lista de casos" className="surface-card overflow-hidden">
+                            <DataTableToolbar
+                                search={searchValue}
+                                onSearchChange={setSearchValue}
+                                onSearch={() => go(buildParams())}
+                                placeholder="Buscar caso…"
+                                filtersOpen={showFilters}
+                                onToggleFilters={() => setShowFilters((v) => !v)}
+                                activeFilters={filtrosActivos}
+                                summary={`${tickets.total.toLocaleString('es-CO')} casos`}
+                            />
+
+                            <AdvancedFilterBar
+                                initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
+                                onSearch={handleAdvancedSearch}
+                                onReset={handleAdvancedReset}
+                            />
+
+                            {showFilters && (
+                                <DataTableFilters
+                                    label="Filtros rápidos"
+                                    visibleLabel
+                                    gridClassName="lg:grid-cols-3 xl:grid-cols-6"
+                                    onApply={() => go(buildParams())}
+                                    onClear={clearFilters}
+                                    canClear={filtrosActivos > 0}
+                                >
                                     <div>
-                                        <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
+                                        <FilterLabel htmlFor="filtro-estado">Estado</FilterLabel>
                                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-estado" className={filterSelectClass}>
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="1">Nuevo</SelectItem>
-                                                <SelectItem value="2">En curso (asignado)</SelectItem>
-                                                <SelectItem value="3">En curso (planificado)</SelectItem>
-                                                <SelectItem value="4">En espera</SelectItem>
-                                                <SelectItem value="5">Resuelto</SelectItem>
-                                                <SelectItem value="6">Cerrado</SelectItem>
+                                                {ESTADOS.map(([v, l]) => (
+                                                    <SelectItem key={v} value={v}>
+                                                        {l}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div>
-                                        <label htmlFor="filtro-prioridad" className="text-xs text-gray-600 mb-1 block">Prioridad</label>
+                                        <FilterLabel htmlFor="filtro-prioridad">Prioridad</FilterLabel>
                                         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                                            <SelectTrigger id="filtro-prioridad" className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-prioridad" className={filterSelectClass}>
                                                 <SelectValue placeholder="Todas" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todas</SelectItem>
-                                                <SelectItem value="1">Muy baja</SelectItem>
-                                                <SelectItem value="2">Baja</SelectItem>
-                                                <SelectItem value="3">Media</SelectItem>
-                                                <SelectItem value="4">Alta</SelectItem>
-                                                <SelectItem value="5">Muy alta</SelectItem>
-                                                <SelectItem value="6">Urgente</SelectItem>
+                                                {PRIORIDADES.map(([v, l]) => (
+                                                    <SelectItem key={v} value={v}>
+                                                        {l}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div>
-                                        <label htmlFor="filtro-asignado" className="text-xs text-gray-600 mb-1 block">Asignado a</label>
+                                        <FilterLabel htmlFor="filtro-asignado">Asignado a</FilterLabel>
                                         <Select value={assignedFilter} onValueChange={setAssignedFilter}>
-                                            <SelectTrigger id="filtro-asignado" className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-asignado" className={filterSelectClass}>
                                                 <SelectValue placeholder="Todos" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -685,9 +567,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <label htmlFor="filtro-categoria" className="text-xs text-gray-600 mb-1 block">Categoría</label>
+                                        <FilterLabel htmlFor="filtro-categoria">Categoría</FilterLabel>
                                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                            <SelectTrigger id="filtro-categoria" className="h-8 text-xs">
+                                            <SelectTrigger id="filtro-categoria" className={filterSelectClass}>
                                                 <SelectValue placeholder="Todas" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -701,492 +583,246 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                        <Input
-                                            id="filtro-desde"
-                                            type="date"
-                                            value={dateFrom}
-                                            onChange={(e) => setDateFrom(e.target.value)}
-                                            className="h-8 text-xs"
-                                        />
+                                        <FilterLabel htmlFor="filtro-desde">Abierto desde</FilterLabel>
+                                        <input id="filtro-desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={cn(fieldClass, 'h-9')} />
                                     </div>
                                     <div>
-                                        <label htmlFor="filtro-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                        <Input
-                                            id="filtro-hasta"
-                                            type="date"
-                                            value={dateTo}
-                                            onChange={(e) => setDateTo(e.target.value)}
-                                            className="h-8 text-xs"
+                                        <FilterLabel htmlFor="filtro-hasta">Abierto hasta</FilterLabel>
+                                        <input id="filtro-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={cn(fieldClass, 'h-9')} />
+                                    </div>
+                                    <label className="flex cursor-pointer select-none items-start gap-2.5 sm:col-span-2 lg:col-span-3 xl:col-span-6">
+                                        <input
+                                            type="checkbox"
+                                            checked={excludeMaintenance}
+                                            onChange={(e) => setExcludeMaintenance(e.target.checked)}
+                                            className="mt-0.5 size-4 cursor-pointer rounded accent-[var(--huv)]"
                                         />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-3 md:col-span-6 flex items-center gap-2 pt-1">
-                                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                checked={excludeMaintenance}
-                                                onChange={(e) => setExcludeMaintenance(e.target.checked)}
-                                                className="w-4 h-4 rounded border-gray-300 text-[#2c4370] focus:ring-[#2c4370] cursor-pointer"
-                                            />
-                                            <span className="text-xs text-gray-700 font-medium">Excluir Mantenimientos</span>
-                                        </label>
-                                        <span className="text-[10px] text-gray-400">(Oculta casos de mantenimiento preventivo y correctivo)</span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
-                                    {hasActiveFilters && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={clearFilters}
-                                            className="h-8 text-xs text-gray-600"
-                                        >
-                                            <X className="h-3 w-3 mr-1" aria-hidden="true" />
-                                            Limpiar filtros
-                                        </Button>
-                                    )}
-                                    <Button
-                                        size="sm"
-                                        onClick={applyFilters}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
-                                    >
-                                        Aplicar filtros
-                                    </Button>
-                                </div>
-                            </section>
-                        )}
+                                        <span className="text-sm">
+                                            <span className="font-medium text-gray-700">Excluir mantenimientos</span>
+                                            <span className="ml-2 text-xs text-gray-500">Oculta los casos de mantenimiento preventivo y correctivo</span>
+                                        </span>
+                                    </label>
+                                </DataTableFilters>
+                            )}
 
-                        {/* Stats */}
-                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
-                                <Select
-                                    value={filters.per_page.toString()}
-                                    onValueChange={handlePerPageChange}
-                                >
-                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
-                                        <SelectValue placeholder="15" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="15">15</SelectItem>
-                                        <SelectItem value="20">20</SelectItem>
-                                        <SelectItem value="50">50</SelectItem>
-                                        <SelectItem value="100">100</SelectItem>
-                                        <SelectItem value="500">500</SelectItem>
-                                        <SelectItem value="1000">1.000</SelectItem>
-                                        <SelectItem value="5000">5.000</SelectItem>
-                                        <SelectItem value="10000">10.000</SelectItem>
-                                        <SelectItem value="50000">50.000</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-gray-600">
-                                <span className="font-medium">{tickets.data.length}</span> de{' '}
-                                <span className="font-medium">{tickets.total}</span>
-                            </p>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                            <Table>
+                            <Table className="text-[13px]">
                                 <TableHeader>
-                                    <TableRow className="bg-gray-50">
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs w-16"
-                                            aria-sort={filters.sort === 'id' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('id')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                ID
-                                                {getSortIcon('id')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Título
-                                                {getSortIcon('name')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'status' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('status')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Estado
-                                                {getSortIcon('status')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'priority' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('priority')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Prioridad
-                                                {getSortIcon('priority')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Entidad
-                                                {getSortIcon('entity_name')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'date' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('date')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Fecha de apertura
-                                                {getSortIcon('date')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'date_mod' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('date_mod')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Última actualización
-                                                {getSortIcon('date_mod')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Solicitante
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Asignado a
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Categoría
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Elemento
-                                        </TableHead>
-                                        {canEdit() && (
-                                            <TableHead className="font-semibold text-gray-900 text-xs text-center w-24">
-                                                Acciones
+                                    <TableRow className="hover:bg-transparent">
+                                        <SortableHead field="id" label="ID" {...orden} className="w-16" />
+                                        <SortableHead field="name" label="Título" {...orden} />
+                                        <SortableHead field="status" label="Estado" {...orden} />
+                                        <SortableHead field="priority" label="Prioridad" {...orden} />
+                                        <SortableHead field="entity_name" label="Entidad" {...orden} />
+                                        <SortableHead field="date" label="Apertura" {...orden} />
+                                        <SortableHead field="date_mod" label="Actualizado" {...orden} />
+                                        <TableHead>Solicitante</TableHead>
+                                        <TableHead>Asignado a</TableHead>
+                                        <TableHead>Categoría</TableHead>
+                                        <TableHead>Elemento</TableHead>
+                                        {canEdit && (
+                                            <TableHead className="text-right">
+                                                <span className="sr-only">Acciones</span>
                                             </TableHead>
                                         )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {tickets.data.map((ticket) => (
-                                        <TableRow key={ticket.id} className="hover:bg-gray-50">
-                                            <TableCell className="text-xs font-medium">{ticket.id}</TableCell>
-                                            <TableCell className="font-medium text-xs">
-                                                <button
-                                                    onClick={async () => {
-                                                        setTicketToView(ticket);
-                                                        setTicketSolution(null);
-                                                        setViewDialogOpen(true);
-                                                        // Fetch solution if case is resolved or closed
-                                                        if (ticket.status === 5 || ticket.status === 6) {
-                                                            setLoadingSolution(true);
-                                                            try {
-                                                                const response = await fetch(`/dashboard/ticket/${ticket.id}`);
-                                                                if (response.ok) {
-                                                                    const data = await response.json();
-                                                                    if (data.solution) {
-                                                                        setTicketSolution(data.solution);
-                                                                    }
-                                                                }
-                                                            } catch (e) {
-                                                                console.error('Error fetching solution:', e);
-                                                            } finally {
-                                                                setLoadingSolution(false);
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="text-[#2c4370] hover:underline block truncate max-w-md text-left"
-                                                    title={ticket.name}
-                                                >
-                                                    {ticket.name || '(Sin título)'}
-                                                </button>
-                                            </TableCell>
-                                            <TableCell className="text-xs">
-                                                <span className={`px-2 py-1 text-[10px] font-semibold ${getStatusColor(ticket.status)}`}>
-                                                    {ticket.status_name}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-xs">{ticket.priority_name}</TableCell>
-                                            <TableCell className="text-xs">{ticket.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs text-gray-600">
-                                                {ticket.date ? new Date(ticket.date).toLocaleDateString('es-CO', {
-                                                    year: 'numeric',
-                                                    month: '2-digit',
-                                                    day: '2-digit',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                }) : '-'}</TableCell>
-                                            <TableCell className="text-xs text-gray-600">
-                                                {ticket.date_mod ? new Date(ticket.date_mod).toLocaleDateString('es-CO', {
-                                                    year: 'numeric',
-                                                    month: '2-digit',
-                                                    day: '2-digit',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                }) : '-'}</TableCell>
-                                            <TableCell className="text-xs">{ticket.requester_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{ticket.assigned_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{ticket.category_name || '-'}</TableCell>
-                                            <TableCell className="text-xs text-gray-600">{ticket.item_name || '-'}</TableCell>
-                                            {canEdit() && (
-                                                <TableCell className="text-xs">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        {/* Botón Resolver - solo si está asignado al usuario o es admin y no está cerrado */}
-                                                        {canResolve(ticket) && ticket.status !== 5 && ticket.status !== 6 && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 w-7 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
-                                                                onClick={() => openSolveDialog(ticket)}
-                                                                title="Resolver"
-                                                                aria-label="Resolver"
-                                                            >
-                                                                <CheckSquare className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                                            onClick={() => router.visit(`/soporte/casos/${ticket.id}/editar`)}
-                                                            title="Editar"
-                                                            aria-label="Editar"
-                                                        >
-                                                            <Edit className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                        {canDelete(ticket) && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                                                onClick={() => handleDeleteClick(ticket)}
-                                                                title="Eliminar"
-                                                                aria-label="Eliminar"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
+                                    {tickets.data.length === 0 ? (
+                                        <DataTableEmpty colSpan={columnas} title="No se encontraron casos" description="Prueba con otra búsqueda o quita alguno de los filtros." />
+                                    ) : (
+                                        tickets.data.map((ticket) => (
+                                            <TableRow key={ticket.id}>
+                                                <TableCell className="tabular-nums text-gray-500">{ticket.id}</TableCell>
+                                                {/* El título es lo que se lee primero: ancho mínimo garantizado, y las demás columnas se ajustan. */}
+                                                <TableCell className="min-w-[12.5rem] min-[1360px]:min-w-[15rem]">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openView(ticket)}
+                                                        className="focus-ring rounded text-left font-medium text-huv-ink hover:underline"
+                                                    >
+                                                        <TruncatedText value={ticket.name || '(Sin título)'} lines={2} className="max-w-[24rem]" />
+                                                    </button>
                                                 </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))}
-                                    {tickets.data.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={canEdit() ? 12 : 11} className="text-center py-8 text-gray-500">
-                                                No se encontraron casos
-                                            </TableCell>
-                                        </TableRow>
+                                                <TableCell>
+                                                    <StatusPill status={ticket.status} name={ticket.status_name} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <PriorityPill priority={ticket.priority} name={ticket.priority_name} />
+                                                </TableCell>
+                                                <TableCell className="text-gray-600">
+                                                    <TruncatedText value={ticket.entity_name} lines={2} className="max-w-[8rem]" />
+                                                </TableCell>
+                                                <TableCell className="text-gray-600">
+                                                    <DateTimeCell value={ticket.date} />
+                                                </TableCell>
+                                                <TableCell className="text-gray-600">
+                                                    <DateTimeCell value={ticket.date_mod} />
+                                                </TableCell>
+                                                <TableCell className="min-w-[6rem] text-gray-700">
+                                                    <TruncatedText value={ticket.requester_name} lines={2} className="max-w-[9rem]" />
+                                                </TableCell>
+                                                <TableCell className="min-w-[6rem] text-gray-700">
+                                                    <TruncatedText value={ticket.assigned_name} lines={2} className="max-w-[9rem]" />
+                                                </TableCell>
+                                                <TableCell className="text-gray-700">
+                                                    {/* Lo que distingue está al final ("Servinte › Clinico"); la ruta completa, al pasar el mouse. */}
+                                                    <span title={ticket.category_name ?? undefined}>
+                                                        <TruncatedText value={categoriaCorta(ticket.category_name)} lines={2} className="max-w-[10rem]" />
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-gray-600">
+                                                    <TruncatedText value={ticket.item_name} lines={2} className="max-w-[8rem]" />
+                                                </TableCell>
+                                                {canEdit && (
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-0.5">
+                                                            {canResolve(ticket) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openSolveDialog(ticket)}
+                                                                    aria-label={`Resolver caso #${ticket.id}`}
+                                                                    title="Resolver"
+                                                                    className={cn(btn.ghost, 'size-7 px-0 text-green-700 hover:bg-green-50 hover:text-green-800')}
+                                                                >
+                                                                    <CheckSquare aria-hidden="true" />
+                                                                </button>
+                                                            )}
+                                                            <Link
+                                                                href={`${RUTA}/${ticket.id}/editar`}
+                                                                aria-label={`Editar caso #${ticket.id}`}
+                                                                title="Editar"
+                                                                className={cn(btn.ghost, 'size-7 px-0')}
+                                                            >
+                                                                <Pencil aria-hidden="true" />
+                                                            </Link>
+                                                            {canDelete(ticket) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setTicketToDelete(ticket)}
+                                                                    aria-label={`Eliminar caso #${ticket.id}`}
+                                                                    title="Eliminar"
+                                                                    className={cn(btn.ghost, 'size-7 px-0 text-red-600 hover:bg-red-50 hover:text-red-700')}
+                                                                >
+                                                                    <Trash2 aria-hidden="true" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        ))
                                     )}
                                 </TableBody>
                             </Table>
-                        </div>
 
-                        {/* Pagination */}
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
-                                Página {tickets.current_page} de {tickets.last_page}
-                            </div>
-                            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
-                                {tickets.links.map((link, index) => {
-                                    const isMobileVisible = index === 0 || index === tickets.links.length - 1 || link.active;
-                                    if (index === 0) {
-                                        return (
-                                            <Button key={index} aria-label="Página anterior" variant="outline" size="sm" disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
-                                                onClick={() => link.url && handlePageChange(link.url)}>
-                                                <ChevronLeft className="h-4 w-4" />
-                                            </Button>
-                                        );
-                                    }
-                                    if (index === tickets.links.length - 1) {
-                                        return (
-                                            <Button key={index} aria-label="Página siguiente" variant="outline" size="sm" disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
-                                                onClick={() => link.url && handlePageChange(link.url)}>
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        );
-                                    }
-                                    return (
-                                        <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url}
-                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active
-                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]"
-                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
-                                            onClick={() => link.url && handlePageChange(link.url)}>
-                                            <span dangerouslySetInnerHTML={{ __html: link.label }}></span>
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                            <DataTablePagination
+                                paginator={tickets}
+                                count={tickets.data.length}
+                                noun="casos"
+                                perPageOptions={FILAS}
+                                onPerPageChange={(value) => go(buildParams({ per_page: value }))}
+                            />
+                        </section>
                     </div>
                 </main>
                 <GLPIFooter />
             </div>
 
-            {/* Dialog de confirmación para eliminar */}
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Eliminar Caso</DialogTitle>
-                        <DialogDescription>
-                            ¿Está seguro que desea eliminar el caso <strong>#{ticketToDelete?.id}</strong>?
-                            <br />
-                            <span className="text-gray-600">{ticketToDelete?.name}</span>
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setDeleteDialogOpen(false)}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={confirmDelete}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            Eliminar
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ConfirmDialog
+                open={!!ticketToDelete}
+                onOpenChange={(abierto) => !abierto && setTicketToDelete(null)}
+                title={`Eliminar el caso #${ticketToDelete?.id ?? ''}`}
+                description={
+                    <>
+                        ¿Eliminar <strong className="font-semibold text-gray-900">{ticketToDelete?.name}</strong>? No se puede deshacer.
+                    </>
+                }
+                confirmLabel="Eliminar"
+                onConfirm={confirmDelete}
+                processing={deleting}
+            />
 
             {/* Modal de visualización del caso */}
-            <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <span className="text-[#2c4370]">Caso #{ticketToView?.id}</span>
-                            <span className={`px-2 py-0.5 text-[10px] font-semibold ${ticketToView ? getStatusColor(ticketToView.status) : ''}`}>
-                                {ticketToView?.status_name}
-                            </span>
-                        </DialogTitle>
-                    </DialogHeader>
-
+            <Dialog open={!!ticketToView} onOpenChange={(abierto) => !abierto && setTicketToView(null)}>
+                <DialogContent className="max-h-[90vh] gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[600px]">
                     {ticketToView && (
-                        <div className="space-y-4">
-                            {/* Título */}
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-900">{ticketToView.name}</h3>
-                            </div>
+                        <div className="flex max-h-[90vh] flex-col">
+                            <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm tabular-nums text-gray-500">Caso #{ticketToView.id}</span>
+                                    <StatusPill status={ticketToView.status} name={ticketToView.status_name} />
+                                    <PriorityPill priority={ticketToView.priority} name={ticketToView.priority_name} />
+                                </div>
+                                <DialogTitle className="mt-1.5 text-lg font-semibold text-gray-900">{ticketToView.name}</DialogTitle>
+                                <DialogDescription className="sr-only">Resumen del caso #{ticketToView.id}</DialogDescription>
+                            </DialogHeader>
 
-                            {/* Info Grid */}
-                            <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div className="bg-gray-50 p-2">
-                                    <span className="text-gray-500 block">Prioridad</span>
-                                    <span className="font-medium">{ticketToView.priority_name}</span>
-                                </div>
-                                <div className="bg-gray-50 p-2">
-                                    <span className="text-gray-500 block">Entidad</span>
-                                    <span className="font-medium">{ticketToView.entity_name || '-'}</span>
-                                </div>
-                                <div className="bg-gray-50 p-2">
-                                    <span className="text-gray-500 block">Fecha de Apertura</span>
-                                    <span className="font-medium">
-                                        {ticketToView.date ? new Date(ticketToView.date).toLocaleDateString('es-CO', {
-                                            year: 'numeric',
-                                            month: '2-digit',
-                                            day: '2-digit',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        }) : '-'}
-                                    </span>
-                                </div>
-                                <div className="bg-gray-50 p-2">
-                                    <span className="text-gray-500 block">Última Actualización</span>
-                                    <span className="font-medium">
-                                        {ticketToView.date_mod ? new Date(ticketToView.date_mod).toLocaleDateString('es-CO', {
-                                            year: 'numeric',
-                                            month: '2-digit',
-                                            day: '2-digit',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        }) : '-'}
-                                    </span>
-                                </div>
-                                <div className="bg-gray-50 p-2">
-                                    <span className="text-gray-500 block">Solicitante</span>
-                                    <span className="font-medium">{ticketToView.requester_name || '-'}</span>
-                                </div>
-                                <div className="bg-gray-50 p-2">
-                                    <span className="text-gray-500 block">Asignado a</span>
-                                    <span className="font-medium">{ticketToView.assigned_name || '-'}</span>
-                                </div>
-                                <div className="bg-gray-50 p-2 col-span-2">
-                                    <span className="text-gray-500 block">Categoría</span>
-                                    <span className="font-medium">{ticketToView.category_name || '-'}</span>
-                                </div>
-                            </div>
-
-                            {/* Solución del caso */}
-                            {(ticketToView.status === 5 || ticketToView.status === 6) && (
-                                <div className="pt-3 border-t">
-                                    <span className="text-xs font-semibold text-green-700 block mb-2">Solución</span>
-                                    {loadingSolution ? (
-                                        <div className="bg-green-50 p-3 border border-green-200 flex items-center justify-center">
-                                            <Loader2 className="h-4 w-4 animate-spin text-green-600" />
-                                            <span className="ml-2 text-xs text-green-600">Cargando solución...</span>
+                            <div className="space-y-5 overflow-y-auto px-6 py-5">
+                                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                                    {[
+                                        ['Entidad', ticketToView.entity_name],
+                                        ['Categoría', ticketToView.category_name],
+                                        ['Apertura', formatTableDate(ticketToView.date)],
+                                        ['Última actualización', formatTableDate(ticketToView.date_mod)],
+                                        ['Solicitante', ticketToView.requester_name],
+                                        ['Asignado a', ticketToView.assigned_name],
+                                    ].map(([etiqueta, valor]) => (
+                                        <div key={etiqueta}>
+                                            <dt className="text-xs text-gray-500">{etiqueta}</dt>
+                                            <dd className="mt-0.5 font-medium text-gray-900">{valor || '—'}</dd>
                                         </div>
-                                    ) : ticketSolution ? (
-                                        <div className="bg-green-50 p-3 border border-green-200">
-                                            <div className="text-xs text-gray-700 whitespace-pre-wrap">{ticketSolution.content}</div>
-                                            <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-[10px] text-green-700">
-                                                <span>Resuelto por: <strong>{ticketSolution.solved_by || 'Usuario del sistema'}</strong></span>
-                                                <span>{ticketSolution.date_creation ? new Date(ticketSolution.date_creation).toLocaleString('es-CO') : '-'}</span>
+                                    ))}
+                                </dl>
+
+                                {/* Solución del caso */}
+                                {(ticketToView.status === 5 || ticketToView.status === 6) && (
+                                    <div className="border-t pt-4">
+                                        <h3 className="mb-2 text-sm font-semibold text-green-700">Solución</h3>
+                                        {loadingSolution ? (
+                                            <p className="flex items-center gap-2 rounded-xl bg-green-50 p-3 text-sm text-green-700">
+                                                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                                Cargando solución…
+                                            </p>
+                                        ) : ticketSolution ? (
+                                            <div className="rounded-xl bg-green-50 p-4 ring-1 ring-inset ring-green-600/20">
+                                                <p className="whitespace-pre-wrap text-sm text-gray-700">{ticketSolution.content}</p>
+                                                <p className="mt-3 flex flex-wrap justify-between gap-2 border-t border-green-200 pt-2 text-xs text-green-700">
+                                                    <span>
+                                                        Resuelto por: <strong>{ticketSolution.solved_by || 'Usuario del sistema'}</strong>
+                                                    </span>
+                                                    <span>{ticketSolution.date_creation ? new Date(ticketSolution.date_creation).toLocaleString('es-CO') : '—'}</span>
+                                                </p>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-gray-50 p-3 border border-gray-200 text-xs text-gray-500">
-                                            No se encontró solución registrada
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Acciones */}
-                            <div className="flex justify-end gap-2 pt-2 border-t">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setViewDialogOpen(false)}
-                                    className="h-8 text-xs"
-                                >
-                                    Cerrar
-                                </Button>
-                                {/* Botón Resolver en el modal */}
-                                {canResolve(ticketToView) && ticketToView.status !== 5 && ticketToView.status !== 6 && (
-                                    <Button
-                                        size="sm"
-                                        onClick={() => {
-                                            setViewDialogOpen(false);
-                                            openSolveDialog(ticketToView);
-                                        }}
-                                        className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
-                                    >
-                                        <CheckSquare className="h-3.5 w-3.5 mr-1" />
-                                        Resolver
-                                    </Button>
+                                        ) : (
+                                            <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">No se encontró solución registrada.</p>
+                                        )}
+                                    </div>
                                 )}
-                                {canEdit() && (
-                                    <Button
-                                        size="sm"
+                            </div>
+
+                            <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                                <button type="button" onClick={() => setTicketToView(null)} className={btn.secondary}>
+                                    Cerrar
+                                </button>
+                                {canResolve(ticketToView) && (
+                                    <button
+                                        type="button"
                                         onClick={() => {
-                                            setViewDialogOpen(false);
-                                            router.visit(`/soporte/casos/${ticketToView.id}/editar`);
+                                            const t = ticketToView;
+                                            setTicketToView(null);
+                                            openSolveDialog(t);
                                         }}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
+                                        className={cn(btn.primary, 'bg-green-700 hover:bg-green-800')}
                                     >
-                                        Editar Caso
-                                    </Button>
+                                        <CheckSquare aria-hidden="true" />
+                                        Resolver
+                                    </button>
+                                )}
+                                {canEdit && (
+                                    <Link href={`${RUTA}/${ticketToView.id}/editar`} className={btn.primary}>
+                                        <Pencil aria-hidden="true" />
+                                        Editar caso
+                                    </Link>
                                 )}
                             </div>
                         </div>
@@ -1195,29 +831,28 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
             </Dialog>
 
             {/* Modal de Resolver Caso */}
-            <Dialog open={solveDialogOpen} onOpenChange={setSolveDialogOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CheckSquare className="h-5 w-5 text-green-600" />
-                            Resolver Caso
+            <Dialog open={!!ticketToSolve} onOpenChange={(abierto) => !abierto && !solving && closeSolveDialog()}>
+                <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[520px]">
+                    <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                        <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                            <CheckSquare className="size-5 text-green-700" aria-hidden="true" />
+                            Resolver caso
                         </DialogTitle>
-                        <DialogDescription>
-                            Resolver el caso <strong>#{ticketToSolve?.id}</strong>: {ticketToSolve?.name}
+                        <DialogDescription className="text-sm text-gray-500">
+                            #{ticketToSolve?.id} · {ticketToSolve?.name}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {/* Mensaje de error */}
-                    {solveError && (
-                        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm rounded">
-                            {solveError}
-                        </div>
-                    )}
-
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-5 px-6 py-5">
+                        {solveError && (
+                            <p role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/20">
+                                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                {solveError}
+                            </p>
+                        )}
                         <div>
-                            <label htmlFor="solve-solution" className="block text-sm font-medium text-gray-700 mb-2">
-                                Descripción de la solución <span className="text-red-500">*</span>
+                            <label htmlFor="solve-solution" className="text-sm font-medium text-gray-700">
+                                Descripción de la solución <span className="text-red-600">*</span>
                             </label>
                             <textarea
                                 id="solve-solution"
@@ -1226,65 +861,50 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                     setSolution(e.target.value);
                                     if (solutionError) setSolutionError(null);
                                 }}
-                                placeholder="Describe cómo se resolvió el problema..."
-                                aria-invalid={!!solutionError}
+                                placeholder="Describe cómo se resolvió el problema…"
+                                aria-invalid={solutionError ? true : undefined}
                                 aria-describedby={solutionError ? 'solve-solution-error' : undefined}
-                                className="w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[120px] text-sm"
+                                className={cn(fieldClass, 'mt-1.5 h-auto min-h-[120px] py-2')}
                                 autoFocus
                             />
-                            {solutionError && <p id="solve-solution-error" role="alert" className="text-red-600 text-xs mt-1">{solutionError}</p>}
+                            {solutionError && (
+                                <p id="solve-solution-error" role="alert" className="mt-1.5 text-sm text-red-600">
+                                    {solutionError}
+                                </p>
+                            )}
                         </div>
                         <div>
-                            <label htmlFor="solve-date" className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="solve-date" className="text-sm font-medium text-gray-700">
                                 Fecha y hora de solución
                             </label>
-                            <Input
+                            <input
                                 id="solve-date"
                                 type="datetime-local"
                                 value={solveDate}
                                 onChange={(e) => setSolveDate(e.target.value)}
-                                className="w-full"
+                                aria-describedby="solve-date-hint"
+                                className={cn(fieldClass, 'mt-1.5')}
                             />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Por defecto se usa la fecha y hora actual. Puede modificarla si la solución fue en otro momento.
+                            <p id="solve-date-hint" className="mt-1.5 text-xs text-gray-500">
+                                Por defecto, ahora. Cámbiala si la solución fue en otro momento.
                             </p>
                         </div>
                     </div>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setSolveDialogOpen(false);
-                                setTicketToSolve(null);
-                                setSolution('');
-                                setSolveDate('');
-                            }}
-                            disabled={solving}
-                        >
+
+                    <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                        <button type="button" onClick={closeSolveDialog} disabled={solving} className={btn.secondary}>
                             Cancelar
-                        </Button>
-                        <Button
+                        </button>
+                        <button
                             type="button"
-                            onClick={() => {
-                                console.log('Resolve button clicked');
-                                confirmSolve();
-                            }}
+                            onClick={confirmSolve}
                             disabled={!solution.trim() || solving}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className={cn(btn.primary, 'bg-green-700 hover:bg-green-800')}
                         >
-                            {solving ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                    Resolviendo...
-                                </>
-                            ) : (
-                                <>
-                                    <CheckSquare className="h-4 w-4 mr-1" />
-                                    Resolver
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
+                            {solving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckSquare aria-hidden="true" />}
+                            {solving ? 'Resolviendo…' : 'Resolver'}
+                        </button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </>

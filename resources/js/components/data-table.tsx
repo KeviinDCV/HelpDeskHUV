@@ -282,6 +282,22 @@ export function TruncatedText({ value, lines = 1, className }: { value: string |
     );
 }
 
+/**
+ * Fecha arriba y hora debajo, más tenue. Para tablas con muchas columnas cuyas filas ya
+ * ocupan dos líneas: la fecha en una sola línea ("15/09/2026, 07:10 a. m.") pedía 160 px.
+ */
+export function DateTimeCell({ value }: { value: string | null | undefined }) {
+    if (!value) return <>—</>;
+    const d = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return <>{value}</>;
+    return (
+        <time dateTime={d.toISOString()} className="block leading-tight tabular-nums">
+            <span className="block">{d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
+            <span className="block text-xs text-gray-400">{d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>
+        </time>
+    );
+}
+
 export const PER_PAGE_OPTIONS = [10, 15, 25, 50, 100, 500, 1000, 5000, 10000, 50000];
 
 /**

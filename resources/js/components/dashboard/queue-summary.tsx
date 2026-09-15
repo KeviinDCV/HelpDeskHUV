@@ -3,7 +3,9 @@ import { BarChart3, ChevronRight, Hourglass, LayoutList } from 'lucide-react';
 
 import { categoriaCorta, fechaCompleta, haceCuanto, parseFecha } from '@/lib/ticket-format';
 
-import { PRIORIDAD, type DashboardTicket } from './ticket-row';
+import { PRIORIDAD } from '@/components/ticket-pills';
+
+import { type DashboardTicket } from './ticket-row';
 
 interface Props {
     tickets: DashboardTicket[];

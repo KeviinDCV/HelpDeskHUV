@@ -1,492 +1,762 @@
-import { GLPIHeader } from '@/components/glpi-header';
+import { FilterLabel, SegmentedControl } from '@/components/data-table';
 import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { PageHeader } from '@/components/page-header';
+import { ESTADO, NOMBRE_PRIORIDAD, PRIORIDAD, PriorityPill, StatusPill } from '@/components/ticket-pills';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { categoriaCorta, fechaCompleta, haceCuanto } from '@/lib/ticket-format';
+import { btn, fieldClass, filterSelectClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import { Button } from "@/components/ui/button";
-import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { 
-    BarChart3, 
-    PieChart, 
-    TrendingUp, 
-    Download, 
-    Filter, 
-    Users, 
-    Clock, 
-    CheckCircle2, 
-    AlertCircle,
-    Calendar,
-    RefreshCw,
-    ChevronDown,
-    ChevronUp
-} from 'lucide-react';
-import React, { useState } from 'react';
+import { ChevronDown, Download, FileSpreadsheet, Filter, SearchX, X } from 'lucide-react';
+import { useId, useState, type ReactNode } from 'react';
 
-interface StatisticsProps {
-    stats: {
-        total: number;
-        abiertos: number;
-        en_proceso: number;
-        cerrados: number;
-        pendientes: number;
-    };
-    byStatus: { status: string; count: number; percentage: number }[];
-    byPriority: { priority: string; count: number; percentage: number }[];
-    byTechnician: { technician: string; total: number; abiertos: number; cerrados: number }[];
-    byCategory: { category: string; count: number }[];
-    byMonth: { month: string; count: number }[];
-    recentCases: { id: number; name: string; status: string; priority: string; created_at: string; technician: string }[];
-    filters: {
-        date_from: string;
-        date_to: string;
-        status: string;
-        priority: string;
-        technician_id: string;
-        category_id: string;
-    };
-    technicians: { id: number; name: string }[];
-    categories: { id: number; name: string }[];
+const RUTA = '/soporte/estadisticas';
+
+interface Mes {
+    key: string;
+    month: string;
+    count: number;
 }
 
-const statusColors: Record<string, string> = {
-    'Nuevo': 'bg-blue-500',
-    'En proceso': 'bg-yellow-500',
-    'Pendiente': 'bg-orange-500',
-    'Resuelto': 'bg-green-500',
-    'Cerrado': 'bg-gray-500',
-};
+interface StatisticsProps {
+    stats: { total: number; nuevos: number; en_curso: number; en_espera: number; resueltos: number };
+    byStatus: { code: number; status: string; count: number; percentage: number }[];
+    byPriority: { code: number; priority: string; count: number; percentage: number }[];
+    byTechnician: { technician: string; total: number; abiertos: number; cerrados: number }[];
+    byCategory: { category: string; completename: string | null; count: number }[];
+    byMonth: Mes[];
+    recentCases: { id: number; name: string; status: string; status_code: number; priority: number; created_at: string }[];
+    filters: { date_from: string; date_to: string; status: string; priority: string; technician_id: string; category_id: string };
+    technicians: { id: number; name: string | null }[];
+    categories: { id: number; name: string; completename: string | null }[];
+}
 
-const priorityColors: Record<string, string> = {
-    'Muy alta': 'bg-red-600',
-    'Alta': 'bg-orange-500',
-    'Media': 'bg-yellow-500',
-    'Baja': 'bg-green-500',
-    'Muy baja': 'bg-gray-400',
-};
+/** Estados de GLPI para el filtro (antes el desplegable mandaba 4 = "Resuelto", que en GLPI es "En espera"). */
+const ESTADOS = [
+    { value: '1', label: 'Nuevo' },
+    { value: '2', label: 'En curso (asignado)' },
+    { value: '3', label: 'En curso (planificado)' },
+    { value: '4', label: 'En espera' },
+    { value: '5', label: 'Resuelto' },
+    { value: '6', label: 'Cerrado' },
+];
 
-export default function Estadisticas({ 
-    stats = { total: 0, abiertos: 0, en_proceso: 0, cerrados: 0, pendientes: 0 }, 
-    byStatus = [], 
-    byPriority = [], 
-    byTechnician = [], 
-    byCategory = [], 
+/** De urgente a muy baja. Antes 1 decía "Muy alta": filtraba justo lo contrario y faltaba Urgente. */
+const PRIORIDADES = [6, 5, 4, 3, 2, 1].map((p) => ({ value: String(p), label: NOMBRE_PRIORIDAD[p] }));
+
+const numero = (n: number) => n.toLocaleString('es-CO');
+const formatoPorcentaje = new Intl.NumberFormat('es-CO', { style: 'percent', maximumFractionDigits: 1 });
+const porcentaje = (parte: number, total: number) => formatoPorcentaje.format(total > 0 ? parte / total : 0);
+
+function fechaCorta(iso: string) {
+    const [a, m, d] = iso.split('-').map(Number);
+    return new Date(a, m - 1, d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function etiquetaMes(key: string) {
+    const [anio, mes] = key.split('-').map(Number);
+    const fecha = new Date(anio, mes - 1, 1);
+    return {
+        anio,
+        mes,
+        corto: fecha.toLocaleDateString('es-CO', { month: 'short' }).replace('.', ''),
+        largo: fecha.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' }),
+    };
+}
+
+/** Marcas del eje en números redondos (0 · 1.000 · 2.000 · 3.000), nunca en 713 o 1.426. */
+function escala(max: number) {
+    if (max <= 0) return { tope: 1, marcas: [0, 1] };
+    const bruto = max / 4;
+    const magnitud = 10 ** Math.floor(Math.log10(bruto));
+    const paso = Math.max(1, [1, 2, 5, 10].map((f) => f * magnitud).find((p) => p >= bruto) ?? 10 * magnitud);
+    const tope = Math.ceil(max / paso) * paso;
+    const marcas: number[] = [];
+    for (let t = 0; t <= tope; t += paso) marcas.push(t);
+    return { tope, marcas };
+}
+
+function Tarjeta({ titulo, descripcion, acciones, children, className }: { titulo: string; descripcion?: ReactNode; acciones?: ReactNode; children: ReactNode; className?: string }) {
+    const id = useId();
+    return (
+        <section aria-labelledby={id} className={cn('surface-card min-w-0 p-5 sm:p-6', className)}>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <h2 id={id} className="text-base font-semibold text-gray-900">
+                        {titulo}
+                    </h2>
+                    {descripcion && <p className="mt-0.5 text-sm text-gray-500">{descripcion}</p>}
+                </div>
+                {acciones}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+interface FilaBarra {
+    clave: string | number;
+    etiqueta: string;
+    titulo?: string;
+    punto?: string;
+    valor: number;
+}
+
+/**
+ * Barras horizontales como tabla: cada valor está escrito (la barra solo lo acompaña), así que
+ * la tabla es a la vez la gráfica y su versión accesible. Un solo color: es una sola serie; lo
+ * que identifica cada fila es su nombre, con el punto de color que ya usa la lista de casos.
+ */
+function TablaBarras({ titulo, columna, filas, total }: { titulo: string; columna: string; filas: FilaBarra[]; total: number }) {
+    const max = Math.max(1, ...filas.map((f) => f.valor));
+    if (filas.length === 0) return <p className="py-6 text-center text-sm text-gray-500">Sin datos con estos filtros.</p>;
+    return (
+        <table className="tabla-grafica w-full text-sm">
+            <caption className="sr-only">{titulo}</caption>
+            <thead>
+                <tr>
+                    <th scope="col" className="p-0">
+                        <span className="sr-only">{columna}</span>
+                    </th>
+                    <td className="hidden p-0 sm:table-cell" />
+                    <th scope="col" className="p-0">
+                        <span className="sr-only">Casos</span>
+                    </th>
+                    <th scope="col" className="p-0">
+                        <span className="sr-only">Porcentaje del total</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {filas.map((f) => (
+                    <tr key={f.clave}>
+                        {/* En móvil (sin barra) el rótulo toma el espacio que sobra y se recorta: max-w-0 evita
+                            que su texto sin cortes ensanche la tabla por fuera de la tarjeta. */}
+                        <th scope="row" className="w-full max-w-0 py-1.5 pr-4 text-left font-normal text-gray-700 sm:w-[1%] sm:max-w-none sm:whitespace-nowrap">
+                            <span className="flex max-w-[16rem] items-center gap-2" title={f.titulo}>
+                                {f.punto && <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full', f.punto)} />}
+                                <span className="truncate">{f.etiqueta}</span>
+                            </span>
+                        </th>
+                        <td aria-hidden="true" className="hidden py-1.5 sm:table-cell">
+                            <div className="h-2">
+                                <div className="h-full rounded-r bg-huv" style={{ width: `${(f.valor / max) * 100}%`, minWidth: f.valor > 0 ? 2 : 0 }} />
+                            </div>
+                        </td>
+                        <td className="w-[1%] whitespace-nowrap py-1.5 pl-4 text-right font-medium tabular-nums text-gray-900">{numero(f.valor)}</td>
+                        <td className="w-[1%] whitespace-nowrap py-1.5 pl-3 text-right text-xs tabular-nums text-gray-500">{porcentaje(f.valor, total)}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+/**
+ * Columnas por mes. Solo se rotulan el máximo y el mes actual (el resto lo dan el eje, el
+ * tooltip y la vista de tabla). El mes en curso va en un tono más claro: todavía no termina y
+ * sin esa marca su columna, siempre más baja, parece una caída.
+ */
+function GraficaMensual({ meses }: { meses: Mes[] }) {
+    const [vista, setVista] = useState<'grafica' | 'tabla'>('grafica');
+    const [activo, setActivo] = useState<number | null>(null);
+
+    const hoy = new Date();
+    const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    const etiquetas = meses.map((m) => etiquetaMes(m.key));
+    const max = Math.max(0, ...meses.map((m) => m.count));
+    const { tope, marcas } = escala(max);
+    const iMax = meses.findIndex((m) => m.count === max);
+    const ultimo = meses.length - 1;
+    const hayEnCurso = meses[ultimo]?.key === mesActual;
+
+    if (meses.length === 0) return <p className="py-6 text-center text-sm text-gray-500">Sin datos.</p>;
+
+    const resumen =
+        `Casos por mes, de ${etiquetas[0].largo} a ${etiquetas[ultimo].largo}. ` +
+        `Máximo: ${numero(max)} en ${etiquetas[iMax].largo}.` +
+        (hayEnCurso ? ` El mes actual, aún en curso, lleva ${numero(meses[ultimo].count)}.` : '');
+
+    return (
+        <Tarjeta
+            titulo="Casos por mes"
+            descripcion="Casos abiertos en los últimos 12 meses. No usa el rango de fechas; sí los demás filtros."
+            acciones={
+                <SegmentedControl
+                    label="Vista de casos por mes"
+                    options={[
+                        { value: 'grafica', label: 'Gráfica' },
+                        { value: 'tabla', label: 'Tabla' },
+                    ]}
+                    value={vista}
+                    onChange={setVista}
+                />
+            }
+        >
+            {vista === 'grafica' && max === 0 ? (
+                // Pasa con filtros que dejan casos en otras fechas: el total no es 0, pero estos 12 meses sí
+                <p className="py-10 text-center text-sm text-gray-500">Sin casos abiertos en los últimos 12 meses con estos filtros.</p>
+            ) : vista === 'grafica' ? (
+                <>
+                    <div role="img" aria-label={resumen} className="flex gap-2 pt-6">
+                        {/* Eje Y */}
+                        <div aria-hidden="true" className="relative h-52 w-11 shrink-0">
+                            {marcas.map((t) => (
+                                <span
+                                    key={t}
+                                    className="absolute right-0 translate-y-1/2 text-[11px] leading-none tabular-nums text-gray-400"
+                                    style={{ bottom: `${(t / tope) * 100}%` }}
+                                >
+                                    {numero(t)}
+                                </span>
+                            ))}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <div className="relative h-52">
+                                {marcas.map((t) => (
+                                    <div
+                                        key={t}
+                                        aria-hidden="true"
+                                        className={cn('absolute inset-x-0 h-px', t === 0 ? 'bg-black/20 dark:bg-white/25' : 'bg-black/[0.06] dark:bg-white/[0.07]')}
+                                        style={{ bottom: `${(t / tope) * 100}%` }}
+                                    />
+                                ))}
+                                <div className="relative flex h-full items-end">
+                                    {meses.map((m, i) => {
+                                        const alto = (m.count / tope) * 100;
+                                        const enCurso = i === ultimo && hayEnCurso;
+                                        const rotulo = (i === iMax || i === ultimo) && activo !== i;
+                                        const lado = i < 2 ? 'left-0' : i > ultimo - 2 ? 'right-0' : 'left-1/2 -translate-x-1/2';
+                                        return (
+                                            <div
+                                                key={m.key}
+                                                className="relative flex h-full flex-1 items-end justify-center px-[3px]"
+                                                onMouseEnter={() => setActivo(i)}
+                                                onMouseLeave={() => setActivo(null)}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        'w-full max-w-6 rounded-t transition-colors',
+                                                        enCurso ? 'bg-huv/40 dark:bg-huv/60' : activo === i ? 'bg-huv-hover' : 'bg-huv',
+                                                    )}
+                                                    style={{ height: `${alto}%`, minHeight: m.count > 0 ? 2 : 0 }}
+                                                />
+                                                {rotulo && (
+                                                    <span
+                                                        className="absolute text-[11px] font-medium leading-none tabular-nums text-gray-700"
+                                                        style={{ bottom: `calc(${alto}% + 5px)` }}
+                                                    >
+                                                        {numero(m.count)}
+                                                    </span>
+                                                )}
+                                                {activo === i && (
+                                                    <div
+                                                        className={cn(
+                                                            'pointer-events-none absolute z-10 whitespace-nowrap rounded-lg bg-[#1f2937] px-2.5 py-1.5 text-xs text-[#fff] shadow-lg dark:bg-[#e4e4e7] dark:text-[#18181b]',
+                                                            lado,
+                                                        )}
+                                                        style={{ bottom: `calc(${alto}% + 8px)` }}
+                                                    >
+                                                        <p className="first-letter:uppercase opacity-80">{etiquetas[i].largo}</p>
+                                                        <p className="font-semibold">
+                                                            {numero(m.count)} {m.count === 1 ? 'caso' : 'casos'}
+                                                            {enCurso && <span className="font-normal opacity-80"> · en curso</span>}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Eje X: el año solo donde empieza (primer mes y enero). En móvil no caben
+                                doce rótulos: va uno sí y uno no, contando desde el último. */}
+                            <div aria-hidden="true" className="flex">
+                                {meses.map((m, i) => (
+                                    <div
+                                        key={m.key}
+                                        className={cn('min-w-0 flex-1 pt-2 text-center text-[11px] leading-tight text-gray-500', (ultimo - i) % 2 === 1 && 'invisible sm:visible')}
+                                    >
+                                        <span className="block">{etiquetas[i].corto}</span>
+                                        {(i === 0 || etiquetas[i].mes === 1) && <span className="block text-gray-400">{etiquetas[i].anio}</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    {hayEnCurso && (
+                        <p className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-huv/40 dark:bg-huv/60" />
+                            Mes en curso: la cifra sigue sumando
+                        </p>
+                    )}
+                </>
+            ) : (
+                <div className="max-w-md">
+                    <table className="tabla-grafica w-full text-sm">
+                        <caption className="sr-only">Casos por mes, últimos 12 meses</caption>
+                        <thead>
+                            <tr className="text-left text-xs text-gray-500">
+                                <th scope="col" className="pb-2 font-medium">
+                                    Mes
+                                </th>
+                                <th scope="col" className="pb-2 text-right font-medium">
+                                    Casos
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {meses.map((m, i) => (
+                                <tr key={m.key} className="border-t">
+                                    <td className="py-2 text-gray-700">
+                                        <span className="first-letter:uppercase inline-block">{etiquetas[i].largo}</span>
+                                        {i === ultimo && hayEnCurso && <span className="ml-1.5 text-xs text-gray-400"> (en curso)</span>}
+                                    </td>
+                                    <td className="py-2 text-right font-medium tabular-nums text-gray-900">{numero(m.count)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </Tarjeta>
+    );
+}
+
+export default function Estadisticas({
+    stats = { total: 0, nuevos: 0, en_curso: 0, en_espera: 0, resueltos: 0 },
+    byStatus = [],
+    byPriority = [],
+    byTechnician = [],
+    byCategory = [],
     byMonth = [],
     recentCases = [],
-    filters = { date_from: '', date_to: '', status: '', priority: '', technician_id: '', category_id: '' }, 
-    technicians = [], 
-    categories = [] 
+    filters = { date_from: '', date_to: '', status: '', priority: '', technician_id: '', category_id: '' },
+    technicians = [],
+    categories = [],
 }: StatisticsProps) {
-    const [dateFrom, setDateFrom] = useState(filters?.date_from || '');
-    const [dateTo, setDateTo] = useState(filters?.date_to || '');
-    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
-    const [priorityFilter, setPriorityFilter] = useState(filters?.priority || 'all');
-    const [technicianFilter, setTechnicianFilter] = useState(filters?.technician_id || 'all');
-    const [categoryFilter, setCategoryFilter] = useState(filters?.category_id || 'all');
-    const [showAllTechnicians, setShowAllTechnicians] = useState(false);
-    
-    const displayedTechnicians = showAllTechnicians ? byTechnician : byTechnician.slice(0, 10);
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
+    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    const [priorityFilter, setPriorityFilter] = useState(filters.priority || 'all');
+    const [technicianFilter, setTechnicianFilter] = useState(filters.technician_id || 'all');
+    const [categoryFilter, setCategoryFilter] = useState(filters.category_id || 'all');
+    const [verTodosTecnicos, setVerTodosTecnicos] = useState(false);
 
-    const applyFilters = () => {
-        const params: Record<string, string> = {};
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
-        if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
-        if (technicianFilter && technicianFilter !== 'all') params.technician_id = technicianFilter;
-        if (categoryFilter && categoryFilter !== 'all') params.category_id = categoryFilter;
-        
-        console.log('Aplicando filtros:', params);
-        router.visit('/soporte/estadisticas', { 
-            method: 'get',
-            data: params,
-            preserveState: false,
-            preserveScroll: false
-        });
+    // MySQL devuelve los SUM() como texto ("12"): se normaliza antes de sumar o formatear.
+    const tecnicos = byTechnician.map((t) => ({ ...t, total: Number(t.total), abiertos: Number(t.abiertos), cerrados: Number(t.cerrados) }));
+    const tecnicosVisibles = verTodosTecnicos ? tecnicos : tecnicos.slice(0, 10);
+
+    const rangoInvalido = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+
+    // Todas las acciones (aplicar y exportar) salen del estado actual de los controles.
+    const parametros = (): Record<string, string> => {
+        const valores: Record<string, string> = {
+            date_from: dateFrom,
+            date_to: dateTo,
+            status: statusFilter,
+            priority: priorityFilter,
+            technician_id: technicianFilter,
+            category_id: categoryFilter,
+        };
+        return Object.fromEntries(Object.entries(valores).filter(([, v]) => v && v !== 'all'));
     };
 
-    const clearFilters = () => {
-        setDateFrom(''); setDateTo(''); setStatusFilter('all'); 
-        setPriorityFilter('all'); setTechnicianFilter('all'); setCategoryFilter('all');
-        router.visit('/soporte/estadisticas', { 
-            method: 'get',
-            preserveState: false,
-            preserveScroll: false
-        });
+    const aplicar = () => {
+        if (rangoInvalido) return;
+        router.get(RUTA, parametros(), { preserveScroll: true });
     };
 
-    const exportToExcel = (type: string) => {
-        const params = new URLSearchParams();
-        params.append('export', type);
-        if (dateFrom) params.append('date_from', dateFrom);
-        if (dateTo) params.append('date_to', dateTo);
-        if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
-        if (priorityFilter && priorityFilter !== 'all') params.append('priority', priorityFilter);
-        if (technicianFilter && technicianFilter !== 'all') params.append('technician_id', technicianFilter);
-        if (categoryFilter && categoryFilter !== 'all') params.append('category_id', categoryFilter);
-        window.location.href = `/soporte/estadisticas/export?${params}`;
+    const limpiar = () => {
+        setDateFrom('');
+        setDateTo('');
+        setStatusFilter('all');
+        setPriorityFilter('all');
+        setTechnicianFilter('all');
+        setCategoryFilter('all');
+        router.get(RUTA, {}, { preserveScroll: true });
     };
 
-    const maxByMonth = Math.max(...byMonth.map(m => m.count), 1);
+    const exportar = (tipo: 'general' | 'detailed') => {
+        window.location.href = `${RUTA}/export?${new URLSearchParams({ export: tipo, ...parametros() })}`;
+    };
+
+    // Resumen de lo aplicado (lo que de verdad muestran las cifras, no lo que hay en los controles)
+    const nombreTecnico = (id: string) => {
+        const t = technicians.find((x) => String(x.id) === id);
+        return t ? (t.name ?? `Usuario ${t.id}`) : `Técnico ${id}`;
+    };
+    const nombreCategoria = (id: string) => {
+        const c = categories.find((x) => String(x.id) === id);
+        return c ? (categoriaCorta(c.completename) ?? c.name) : `Categoría ${id}`;
+    };
+    const aplicados: string[] = [];
+    if (filters.date_from && filters.date_to) aplicados.push(`${fechaCorta(filters.date_from)} – ${fechaCorta(filters.date_to)}`);
+    else if (filters.date_from) aplicados.push(`desde ${fechaCorta(filters.date_from)}`);
+    else if (filters.date_to) aplicados.push(`hasta ${fechaCorta(filters.date_to)}`);
+    if (filters.status) aplicados.push(ESTADOS.find((e) => e.value === String(filters.status))?.label ?? `Estado ${filters.status}`);
+    if (filters.priority) aplicados.push(`Prioridad ${(NOMBRE_PRIORIDAD[Number(filters.priority)] ?? filters.priority).toLowerCase()}`);
+    if (filters.technician_id) aplicados.push(nombreTecnico(String(filters.technician_id)));
+    if (filters.category_id) aplicados.push(nombreCategoria(String(filters.category_id)));
+
+    const hayCambios = [dateFrom, dateTo].some(Boolean) || [statusFilter, priorityFilter, technicianFilter, categoryFilter].some((v) => v !== 'all');
+    const puedeLimpiar = hayCambios || aplicados.length > 0;
+
+    const cifras = [
+        { etiqueta: 'Casos', valor: stats.total, punto: 'bg-huv', detalle: aplicados.length ? 'con los filtros aplicados' : 'registrados en total' },
+        { etiqueta: 'Nuevos', valor: stats.nuevos, punto: ESTADO[1].punto, detalle: `${porcentaje(stats.nuevos, stats.total)} del total` },
+        { etiqueta: 'En curso', valor: stats.en_curso, punto: ESTADO[2].punto, detalle: `${porcentaje(stats.en_curso, stats.total)} · asignados o planificados` },
+        { etiqueta: 'En espera', valor: stats.en_espera, punto: ESTADO[4].punto, detalle: `${porcentaje(stats.en_espera, stats.total)} del total` },
+        { etiqueta: 'Resueltos o cerrados', valor: stats.resueltos, punto: ESTADO[5].punto, detalle: `${porcentaje(stats.resueltos, stats.total)} del total` },
+    ];
+
+    const opcionesTecnicos = [
+        { value: 'all', label: 'Todos' },
+        ...technicians.map((t) => ({ value: String(t.id), label: t.name ?? `Usuario ${t.id}` })),
+    ];
+    const opcionesCategorias = [
+        { value: 'all', label: 'Todas' },
+        ...categories.filter((c) => c.completename || c.name).map((c) => ({ value: String(c.id), label: c.completename || c.name })),
+    ];
 
     return (
         <>
-            <Head title="Estadísticas - HelpDesk HUV" />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
-                        <span className="text-gray-400">/</span>
-                        <Link href="/soporte/casos" className="text-gray-600 hover:text-[#2c4370] hover:underline">Soporte</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">Estadísticas</span>
-                    </div>
-                } />
+            <Head title="HelpDesk HUV - Estadísticas" />
+            <div className="flex min-h-screen flex-col bg-gray-50">
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <Link href="/soporte/casos" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Soporte
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Estadísticas</span>
+                        </div>
+                    }
+                />
 
-                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-                    <h1 className="text-xl font-semibold text-gray-900">Estadísticas</h1>
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
+                        <PageHeader
+                            title="Estadísticas"
+                            description="Volumen de casos, estados, prioridades y carga por técnico."
+                            actions={
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => exportar('general')}
+                                        className={btn.secondary}
+                                        title="Excel con las cifras, estados, prioridades, técnicos, categorías y los últimos 12 meses"
+                                    >
+                                        <Download aria-hidden="true" />
+                                        Exportar resumen
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => exportar('detailed')}
+                                        className={btn.secondary}
+                                        title="Excel con un renglón por caso (hasta 5.000), con los filtros de esta página"
+                                    >
+                                        <FileSpreadsheet aria-hidden="true" />
+                                        Exportar detalle
+                                    </button>
+                                </>
+                            }
+                        />
 
-                    {/* Filtros */}
-                    <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
-                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                            <Filter className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
-                            <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Filtros</h2>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
-                            {/* Cada label lleva htmlFor y cada control su id: sin esto el panel se
-                                anunciaba como dos campos de fecha anónimos y cuatro botones
-                                «Todos»/«Todas» indistinguibles entre sí. */}
-                            <div>
-                                <label htmlFor="est-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                <Input id="est-desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9" />
-                            </div>
-                            <div>
-                                <label htmlFor="est-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                <Input id="est-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9" />
-                            </div>
-                            <div>
-                                <label htmlFor="est-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger id="est-estado" className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="1">Nuevo</SelectItem>
-                                        <SelectItem value="2">En proceso</SelectItem>
-                                        <SelectItem value="3">Pendiente</SelectItem>
-                                        <SelectItem value="4">Resuelto</SelectItem>
-                                        <SelectItem value="5">Cerrado</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label htmlFor="est-prioridad" className="text-xs text-gray-600 mb-1 block">Prioridad</label>
-                                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                                    <SelectTrigger id="est-prioridad" className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todas</SelectItem>
-                                        <SelectItem value="1">Muy alta</SelectItem>
-                                        <SelectItem value="2">Alta</SelectItem>
-                                        <SelectItem value="3">Media</SelectItem>
-                                        <SelectItem value="4">Baja</SelectItem>
-                                        <SelectItem value="5">Muy baja</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label htmlFor="est-tecnico" className="text-xs text-gray-600 mb-1 block">Técnico</label>
-                                <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-                                    <SelectTrigger id="est-tecnico" className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        {technicians.map(t => (
-                                            <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label htmlFor="est-categoria" className="text-xs text-gray-600 mb-1 block">Categoría</label>
-                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                    <SelectTrigger id="est-categoria" className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todas</SelectItem>
-                                        {categories.map(c => (
-                                            <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mt-3 sm:mt-4">
-                            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-600 text-xs sm:text-sm">
-                                <RefreshCw className="h-3.5 sm:h-4 w-3.5 sm:w-4 mr-1" /> Limpiar
-                            </Button>
-                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                                <Button variant="outline" size="sm" onClick={() => exportToExcel('general')} className="flex-1 sm:flex-initial text-xs sm:text-sm">
-                                    <Download className="h-3.5 sm:h-4 w-3.5 sm:w-4 sm:mr-1" /><span className="hidden sm:inline">Exportar</span> General
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => exportToExcel('detailed')} className="flex-1 sm:flex-initial text-xs sm:text-sm">
-                                    <Download className="h-3.5 sm:h-4 w-3.5 sm:w-4 sm:mr-1" /><span className="hidden sm:inline">Exportar</span> Detallado
-                                </Button>
-                                <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white flex-1 sm:flex-initial text-xs sm:text-sm">
-                                    Aplicar
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Cards de resumen */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs sm:text-sm text-gray-500">Total</p>
-                                    <p className="text-xl sm:text-3xl font-bold text-gray-900">{stats.total}</p>
-                                </div>
-                                <BarChart3 className="h-6 sm:h-10 w-6 sm:w-10 text-[#2c4370] opacity-50" />
-                            </div>
-                        </div>
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs sm:text-sm text-gray-500">Abiertos</p>
-                                    <p className="text-xl sm:text-3xl font-bold text-blue-600">{stats.abiertos}</p>
-                                </div>
-                                <AlertCircle className="h-6 sm:h-10 w-6 sm:w-10 text-blue-500 opacity-50" />
-                            </div>
-                        </div>
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs sm:text-sm text-gray-500">En Proceso</p>
-                                    <p className="text-xl sm:text-3xl font-bold text-yellow-600">{stats.en_proceso}</p>
-                                </div>
-                                <Clock className="h-6 sm:h-10 w-6 sm:w-10 text-yellow-500 opacity-50" />
-                            </div>
-                        </div>
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs sm:text-sm text-gray-500">Pendientes</p>
-                                    <p className="text-xl sm:text-3xl font-bold text-orange-600">{stats.pendientes}</p>
-                                </div>
-                                <Calendar className="h-6 sm:h-10 w-6 sm:w-10 text-orange-500 opacity-50" />
-                            </div>
-                        </div>
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-4 col-span-2 sm:col-span-1">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs sm:text-sm text-gray-500">Cerrados</p>
-                                    <p className="text-xl sm:text-3xl font-bold text-green-600">{stats.cerrados}</p>
-                                </div>
-                                <CheckCircle2 className="h-6 sm:h-10 w-6 sm:w-10 text-green-500 opacity-50" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Gráficos principales */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                        {/* Por Estado */}
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-5">
-                            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                                <PieChart className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Casos por Estado</h3>
-                            </div>
-                            <div className="space-y-2 sm:space-y-3">
-                                {byStatus.map((item) => (
-                                    <div key={item.status} className="flex items-center gap-2 sm:gap-3">
-                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 shrink-0 ${statusColors[item.status] || 'bg-gray-400'}`}></div>
-                                        <span className="text-xs sm:text-sm flex-1 truncate">{item.status}</span>
-                                        <div className="w-16 sm:w-32 bg-gray-200 h-1.5 sm:h-2 hidden sm:block">
-                                            <div className={`h-full ${statusColors[item.status] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-medium w-8 sm:w-12 text-right">{item.count}</span>
-                                        <span className="text-[10px] sm:text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
+                        {/* Filtros: una sola fila para todo lo que hay debajo */}
+                        <section aria-label="Filtros" className="surface-card px-4 py-4 sm:px-5">
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    aplicar();
+                                }}
+                            >
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                                    <div>
+                                        <FilterLabel htmlFor="est-desde">Abierto desde</FilterLabel>
+                                        <input
+                                            id="est-desde"
+                                            type="date"
+                                            value={dateFrom}
+                                            max={dateTo || undefined}
+                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            aria-invalid={rangoInvalido || undefined}
+                                            aria-describedby={rangoInvalido ? 'est-rango-error' : undefined}
+                                            className={cn(fieldClass, 'h-9')}
+                                        />
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Por Prioridad */}
-                        <div className="bg-white shadow border border-gray-200 p-3 sm:p-5">
-                            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                                <TrendingUp className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Casos por Prioridad</h3>
-                            </div>
-                            <div className="space-y-2 sm:space-y-3">
-                                {byPriority.map((item) => (
-                                    <div key={item.priority} className="flex items-center gap-2 sm:gap-3">
-                                        <div className={`w-2.5 sm:w-3 h-2.5 sm:h-3 shrink-0 ${priorityColors[item.priority] || 'bg-gray-400'}`}></div>
-                                        <span className="text-xs sm:text-sm flex-1 truncate">{item.priority}</span>
-                                        <div className="w-16 sm:w-32 bg-gray-200 h-1.5 sm:h-2 hidden sm:block">
-                                            <div className={`h-full ${priorityColors[item.priority] || 'bg-gray-400'}`} style={{ width: `${item.percentage}%` }}></div>
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-medium w-8 sm:w-12 text-right">{item.count}</span>
-                                        <span className="text-[10px] sm:text-xs text-gray-500 w-10 text-right">{item.percentage.toFixed(1)}%</span>
+                                    <div>
+                                        <FilterLabel htmlFor="est-hasta">Abierto hasta</FilterLabel>
+                                        <input
+                                            id="est-hasta"
+                                            type="date"
+                                            value={dateTo}
+                                            min={dateFrom || undefined}
+                                            onChange={(e) => setDateTo(e.target.value)}
+                                            aria-invalid={rangoInvalido || undefined}
+                                            aria-describedby={rangoInvalido ? 'est-rango-error' : undefined}
+                                            className={cn(fieldClass, 'h-9')}
+                                        />
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Gráfico de tendencia por mes */}
-                    <div className="bg-white shadow border border-gray-200 p-3 sm:p-5">
-                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                            <BarChart3 className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
-                            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Tendencia Mensual</h3>
-                        </div>
-                        <div className="flex items-end gap-1 sm:gap-2 h-32 sm:h-48 overflow-x-auto">
-                            {byMonth.map((item) => (
-                                <div key={item.month} className="flex-1 min-w-[24px] sm:min-w-[32px] flex flex-col items-center">
-                                    <span className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">{item.count}</span>
-                                    <div 
-                                        className="w-full bg-[#2c4370] transition-all hover:bg-[#3d5583]"
-                                        style={{ height: `${(item.count / maxByMonth) * 100}px`, minHeight: '4px' }}
-                                    ></div>
-                                    <span className="text-[8px] sm:text-xs text-gray-500 mt-1 sm:mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">{item.month}</span>
+                                    <div>
+                                        <FilterLabel htmlFor="est-estado">Estado</FilterLabel>
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger id="est-estado" className={filterSelectClass}>
+                                                <SelectValue placeholder="Todos" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {ESTADOS.map((e) => (
+                                                    <SelectItem key={e.value} value={e.value}>
+                                                        {e.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="est-prioridad">Prioridad</FilterLabel>
+                                        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                                            <SelectTrigger id="est-prioridad" className={filterSelectClass}>
+                                                <SelectValue placeholder="Todas" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                {PRIORIDADES.map((p) => (
+                                                    <SelectItem key={p.value} value={p.value}>
+                                                        {p.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="est-tecnico">Técnico</FilterLabel>
+                                        <SearchableSelect
+                                            id="est-tecnico"
+                                            value={technicianFilter}
+                                            onValueChange={setTechnicianFilter}
+                                            options={opcionesTecnicos}
+                                            placeholder="Todos"
+                                            triggerClassName={filterSelectClass}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="est-categoria">Categoría</FilterLabel>
+                                        <SearchableSelect
+                                            id="est-categoria"
+                                            value={categoryFilter}
+                                            onValueChange={setCategoryFilter}
+                                            options={opcionesCategorias}
+                                            placeholder="Todas"
+                                            triggerClassName={filterSelectClass}
+                                        />
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Tabla de Técnicos */}
-                    <div className="bg-white shadow border border-gray-200 overflow-hidden">
-                        <div className="px-3 sm:px-5 py-3 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center gap-2">
-                            <div className="flex items-center gap-2">
-                                <Users className="h-4 sm:h-5 w-4 sm:w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Rendimiento por Técnico</h3>
-                                <span className="text-[10px] sm:text-xs text-gray-500">({byTechnician.length})</span>
-                            </div>
-                            <Button variant="ghost" size="sm" className="sm:ml-auto text-xs" onClick={() => exportToExcel('technicians')}>
-                                <Download className="h-3.5 sm:h-4 w-3.5 sm:w-4 mr-1" /> Exportar
-                            </Button>
-                        </div>
-                        <div 
-                            className="transition-all duration-500 ease-in-out"
-                            style={{ 
-                                maxHeight: showAllTechnicians ? `${byTechnician.length * 53 + 50}px` : '580px',
-                                overflow: 'hidden'
-                            }}
-                        >
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-gray-50">
-                                        <TableHead className="font-semibold">Técnico</TableHead>
-                                        <TableHead className="font-semibold text-center">Total Asignados</TableHead>
-                                        <TableHead className="font-semibold text-center">Abiertos</TableHead>
-                                        <TableHead className="font-semibold text-center">Cerrados</TableHead>
-                                        <TableHead className="font-semibold text-center">% Resolución</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {displayedTechnicians.map((tech, index) => (
-                                        <TableRow 
-                                            key={tech.technician} 
-                                            className="transition-opacity duration-300"
-                                            style={{ 
-                                                opacity: index >= 10 && !showAllTechnicians ? 0 : 1,
-                                                transitionDelay: `${(index - 10) * 30}ms`
-                                            }}
-                                        >
-                                            <TableCell className="font-medium">{tech.technician}</TableCell>
-                                            <TableCell className="text-center">{tech.total}</TableCell>
-                                            <TableCell className="text-center text-blue-600">{tech.abiertos}</TableCell>
-                                            <TableCell className="text-center text-green-600">{tech.cerrados}</TableCell>
-                                            <TableCell className="text-center">
-                                                <span className={`px-2 py-1 text-xs font-medium ${
-                                                    tech.total > 0 
-                                                        ? (tech.cerrados / tech.total) >= 0.7 
-                                                            ? 'bg-green-100 text-green-700' 
-                                                            : (tech.cerrados / tech.total) >= 0.4 
-                                                                ? 'bg-yellow-100 text-yellow-700'
-                                                                : 'bg-red-100 text-red-700'
-                                                        : 'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                    {tech.total > 0 ? ((tech.cerrados / tech.total) * 100).toFixed(1) : 0}%
-                                                </span>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        {byTechnician.length > 10 && (
-                            <div className="px-5 py-3 border-t bg-gray-50">
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => setShowAllTechnicians(!showAllTechnicians)}
-                                    className="w-full text-[#2c4370] hover:text-[#3d5583] hover:bg-gray-100"
-                                >
-                                    {showAllTechnicians ? (
-                                        <>
-                                            <ChevronUp className="h-4 w-4 mr-2" />
-                                            Mostrar menos
-                                        </>
-                                    ) : (
-                                        <>
-                                            <ChevronDown className="h-4 w-4 mr-2" />
-                                            Ver todos ({byTechnician.length - 10} más)
-                                        </>
+                                <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                                    {rangoInvalido && (
+                                        <p id="est-rango-error" role="alert" className="mr-auto text-sm text-red-600">
+                                            La fecha «desde» es posterior a la fecha «hasta».
+                                        </p>
                                     )}
-                                </Button>
-                            </div>
+                                    {puedeLimpiar && (
+                                        <button type="button" onClick={limpiar} className={cn(btn.ghost, 'h-8 px-3')}>
+                                            <X aria-hidden="true" />
+                                            Limpiar filtros
+                                        </button>
+                                    )}
+                                    <button type="submit" disabled={rangoInvalido} className={cn(btn.primary, 'h-8 px-3')}>
+                                        Aplicar filtros
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
+
+                        {aplicados.length > 0 && (
+                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-huv-soft px-4 py-2.5 text-sm text-huv-ink">
+                                <Filter className="size-4 shrink-0" aria-hidden="true" />
+                                <span>
+                                    Mostrando <strong className="font-semibold">{aplicados.join(' · ')}</strong>
+                                </span>
+                            </p>
                         )}
-                    </div>
 
-                    {/* Casos por Categoría */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white shadow border border-gray-200 p-5">
-                            <div className="flex items-center gap-2 mb-4">
-                                <BarChart3 className="h-5 w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900">Casos por Categoría</h3>
-                            </div>
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {byCategory.map((cat, idx) => (
-                                    <div key={idx} className="flex items-center gap-3">
-                                        <span className="text-sm flex-1 truncate">{cat.category || 'Sin categoría'}</span>
-                                        <div className="w-24 bg-gray-200 h-2">
-                                            <div 
-                                                className="h-2 bg-[#2c4370]"
-                                                style={{ width: `${(cat.count / (byCategory[0]?.count || 1)) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                        <span className="text-sm font-medium w-10 text-right">{cat.count}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Últimos casos */}
-                        <div className="bg-white shadow border border-gray-200 p-5">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Clock className="h-5 w-5 text-[#2c4370]" />
-                                <h3 className="font-semibold text-gray-900">Últimos Casos</h3>
-                            </div>
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {recentCases.map((c) => (
-                                    <div key={c.id} className="flex items-center gap-3 p-2 hover:bg-gray-50">
-                                        <span className="text-xs font-mono text-gray-500">#{c.id}</span>
-                                        <span className="text-sm flex-1 truncate">{c.name}</span>
-                                        <span className={`text-xs px-2 py-0.5 ${statusColors[c.status] || 'bg-gray-400'} text-white`}>
-                                            {c.status}
+                        {/* Cifras */}
+                        <section aria-label="Resumen de casos" className="surface-card overflow-hidden">
+                            <ul className="grid grid-cols-2 lg:grid-cols-5">
+                                {cifras.map((c, i) => (
+                                    <li
+                                        key={c.etiqueta}
+                                        // En móvil la primera ocupa toda la fila y las demás van de a dos; en escritorio, cinco columnas.
+                                        className={cn(
+                                            'flex flex-col px-5 py-4 sm:px-6',
+                                            i === 0 && 'col-span-2 lg:col-span-1',
+                                            i > 0 && 'border-t lg:border-t-0 lg:border-l',
+                                            i > 0 && i % 2 === 0 && 'border-l',
+                                        )}
+                                    >
+                                        <span className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                                            <span aria-hidden="true" className={cn('size-2 rounded-full', c.punto)} />
+                                            {c.etiqueta}
                                         </span>
-                                    </div>
+                                        <span className="mt-2 text-[2rem] font-semibold leading-none tracking-tight text-gray-900">{numero(c.valor)}</span>
+                                        <span className="mt-2 text-xs text-gray-500">{c.detalle}</span>
+                                    </li>
                                 ))}
-                            </div>
-                        </div>
+                            </ul>
+                        </section>
+
+                        {stats.total === 0 ? (
+                            <section className="surface-card flex flex-col items-center px-6 py-14 text-center">
+                                <SearchX className="size-8 text-gray-400" aria-hidden="true" />
+                                <h2 className="mt-3 text-base font-semibold text-gray-900">No hay casos con estos filtros</h2>
+                                <p className="mt-1 max-w-sm text-sm text-gray-500">Amplía el rango de fechas o quita algún filtro para ver las estadísticas.</p>
+                                {aplicados.length > 0 && (
+                                    <button type="button" onClick={limpiar} className={cn(btn.secondary, 'mt-5')}>
+                                        Limpiar filtros
+                                    </button>
+                                )}
+                            </section>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                                    <Tarjeta titulo="Por estado" descripcion="Estado actual de los casos.">
+                                        <TablaBarras
+                                            titulo="Casos por estado"
+                                            columna="Estado"
+                                            total={stats.total}
+                                            filas={byStatus.map((s) => ({ clave: s.code, etiqueta: s.status, punto: ESTADO[s.code]?.punto, valor: Number(s.count) }))}
+                                        />
+                                    </Tarjeta>
+                                    <Tarjeta titulo="Por prioridad" descripcion="De urgente a muy baja.">
+                                        <TablaBarras
+                                            titulo="Casos por prioridad"
+                                            columna="Prioridad"
+                                            total={stats.total}
+                                            filas={byPriority.map((p) => ({ clave: p.code, etiqueta: p.priority, punto: PRIORIDAD[p.code]?.punto, valor: Number(p.count) }))}
+                                        />
+                                    </Tarjeta>
+                                </div>
+
+                                <GraficaMensual meses={byMonth.map((m) => ({ ...m, count: Number(m.count) }))} />
+
+                                {/* Técnicos */}
+                                <section aria-labelledby="est-tecnicos" className="surface-card overflow-hidden">
+                                    <div className="px-5 pt-5 pb-4 sm:px-6">
+                                        <h2 id="est-tecnicos" className="text-base font-semibold text-gray-900">
+                                            Carga por técnico
+                                        </h2>
+                                        <p className="mt-0.5 text-sm text-gray-500">
+                                            Casos asignados a cada técnico. «Sin resolver» reúne los nuevos, en curso y en espera.
+                                        </p>
+                                    </div>
+                                    {tecnicos.length === 0 ? (
+                                        <p className="px-6 pb-6 text-sm text-gray-500">Sin casos asignados con estos filtros.</p>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="first:pl-5 sm:first:pl-6">Técnico</TableHead>
+                                                    <TableHead className="text-right">Asignados</TableHead>
+                                                    <TableHead className="text-right">Sin resolver</TableHead>
+                                                    <TableHead className="text-right">Resueltos o cerrados</TableHead>
+                                                    <TableHead className="w-48 last:pr-5 sm:last:pr-6">Resolución</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {tecnicosVisibles.map((t, i) => {
+                                                    const tasa = t.total > 0 ? t.cerrados / t.total : 0;
+                                                    const sinAsignar = t.technician === 'Sin asignar';
+                                                    return (
+                                                        <TableRow key={`${t.technician}-${i}`}>
+                                                            <TableCell className={cn('font-medium first:pl-5 sm:first:pl-6', sinAsignar ? 'text-gray-500' : 'text-gray-900')}>
+                                                                {t.technician}
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums text-gray-900">{numero(t.total)}</TableCell>
+                                                            <TableCell className="text-right tabular-nums text-gray-700">{numero(t.abiertos)}</TableCell>
+                                                            <TableCell className="text-right tabular-nums text-gray-700">{numero(t.cerrados)}</TableCell>
+                                                            <TableCell className="last:pr-5 sm:last:pr-6">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div aria-hidden="true" className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-huv/15">
+                                                                        <div className="h-full rounded-full bg-huv" style={{ width: `${tasa * 100}%` }} />
+                                                                    </div>
+                                                                    <span className="text-sm tabular-nums text-gray-700">{porcentaje(t.cerrados, t.total)}</span>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                    {tecnicos.length > 10 && (
+                                        <div className="border-t px-5 py-2.5 sm:px-6">
+                                            <button
+                                                type="button"
+                                                aria-expanded={verTodosTecnicos}
+                                                onClick={() => setVerTodosTecnicos((v) => !v)}
+                                                className={cn(btn.ghost, 'h-8 w-full px-3 text-huv-ink hover:text-huv-ink')}
+                                            >
+                                                <ChevronDown aria-hidden="true" className={cn('transition-transform', verTodosTecnicos && 'rotate-180')} />
+                                                {verTodosTecnicos ? 'Ver menos' : `Ver los ${tecnicos.length - 10} restantes`}
+                                            </button>
+                                        </div>
+                                    )}
+                                </section>
+
+                                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                                    <Tarjeta titulo="Categorías más frecuentes" descripcion="Las 10 con más casos.">
+                                        <TablaBarras
+                                            titulo="Categorías con más casos"
+                                            columna="Categoría"
+                                            total={stats.total}
+                                            filas={byCategory.map((c, i) => ({
+                                                clave: `${c.completename ?? c.category}-${i}`,
+                                                // GLPI tiene alguna categoría con el nombre vacío
+                                                etiqueta: categoriaCorta(c.completename) || c.category || 'Sin nombre',
+                                                titulo: c.completename || c.category || 'Sin nombre',
+                                                valor: Number(c.count),
+                                            }))}
+                                        />
+                                    </Tarjeta>
+
+                                    <Tarjeta titulo="Últimos casos" descripcion="Los 10 más recientes con estos filtros.">
+                                        <ul className="-mx-2">
+                                            {recentCases.map((c) => (
+                                                <li key={c.id}>
+                                                    <Link
+                                                        href={`/soporte/casos/${c.id}`}
+                                                        className="focus-ring block rounded-lg px-2 py-2 text-gray-900 transition-colors hover:bg-gray-50"
+                                                    >
+                                                        <span className="block truncate text-sm font-medium" title={c.name}>
+                                                            {c.name}
+                                                        </span>
+                                                        <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                                            <span className="tabular-nums">#{c.id}</span>
+                                                            <StatusPill status={c.status_code} name={c.status} />
+                                                            <PriorityPill priority={Number(c.priority)} name={NOMBRE_PRIORIDAD[Number(c.priority)] ?? 'Sin definir'} />
+                                                            <time dateTime={c.created_at.replace(' ', 'T')} title={fechaCompleta(c.created_at)} className="ml-auto">
+                                                                {haceCuanto(c.created_at)}
+                                                            </time>
+                                                        </span>
+                                                    </Link>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </Tarjeta>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </main>
 

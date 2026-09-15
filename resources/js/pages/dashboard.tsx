@@ -1,7 +1,8 @@
 import { DashboardHeader, type DashboardStats } from '@/components/dashboard/dashboard-header';
 import { HuvBuilding } from '@/components/dashboard/huv-building';
 import { QueueSummary } from '@/components/dashboard/queue-summary';
-import { PriorityPill, StatusPill, TicketRow, type DashboardTicket } from '@/components/dashboard/ticket-row';
+import { TicketRow, type DashboardTicket } from '@/components/dashboard/ticket-row';
+import { PriorityPill, StatusPill } from '@/components/ticket-pills';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { GLPIHeader } from '@/components/glpi-header';
 import { Button } from '@/components/ui/button';

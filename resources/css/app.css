@@ -857,6 +857,15 @@ html.dark {
     }
 }
 
+/* Tablas que se ven como gráfica (barras de Estadísticas): los overrides de `.dark th` y
+   `.dark tbody tr:hover` las pintaban como tabla de datos, con un bloque negro detrás de cada
+   rótulo. Aquí la tabla es solo la estructura accesible; el fondo es el de la tarjeta. */
+.dark .tabla-grafica thead,
+.dark .tabla-grafica th,
+.dark .tabla-grafica tbody tr:hover {
+    background-color: transparent !important;
+}
+
 /* Foco visible en el color de marca (en oscuro, el azul claro de huv-ink). */
 @utility focus-ring {
     &:focus-visible {
