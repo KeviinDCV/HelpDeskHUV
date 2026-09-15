@@ -17,6 +17,12 @@ export const btn = {
     ghost: `${base} text-gray-600 hover:bg-gray-100 hover:text-gray-900`,
 };
 
+/** Para `<SelectTrigger>` (Radix): lo alinea con fieldClass. Se pasa por className para no
+ *  alterar los otros 35 archivos que usan el desplegable hasta que les toque el rediseño. */
+export const selectTriggerClass =
+    'h-10 w-full rounded-lg border-0 bg-[#fff] ring-1 ring-inset ring-gray-300 shadow-none ' +
+    'focus-visible:ring-2 focus-visible:ring-huv dark:bg-transparent dark:ring-white/15';
+
 export const fieldClass =
     'block h-10 w-full rounded-lg border-0 bg-[#fff] px-3 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 transition-shadow ' +
     'placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-huv ' +

@@ -84,9 +84,14 @@ class AgentTokenController extends Controller
                 'per_page' => $perPage,
                 'search' => $search,
             ],
+            // Esta clave reemplaza entera al 'flash' compartido de HandleInertiaRequests (la fusión
+            // de props no es profunda): sin success/error aquí, los avisos de revocar o de
+            // permisos no llegaban nunca a la página.
             'flash' => [
                 'plain_token' => $request->session()->pull('plain_token'),
                 'token_meta' => $request->session()->pull('token_meta'),
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
             ],
         ]);
     }
@@ -97,6 +102,10 @@ class AgentTokenController extends Controller
      */
     public function store(Request $request)
     {
+        if ($denegado = $this->soloAdministradores()) {
+            return $denegado;
+        }
+
         $data = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
             'name' => 'required|string|max:120',
@@ -126,6 +135,23 @@ class AgentTokenController extends Controller
      */
     public function destroy(int $id)
     {
+        if ($denegado = $this->soloAdministradores()) {
+            return $denegado;
+        }
+
+        // Solo tokens del agente. Antes se borraba cualquier fila de personal_access_tokens con
+        // ese id, fuera o no del agente de inventario.
+        $esDelAgente = DB::table('personal_access_tokens')
+            ->where('id', $id)
+            ->where('abilities', 'like', '%agent:sync%')
+            ->exists();
+
+        if (! $esDelAgente) {
+            return redirect()
+                ->route('administracion.agente-tokens')
+                ->with('error', 'Ese token no existe o no pertenece al agente de inventario.');
+        }
+
         DB::transaction(function () use ($id) {
             // Si hay un AgentDevice atado, lo desactivamos pero conservamos
             // el histórico de hardware (no lo borramos).
@@ -146,6 +172,10 @@ class AgentTokenController extends Controller
      */
     public function toggleDevice(int $id)
     {
+        if ($denegado = $this->soloAdministradores()) {
+            return $denegado;
+        }
+
         $device = AgentDevice::findOrFail($id);
         $device->status = $device->status === 'active' ? 'disabled' : 'active';
         $device->save();
@@ -153,5 +183,21 @@ class AgentTokenController extends Controller
         return redirect()
             ->route('administracion.agente-tokens')
             ->with('success', 'Estado del equipo actualizado.');
+    }
+
+    /**
+     * Emitir, revocar y activar/desactivar son acciones de administrador — la página ya ocultaba
+     * esos botones a los demás roles, pero el servidor no lo exigía: la ruta solo pide sesión, así
+     * que cualquier usuario autenticado podía emitirse tokens a nombre de otra cuenta o revocarlos.
+     */
+    private function soloAdministradores()
+    {
+        if (auth()->user()?->role !== 'Administrador') {
+            return redirect()
+                ->route('administracion.agente-tokens')
+                ->with('error', 'No tienes permisos para realizar esta acción');
+        }
+
+        return null;
     }
 }

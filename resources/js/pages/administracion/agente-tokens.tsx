@@ -1,33 +1,16 @@
-import { GLPIHeader } from '@/components/glpi-header';
+import { DataTableEmpty, DataTablePagination, DataTableToolbar, type Paginator } from '@/components/data-table';
+import { FlashBanner } from '@/components/flash-banner';
+import { FormField } from '@/components/form-field';
 import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { PageHeader } from '@/components/page-header';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { btn, fieldClass, selectTriggerClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Plus, Trash2, Search, Copy, CheckCircle2, AlertCircle, Power, KeyRound } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Check, CheckCircle2, Copy, Loader2, Plus, Power, Trash2 } from 'lucide-react';
 import React from 'react';
 
 interface AgentTokenRow {
@@ -60,69 +43,51 @@ interface UserOption {
     role: string;
 }
 
-interface PaginationLinks {
-    url: string | null;
-    label: string;
-    active: boolean;
-}
-
 interface Props {
-    tokens: {
-        data: AgentTokenRow[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: PaginationLinks[];
-    };
+    tokens: Paginator & { data: AgentTokenRow[] };
     users: UserOption[];
     filters: { per_page: number; search: string };
     flash: {
         plain_token: string | null;
         token_meta: { id: number; name: string; user: string; expires_at: string | null } | null;
+        success?: string | null;
+        error?: string | null;
     };
     auth: { user: { id: number; username: string; role: string } };
 }
 
 function formatDate(value: string | null) {
     if (!value) return '—';
-    try {
-        const d = new Date(value);
-        return d.toLocaleString('es-CO', {
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit',
-        });
-    } catch {
-        return value;
-    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function StatusPill({ status }: { status: AgentTokenRow['device_status'] }) {
-    if (!status) {
-        return <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">Sin equipo</span>;
-    }
-    const map: Record<string, string> = {
-        active: 'bg-green-100 text-green-700',
-        disabled: 'bg-red-100 text-red-700',
-        pending: 'bg-yellow-100 text-yellow-700',
-    };
-    const label: Record<string, string> = {
-        active: 'Activo', disabled: 'Deshabilitado', pending: 'Pendiente',
-    };
-    return <span className={`px-2 py-0.5 rounded text-xs ${map[status]}`}>{label[status]}</span>;
+const ESTADO_EQUIPO: Record<string, { texto: string; punto: string }> = {
+    active: { texto: 'Activo', punto: 'bg-green-600' },
+    disabled: { texto: 'Deshabilitado', punto: 'bg-red-500' },
+    pending: { texto: 'Pendiente', punto: 'bg-yellow-500' },
+};
+
+function EstadoEquipo({ status }: { status: AgentTokenRow['device_status'] }) {
+    if (!status) return <span className="text-xs text-gray-500">Sin equipo</span>;
+    const e = ESTADO_EQUIPO[status];
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-700">
+            <span aria-hidden="true" className={cn('size-1.5 rounded-full', e.punto)} />
+            {e.texto}
+        </span>
+    );
 }
 
 export default function AgenteTokens({ tokens, users, filters, flash, auth }: Props) {
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [isCreateOpen, setIsCreateOpen] = React.useState(false);
     const [revokeTarget, setRevokeTarget] = React.useState<AgentTokenRow | null>(null);
-    const [formData, setFormData] = React.useState({
-        user_id: '',
-        name: '',
-        days: '0',
-    });
+    const [formData, setFormData] = React.useState({ user_id: '', name: '', days: '0' });
     const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
     const [submitting, setSubmitting] = React.useState(false);
+    const [revoking, setRevoking] = React.useState(false);
     const [copied, setCopied] = React.useState(false);
 
     // Modal automático cuando llega un plain_token recién emitido
@@ -130,15 +95,11 @@ export default function AgenteTokens({ tokens, users, filters, flash, auth }: Pr
 
     const isAdmin = auth?.user?.role === 'Administrador';
 
-    const handleSearch = () => {
-        const params: Record<string, string | number> = { per_page: filters.per_page, page: 1 };
+    const go = (params: Record<string, string | number>) => router.get('/administracion/agente-tokens', params, { preserveState: false, replace: true });
+    const buildParams = (overrides: Record<string, string | number> = {}) => {
+        const params: Record<string, string | number> = { per_page: filters.per_page, page: 1, ...overrides };
         if (searchValue) params.search = searchValue;
-        router.get('/administracion/agente-tokens', params, { preserveState: false, replace: true });
-    };
-
-    const handleClear = () => {
-        setSearchValue('');
-        router.get('/administracion/agente-tokens', { per_page: filters.per_page, page: 1 }, { preserveState: false, replace: true });
+        return params;
     };
 
     const handleCreate = (e: React.FormEvent) => {
@@ -153,31 +114,31 @@ export default function AgenteTokens({ tokens, users, filters, flash, auth }: Pr
             return;
         }
         setSubmitting(true);
-        router.post('/administracion/agente-tokens', {
-            user_id: Number(formData.user_id),
-            name: formData.name.trim(),
-            days: Number(formData.days || 0),
-        }, {
-            onSuccess: () => {
-                setIsCreateOpen(false);
-                setFormData({ user_id: '', name: '', days: '0' });
+        router.post(
+            '/administracion/agente-tokens',
+            { user_id: Number(formData.user_id), name: formData.name.trim(), days: Number(formData.days || 0) },
+            {
+                onSuccess: () => {
+                    setIsCreateOpen(false);
+                    setFormData({ user_id: '', name: '', days: '0' });
+                },
+                onError: (errs) => setFormErrors(errs as Record<string, string>),
+                onFinish: () => setSubmitting(false),
             },
-            onError: (errs) => setFormErrors(errs as Record<string, string>),
-            onFinish: () => setSubmitting(false),
-        });
+        );
     };
 
     const handleRevoke = () => {
         if (!revokeTarget) return;
+        setRevoking(true);
         router.delete(`/administracion/agente-tokens/${revokeTarget.id}`, {
             onSuccess: () => setRevokeTarget(null),
+            onFinish: () => setRevoking(false),
         });
     };
 
     const handleToggleDevice = (deviceId: number) => {
-        router.post(`/administracion/agente-dispositivos/${deviceId}/toggle`, {}, {
-            preserveScroll: true,
-        });
+        router.post(`/administracion/agente-dispositivos/${deviceId}/toggle`, {}, { preserveScroll: true });
     };
 
     const handleCopy = async () => {
@@ -187,345 +148,343 @@ export default function AgenteTokens({ tokens, users, filters, flash, auth }: Pr
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            /* ignore */
+            /* sin permiso de portapapeles: el token sigue visible para copiarlo a mano */
         }
     };
 
+    const columnas = isAdmin ? 8 : 7;
+
     return (
-        <div className="min-h-screen flex flex-col bg-gray-50">
-            <Head title="Tokens del Agente de Inventario" />
-            <GLPIHeader />
-
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
-                {/* Breadcrumb */}
-                <nav className="text-sm mb-4">
-                    <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
-                    <span className="mx-2 text-gray-400">/</span>
-                    <Link href="/administracion/usuarios" className="text-gray-600 hover:text-[#2c4370] hover:underline">Administración</Link>
-                    <span className="mx-2 text-gray-400">/</span>
-                    <span className="text-[#2c4370] font-medium">Tokens del Agente</span>
-                </nav>
-
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#2c4370] flex items-center gap-2">
-                            <KeyRound className="w-6 h-6" />
-                            Tokens del Agente de Inventario
-                        </h1>
-                        <p className="text-sm text-gray-600 mt-1">
-                            Gestiona los tokens que utilizan los PCs para reportar su inventario al HelpDesk.
-                        </p>
-                    </div>
-                    {isAdmin && (
-                        <Button onClick={() => setIsCreateOpen(true)} className="bg-[#2c4370] hover:bg-[#1e2f50]">
-                            <Plus className="w-4 h-4 mr-1" /> Emitir nuevo token
-                        </Button>
-                    )}
-                </div>
-
-                {/* Banner cuando hay un token recién emitido */}
-                {flash.plain_token && !showNewTokenModal && (
-                    <div className="mb-4 p-3 rounded border border-green-300 bg-green-50 flex items-center gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        <span className="text-sm text-green-800">
-                            Token emitido. Puedes verlo de nuevo arriba antes de salir de esta página.
-                        </span>
-                        <Button size="sm" variant="outline" onClick={() => setShowNewTokenModal(true)}>
-                            Ver token
-                        </Button>
-                    </div>
-                )}
-
-                {/* Buscador */}
-                <div className="bg-white rounded-lg border p-3 mb-4 flex gap-2">
-                    <div className="flex-1 relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <Input
-                            value={searchValue}
-                            onChange={(e) => setSearchValue(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            placeholder="Buscar por nombre, usuario, hostname, UUID o serial..."
-                            className="pl-9"
-                        />
-                    </div>
-                    <Button onClick={handleSearch} className="bg-[#2c4370] hover:bg-[#1e2f50]">Buscar</Button>
-                    {searchValue && (
-                        <Button variant="outline" onClick={handleClear}>Limpiar</Button>
-                    )}
-                </div>
-
-                {/* Tabla */}
-                <div className="bg-white rounded-lg border overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-gray-50">
-                                    <TableHead>Nombre del token</TableHead>
-                                    <TableHead>Emitido para</TableHead>
-                                    <TableHead>Equipo</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead>Última actividad</TableHead>
-                                    <TableHead>Sincronizaciones</TableHead>
-                                    <TableHead>Expira</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {tokens.data.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-center text-gray-500 py-8">
-                                            No hay tokens emitidos. Crea el primero con el botón "Emitir nuevo token".
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                {tokens.data.map((t) => (
-                                    <TableRow key={t.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{t.name}</div>
-                                            <div className="text-xs text-gray-500">
-                                                Creado: {formatDate(t.created_at)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm">{t.user_name || '—'}</div>
-                                            <div className="text-xs text-gray-500">{t.user_username || ''}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {t.hostname ? (
-                                                <div>
-                                                    <div className="text-sm font-medium">{t.hostname}</div>
-                                                    <div className="text-xs text-gray-500 truncate max-w-[180px]" title={t.hardware_uuid || ''}>
-                                                        UUID: {t.hardware_uuid?.substring(0, 18)}...
-                                                    </div>
-                                                    {t.computer_id && (
-                                                        <Link href={`/inventario/computadores/${t.computer_id}`} className="text-xs text-[#2c4370] hover:underline">
-                                                            Ver en inventario →
-                                                        </Link>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-gray-400 italic">Sin equipo asociado</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <StatusPill status={t.device_status} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-xs">
-                                                {formatDate(t.last_seen_at || t.last_used_at)}
-                                            </div>
-                                            {t.last_ip && (
-                                                <div className="text-xs text-gray-500">{t.last_ip}</div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-sm">{t.sync_count ?? 0}</span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-xs">
-                                                {t.expires_at ? formatDate(t.expires_at) : 'Nunca'}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-1">
-                                                {t.device_id && isAdmin && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleToggleDevice(t.device_id!)}
-                                                        title={t.device_status === 'active' ? 'Deshabilitar equipo' : 'Activar equipo'}
-                                                    >
-                                                        <Power className="w-4 h-4" />
-                                                    </Button>
-                                                )}
-                                                {isAdmin && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                                        onClick={() => setRevokeTarget(t)}
-                                                        title="Revocar token"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {/* Paginación */}
-                    {tokens.last_page > 1 && (
-                        <div className="flex items-center justify-between p-3 border-t bg-gray-50">
-                            <span className="text-sm text-gray-600">
-                                Mostrando {tokens.data.length} de {tokens.total} tokens
-                            </span>
-                            <div className="flex gap-1">
-                                {tokens.links.map((link, i) => (
-                                    <Button
-                                        key={i}
-                                        size="sm"
-                                        variant={link.active ? 'default' : 'outline'}
-                                        disabled={!link.url}
-                                        onClick={() => link.url && router.get(link.url, {}, { preserveState: false })}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
-                            </div>
+        <>
+            <Head title="Tokens del agente - HelpDesk HUV" />
+            <div className="flex min-h-screen flex-col bg-gray-50">
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="text-gray-600">Administración</span>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Tokens del agente</span>
                         </div>
-                    )}
-                </div>
-            </main>
+                    }
+                />
 
-            <GLPIFooter />
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+                        <PageHeader
+                            title="Tokens del agente"
+                            description="Credenciales con las que cada PC reporta su inventario al HelpDesk."
+                            actions={
+                                isAdmin && (
+                                    <button type="button" onClick={() => setIsCreateOpen(true)} className={btn.primary}>
+                                        <Plus aria-hidden="true" />
+                                        Emitir token
+                                    </button>
+                                )
+                            }
+                        />
+
+                        <FlashBanner />
+
+                        {flash.plain_token && !showNewTokenModal && (
+                            <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl bg-green-50 px-4 py-3 ring-1 ring-inset ring-green-600/20">
+                                <CheckCircle2 className="size-5 shrink-0 text-green-700" aria-hidden="true" />
+                                <p className="flex-1 text-sm text-green-800">Token emitido. Puedes volver a verlo hasta que salgas de esta página.</p>
+                                <button type="button" onClick={() => setShowNewTokenModal(true)} className={cn(btn.secondary, 'h-8 px-3')}>
+                                    Ver token
+                                </button>
+                            </div>
+                        )}
+
+                        <section aria-label="Lista de tokens" className="surface-card overflow-hidden">
+                            <DataTableToolbar
+                                search={searchValue}
+                                onSearchChange={setSearchValue}
+                                onSearch={() => go(buildParams())}
+                                placeholder="Buscar por nombre, usuario, equipo, UUID o serial…"
+                            >
+                                {filters.search && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearchValue('');
+                                            go({ per_page: filters.per_page, page: 1 });
+                                        }}
+                                        className={cn(btn.ghost, 'h-9')}
+                                    >
+                                        Limpiar búsqueda
+                                    </button>
+                                )}
+                            </DataTableToolbar>
+
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead>Token</TableHead>
+                                        <TableHead>Emitido para</TableHead>
+                                        <TableHead>Equipo</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead>Última actividad</TableHead>
+                                        <TableHead className="text-right">Sincronizaciones</TableHead>
+                                        <TableHead>Expira</TableHead>
+                                        {isAdmin && (
+                                            <TableHead className="text-right">
+                                                <span className="sr-only">Acciones</span>
+                                            </TableHead>
+                                        )}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {tokens.data.length === 0 ? (
+                                        <DataTableEmpty
+                                            colSpan={columnas}
+                                            title={filters.search ? 'Ningún token coincide con la búsqueda' : 'Todavía no hay tokens emitidos'}
+                                            description={filters.search ? 'Prueba con otro nombre, equipo o serial.' : isAdmin ? 'Emite el primero con «Emitir token».' : undefined}
+                                        />
+                                    ) : (
+                                        tokens.data.map((t) => {
+                                            const activo = t.device_status === 'active';
+                                            return (
+                                                <TableRow key={t.id}>
+                                                    <TableCell>
+                                                        <div className="font-medium text-gray-900">{t.name}</div>
+                                                        <div className="text-xs text-gray-500">Creado {formatDate(t.created_at)}</div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="text-gray-900">{t.user_name || '—'}</div>
+                                                        <div className="text-xs text-gray-500">{t.user_username || ''}</div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {t.hostname ? (
+                                                            <div>
+                                                                <div className="font-medium text-gray-900">{t.hostname}</div>
+                                                                <div className="max-w-[12rem] truncate font-mono text-[11px] text-gray-500" title={t.hardware_uuid || ''}>
+                                                                    {t.hardware_uuid}
+                                                                </div>
+                                                                {t.computer_id && (
+                                                                    <Link
+                                                                        href={`/inventario/computadores/${t.computer_id}`}
+                                                                        className="focus-ring inline-flex items-center gap-0.5 rounded text-xs font-medium text-huv-ink hover:underline"
+                                                                    >
+                                                                        Ver en inventario
+                                                                        <ArrowUpRight className="size-3" aria-hidden="true" />
+                                                                    </Link>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-500">Sin equipo asociado</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <EstadoEquipo status={t.device_status} />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="text-gray-700">{formatDate(t.last_seen_at || t.last_used_at)}</div>
+                                                        {t.last_ip && <div className="font-mono text-[11px] text-gray-500">{t.last_ip}</div>}
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums text-gray-700">{(t.sync_count ?? 0).toLocaleString('es-CO')}</TableCell>
+                                                    <TableCell className="text-gray-700">{t.expires_at ? formatDate(t.expires_at) : 'Nunca'}</TableCell>
+                                                    {isAdmin && (
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                {t.device_id && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleToggleDevice(t.device_id!)}
+                                                                        aria-label={`${activo ? 'Deshabilitar' : 'Activar'} el equipo ${t.hostname ?? ''}`.trim()}
+                                                                        title={activo ? 'Deshabilitar equipo' : 'Activar equipo'}
+                                                                        className={cn(btn.ghost, 'size-8 px-0')}
+                                                                    >
+                                                                        <Power aria-hidden="true" />
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setRevokeTarget(t)}
+                                                                    aria-label={`Revocar el token ${t.name}`}
+                                                                    title="Revocar token"
+                                                                    className={cn(btn.ghost, 'size-8 px-0 text-red-600 hover:bg-red-50 hover:text-red-700')}
+                                                                >
+                                                                    <Trash2 aria-hidden="true" />
+                                                                </button>
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
+                                                </TableRow>
+                                            );
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+
+                            <DataTablePagination
+                                paginator={tokens}
+                                count={tokens.data.length}
+                                noun="tokens"
+                                onPerPageChange={(value) => go(buildParams({ per_page: value }))}
+                            />
+                        </section>
+                    </div>
+                </main>
+
+                <GLPIFooter />
+            </div>
 
             {/* Modal: emitir nuevo token */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent>
+                <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[520px]">
                     <form onSubmit={handleCreate}>
-                        <DialogHeader>
-                            <DialogTitle>Emitir nuevo token de agente</DialogTitle>
-                            <DialogDescription>
-                                Este token autorizará a un PC a sincronizar su inventario. Solo se mostrará una vez.
+                        <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                            <DialogTitle className="text-lg font-semibold text-gray-900">Emitir token del agente</DialogTitle>
+                            <DialogDescription className="text-sm text-gray-500">
+                                Autoriza a un PC a sincronizar su inventario. El token se muestra una sola vez.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <Label htmlFor="user_id">Usuario asociado *</Label>
-                                <Select
-                                    value={formData.user_id}
-                                    onValueChange={(v) => setFormData({ ...formData, user_id: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona un usuario administrativo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {users.map((u) => (
-                                            <SelectItem key={u.id} value={String(u.id)}>
-                                                {u.username} — {u.name} ({u.role})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {formErrors.user_id && (
-                                    <p className="text-xs text-red-600 mt-1">{formErrors.user_id}</p>
+                        <div className="space-y-5 px-6 py-5">
+                            <FormField id="user_id" label="Usuario asociado" error={formErrors.user_id}>
+                                {(control) => (
+                                    <Select value={formData.user_id} onValueChange={(v) => setFormData({ ...formData, user_id: v })}>
+                                        <SelectTrigger {...control} className={selectTriggerClass}>
+                                            <SelectValue placeholder="Selecciona un administrador o técnico" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {users.map((u) => (
+                                                <SelectItem key={u.id} value={String(u.id)}>
+                                                    {u.name} · {u.username} ({u.role})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 )}
-                            </div>
+                            </FormField>
 
-                            <div>
-                                <Label htmlFor="name">Nombre identificador *</Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="Ej: PC-CONTABILIDAD-03"
-                                />
-                                {formErrors.name && (
-                                    <p className="text-xs text-red-600 mt-1">{formErrors.name}</p>
+                            <FormField id="name" label="Nombre identificador" error={formErrors.name} hint="Conviene usar el nombre del equipo.">
+                                {(control) => (
+                                    <input
+                                        {...control}
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="Ej.: PC-CONTABILIDAD-03"
+                                        maxLength={120}
+                                        autoComplete="off"
+                                        className={fieldClass}
+                                    />
                                 )}
-                            </div>
+                            </FormField>
 
-                            <div>
-                                <Label htmlFor="days">Días de validez</Label>
-                                <Input
-                                    id="days"
-                                    type="number"
-                                    min={0}
-                                    max={3650}
-                                    value={formData.days}
-                                    onChange={(e) => setFormData({ ...formData, days: e.target.value })}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Usa 0 para que no expire.</p>
-                            </div>
+                            <FormField id="days" label="Días de validez" error={formErrors.days} hint="0 = no expira. Máximo 3.650 días.">
+                                {(control) => (
+                                    <input
+                                        {...control}
+                                        type="number"
+                                        min={0}
+                                        max={3650}
+                                        value={formData.days}
+                                        onChange={(e) => setFormData({ ...formData, days: e.target.value })}
+                                        className={cn(fieldClass, 'w-40')}
+                                    />
+                                )}
+                            </FormField>
                         </div>
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                        <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                            <button type="button" onClick={() => setIsCreateOpen(false)} className={btn.secondary}>
                                 Cancelar
-                            </Button>
-                            <Button type="submit" disabled={submitting} className="bg-[#2c4370] hover:bg-[#1e2f50]">
-                                {submitting ? 'Generando...' : 'Generar token'}
-                            </Button>
-                        </DialogFooter>
+                            </button>
+                            <button type="submit" disabled={submitting} className={btn.primary}>
+                                {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                {submitting ? 'Generando…' : 'Generar token'}
+                            </button>
+                        </div>
                     </form>
                 </DialogContent>
             </Dialog>
 
             {/* Modal: token recién creado */}
             <Dialog open={showNewTokenModal} onOpenChange={setShowNewTokenModal}>
-                <DialogContent className="max-w-xl">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-xl">
+                    <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                        <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                            <CheckCircle2 className="size-5 text-green-700" aria-hidden="true" />
                             Token generado
                         </DialogTitle>
-                        <DialogDescription>
-                            <strong>Cópialo ahora.</strong> Por seguridad, no podrás volver a verlo.
+                        <DialogDescription className="text-sm text-gray-500">
+                            <strong className="font-semibold text-gray-900">Cópialo ahora.</strong> Por seguridad, no podrás volver a verlo.
                         </DialogDescription>
                     </DialogHeader>
 
-                    {flash.token_meta && (
-                        <div className="text-sm space-y-1 py-2">
-                            <div><span className="text-gray-500">Nombre:</span> <strong>{flash.token_meta.name}</strong></div>
-                            <div><span className="text-gray-500">Usuario:</span> {flash.token_meta.user}</div>
-                            <div>
-                                <span className="text-gray-500">Expira:</span>{' '}
-                                {flash.token_meta.expires_at ? formatDate(flash.token_meta.expires_at) : 'Nunca'}
-                            </div>
-                        </div>
-                    )}
+                    <div className="space-y-4 px-6 py-5">
+                        {flash.token_meta && (
+                            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                                <dt className="text-gray-500">Nombre</dt>
+                                <dd className="font-medium text-gray-900">{flash.token_meta.name}</dd>
+                                <dt className="text-gray-500">Usuario</dt>
+                                <dd className="text-gray-900">{flash.token_meta.user}</dd>
+                                <dt className="text-gray-500">Expira</dt>
+                                <dd className="text-gray-900">{flash.token_meta.expires_at ? formatDate(flash.token_meta.expires_at) : 'Nunca'}</dd>
+                            </dl>
+                        )}
 
-                    <div className="bg-gray-100 rounded p-3 font-mono text-xs break-all border">
-                        {flash.plain_token}
+                        <div className="rounded-xl bg-gray-50 p-3 font-mono text-xs break-all text-gray-900 ring-1 ring-inset ring-gray-200">{flash.plain_token}</div>
+
+                        <div className="flex gap-2 rounded-xl bg-yellow-50 p-3 text-xs text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                            <p>
+                                Configura el agente del PC con este token en{' '}
+                                <code className="rounded bg-yellow-100 px-1">%ProgramData%\HelpDeskHUV\agent.config.json</code>. Si lo pierdes, revócalo y
+                                emite uno nuevo.
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-yellow-800 flex gap-2">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <div>
-                            Configura el agente del PC con este token en <code className="bg-yellow-100 px-1 rounded">%ProgramData%\HelpDeskHUV\agent.config.json</code>.
-                            Si lo pierdes, deberás revocarlo y generar uno nuevo.
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={handleCopy} className="gap-1">
-                            <Copy className="w-4 h-4" />
-                            {copied ? '¡Copiado!' : 'Copiar token'}
-                        </Button>
-                        <Button onClick={() => setShowNewTokenModal(false)} className="bg-[#2c4370] hover:bg-[#1e2f50]">
+                    <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                        <button type="button" onClick={handleCopy} className={btn.secondary}>
+                            {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                            <span aria-live="polite">{copied ? 'Copiado' : 'Copiar token'}</span>
+                        </button>
+                        <button type="button" onClick={() => setShowNewTokenModal(false)} className={btn.primary}>
                             Entendido
-                        </Button>
-                    </DialogFooter>
+                        </button>
+                    </div>
                 </DialogContent>
             </Dialog>
 
             {/* Modal: confirmar revocación */}
             <Dialog open={!!revokeTarget} onOpenChange={(o) => !o && setRevokeTarget(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Revocar token</DialogTitle>
-                        <DialogDescription>
-                            Esta acción es irreversible. El PC asociado dejará de poder sincronizar inventario hasta que se le emita un nuevo token.
+                <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[480px]">
+                    <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                        <DialogTitle className="text-lg font-semibold text-gray-900">Revocar token</DialogTitle>
+                        <DialogDescription className="text-sm text-gray-500">
+                            No se puede deshacer. El PC dejará de sincronizar su inventario hasta que se le emita un token nuevo.
                         </DialogDescription>
                     </DialogHeader>
                     {revokeTarget && (
-                        <div className="text-sm py-2">
-                            ¿Estás seguro de revocar el token <strong>{revokeTarget.name}</strong>
-                            {revokeTarget.hostname && <> del equipo <strong>{revokeTarget.hostname}</strong></>}?
-                        </div>
+                        <p className="px-6 py-5 text-sm text-gray-700">
+                            ¿Revocar el token <strong className="font-semibold text-gray-900">{revokeTarget.name}</strong>
+                            {revokeTarget.hostname && (
+                                <>
+                                    {' '}
+                                    del equipo <strong className="font-semibold text-gray-900">{revokeTarget.hostname}</strong>
+                                </>
+                            )}
+                            ?
+                        </p>
                     )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setRevokeTarget(null)}>Cancelar</Button>
-                        <Button onClick={handleRevoke} className="bg-red-600 hover:bg-red-700 text-white">
+                    <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                        <button type="button" onClick={() => setRevokeTarget(null)} className={btn.secondary}>
+                            Cancelar
+                        </button>
+                        <button type="button" onClick={handleRevoke} disabled={revoking} className={cn(btn.primary, 'bg-red-600 hover:bg-red-700')}>
+                            {revoking && <Loader2 className="animate-spin" aria-hidden="true" />}
                             Revocar token
-                        </Button>
-                    </DialogFooter>
+                        </button>
+                    </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </>
     );
 }

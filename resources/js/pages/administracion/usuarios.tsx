@@ -1,61 +1,41 @@
-import { GLPIHeader } from '@/components/glpi-header';
+import {
+    DataTableEmpty,
+    DataTableFilters,
+    DataTablePagination,
+    DataTableToolbar,
+    FilterLabel,
+    SortableHead,
+    type Paginator,
+} from '@/components/data-table';
+import { FlashBanner } from '@/components/flash-banner';
+import { FormField } from '@/components/form-field';
 import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { PageHeader } from '@/components/page-header';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { btn, fieldClass, selectTriggerClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Eye, EyeOff } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { Download, Eye, EyeOff, Loader2, Pencil, Plus } from 'lucide-react';
 import React from 'react';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 
 interface User {
     id: number;
     username: string;
     name: string;
     email: string;
+    phone?: string | null;
     role: string;
     is_active: boolean;
     created_at: string;
     avatar: string | null;
 }
 
-interface PaginationLinks {
-    url: string | null;
-    label: string;
-    active: boolean;
-}
-
 interface UsersProps {
-    users: {
-        data: User[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: PaginationLinks[];
-    };
+    users: Paginator & { data: User[] };
     filters: {
         per_page: number;
         sort: string;
@@ -71,158 +51,123 @@ interface UsersProps {
     };
 }
 
+const ROLES = ['Administrador', 'Técnico', 'Usuario'];
+
+// Mismos colores que ya distinguían los roles (morado, azul, gris), en el formato de chip del rediseño.
+const ROL_PILL: Record<string, string> = {
+    Administrador: 'bg-purple-50 text-purple-700 ring-purple-600/15',
+    Técnico: 'bg-blue-50 text-blue-700 ring-blue-600/15',
+};
+
+const FORM_VACIO = {
+    username: '',
+    name: '',
+    email: '',
+    phone: '',
+    role: 'Técnico',
+    is_active: true,
+    password: '',
+    password_confirmation: '',
+};
+
+function iniciales(nombre: string): string {
+    return nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
+}
+
+function Avatar({ user }: { user: User }) {
+    return user.avatar ? (
+        <img src={`/storage/${user.avatar}`} alt="" className="size-8 shrink-0 rounded-full object-cover" />
+    ) : (
+        <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-huv-soft text-xs font-semibold text-huv-ink">
+            {iniciales(user.name || user.username)}
+        </span>
+    );
+}
+
 export default function Usuarios({ users, filters, auth }: UsersProps) {
+    const esAdmin = auth.user.role === 'Administrador';
+
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
     const [showFilters, setShowFilters] = React.useState(false);
-    
     const [roleFilter, setRoleFilter] = React.useState(filters.role || 'all');
     const [statusFilter, setStatusFilter] = React.useState(filters.is_active || 'all');
     const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
     const [dateTo, setDateTo] = React.useState(filters.date_to || '');
-    
-    const hasActiveFilters = (roleFilter && roleFilter !== 'all') || 
-                            (statusFilter && statusFilter !== 'all') ||
-                            dateFrom || dateTo;
-    
+
+    const filtrosActivos = [roleFilter !== 'all', statusFilter !== 'all', !!dateFrom, !!dateTo].filter(Boolean).length;
+
     const [isModalOpen, setIsModalOpen] = React.useState(false);
-    const [isCreateMode, setIsCreateMode] = React.useState(false);
     const [editingUser, setEditingUser] = React.useState<User | null>(null);
-    const [formData, setFormData] = React.useState({
-        username: '',
-        name: '',
-        email: '',
-        phone: '',
-        role: 'Técnico',
-        is_active: true,
-        password: '',
-        password_confirmation: ''
-    });
+    const [formData, setFormData] = React.useState(FORM_VACIO);
     const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
-    const [showPassword, setShowPassword] = React.useState(false);
-    const [showPasswordConfirm, setShowPasswordConfirm] = React.useState(false);
+    const [visibles, setVisibles] = React.useState<Record<string, boolean>>({});
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+    const isCreateMode = editingUser === null;
+    const editandoseASiMismo = editingUser?.id === auth.user.id;
+
+    /**
+     * Parámetros de la URL desde el estado actual de la página (búsqueda y panel de filtros).
+     * Ordenar, cambiar filas por página y exportar parten de aquí, así que ninguno descarta
+     * los filtros que los demás tienen puestos.
+     */
+    const buildParams = (overrides: Record<string, string | number | undefined> = {}) => {
+        const params: Record<string, string | number | undefined> = {
+            per_page: filters.per_page,
+            sort: filters.sort,
+            direction: filters.direction,
+            page: 1,
+            search: searchValue || undefined,
+            role: roleFilter !== 'all' ? roleFilter : undefined,
+            is_active: statusFilter !== 'all' ? statusFilter : undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            ...overrides,
+        };
+        return Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '')) as Record<string, string | number>;
+    };
+
+    const go = (params: Record<string, string | number>) => router.get('/administracion/usuarios', params, { preserveState: false });
+
     const handleSort = (field: string) => {
-        const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        const params: Record<string, any> = { per_page: filters.per_page, sort: field, direction: newDirection };
-        if (filters.search) params.search = filters.search;
-        if (filters.role && filters.role !== 'all') params.role = filters.role;
-        if (filters.is_active && filters.is_active !== 'all') params.is_active = filters.is_active;
-        if (filters.date_from) params.date_from = filters.date_from;
-        if (filters.date_to) params.date_to = filters.date_to;
-        router.get('/administracion/usuarios', params, { preserveState: false });
-    };
-
-    const handleSearch = () => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
-        if (searchValue) params.search = searchValue;
-        if (roleFilter && roleFilter !== 'all') params.role = roleFilter;
-        if (statusFilter && statusFilter !== 'all') params.is_active = statusFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        router.get('/administracion/usuarios', params, { preserveState: false });
-    };
-
-    const applyFilters = () => {
-        const params: Record<string, any> = { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 };
-        if (searchValue) params.search = searchValue;
-        if (roleFilter && roleFilter !== 'all') params.role = roleFilter;
-        if (statusFilter && statusFilter !== 'all') params.is_active = statusFilter;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        router.get('/administracion/usuarios', params, { preserveState: false, replace: true });
+        const direction = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
+        go(buildParams({ sort: field, direction }));
     };
 
     const clearFilters = () => {
-        setRoleFilter('all'); setStatusFilter('all'); setDateFrom(''); setDateTo(''); setSearchValue('');
-        router.get('/administracion/usuarios', { per_page: filters.per_page, sort: filters.sort, direction: filters.direction, page: 1 }, { preserveState: false, replace: true });
+        setRoleFilter('all');
+        setStatusFilter('all');
+        setDateFrom('');
+        setDateTo('');
+        go(buildParams({ role: undefined, is_active: undefined, date_from: undefined, date_to: undefined }));
     };
 
     const handleExport = () => {
-        const params = new URLSearchParams();
-        params.append('sort', filters.sort); params.append('direction', filters.direction);
-        if (filters.search) params.append('search', filters.search);
-        if (filters.role && filters.role !== 'all') params.append('role', filters.role);
-        if (filters.is_active && filters.is_active !== 'all') params.append('is_active', filters.is_active);
-        if (filters.date_from) params.append('date_from', filters.date_from);
-        if (filters.date_to) params.append('date_to', filters.date_to);
-        window.location.href = `/administracion/usuarios/export?${params}`;
+        // Exporta lo filtrado, sin paginar.
+        const params = buildParams();
+        delete params.page;
+        delete params.per_page;
+        window.location.href = `/administracion/usuarios/export?${new URLSearchParams(params as Record<string, string>)}`;
     };
 
-    const getSortIcon = (field: string) => {
-        if (filters.sort !== field) {
-            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
-        }
-        return filters.direction === 'asc' 
-            ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
-            : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
+    const handleToggleActive = (user: User) => {
+        router.post(`/administracion/usuarios/${user.id}/toggle-active`, {}, { preserveScroll: true, preserveState: true });
     };
 
-    const handleToggleActive = (e: React.MouseEvent, userId: number) => {
-        e.stopPropagation(); // Evitar que se dispare el doble clic de la fila
-        router.post(`/administracion/usuarios/${userId}/toggle-active`, {}, {
-            preserveScroll: true,
-            preserveState: true,
-        });
-    };
-
-    const handleOpenCreateModal = () => {
-        setIsCreateMode(true);
-        setEditingUser(null);
-        setFormData({
-            username: '',
-            name: '',
-            email: '',
-            phone: '',
-            role: 'Técnico',
-            is_active: true,
-            password: '',
-            password_confirmation: ''
-        });
-        setFormErrors({});
-        setShowPassword(false);
-        setShowPasswordConfirm(false);
-        setIsModalOpen(true);
-    };
-
-    const handleRowDoubleClick = (user: User) => {
-        // Solo administradores pueden editar
-        if (auth.user.role !== 'Administrador') {
-            return;
-        }
-
-        setIsCreateMode(false);
+    const abrirModal = (user: User | null) => {
         setEditingUser(user);
-        setFormData({
-            username: user.username,
-            name: user.name,
-            email: user.email,
-            phone: '',
-            role: user.role,
-            is_active: user.is_active,
-            password: '',
-            password_confirmation: ''
-        });
+        setFormData(
+            user
+                ? { ...FORM_VACIO, username: user.username, name: user.name, email: user.email, phone: user.phone ?? '', role: user.role, is_active: user.is_active }
+                : FORM_VACIO,
+        );
         setFormErrors({});
-        setShowPassword(false);
-        setShowPasswordConfirm(false);
+        setVisibles({});
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        setIsCreateMode(false);
-        setEditingUser(null);
-        setFormData({
-            username: '',
-            name: '',
-            email: '',
-            phone: '',
-            role: 'Técnico',
-            is_active: true,
-            password: '',
-            password_confirmation: ''
-        });
         setFormErrors({});
     };
 
@@ -231,503 +176,422 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
         setIsSubmitting(true);
         setFormErrors({});
 
-        if (isCreateMode) {
-            // Crear nuevo usuario
-            router.post('/administracion/usuarios', formData, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    handleCloseModal();
-                    setIsSubmitting(false);
-                },
-                onError: (errors) => {
-                    setFormErrors(errors as Record<string, string>);
-                    setIsSubmitting(false);
-                },
-            });
-        } else if (editingUser) {
-            // Editar usuario existente
-            router.put(`/administracion/usuarios/${editingUser.id}`, formData, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    handleCloseModal();
-                    setIsSubmitting(false);
-                },
-                onError: (errors) => {
-                    setFormErrors(errors as Record<string, string>);
-                    setIsSubmitting(false);
-                },
-            });
+        const opciones = {
+            preserveScroll: true,
+            onSuccess: () => {
+                handleCloseModal();
+                setIsSubmitting(false);
+            },
+            onError: (errors: Record<string, string>) => {
+                setFormErrors(errors);
+                setIsSubmitting(false);
+            },
+        };
+
+        if (editingUser) {
+            router.put(`/administracion/usuarios/${editingUser.id}`, formData, opciones);
+        } else {
+            router.post('/administracion/usuarios', formData, opciones);
         }
     };
+
+    const campoPassword = (id: 'password' | 'password_confirmation', etiqueta: string, hint?: string) => (
+        <FormField id={id} label={etiqueta} error={formErrors[id]} hint={hint}>
+            {(control) => (
+                <div className="relative">
+                    <input
+                        {...control}
+                        type={visibles[id] ? 'text' : 'password'}
+                        value={formData[id]}
+                        onChange={(e) => setFormData({ ...formData, [id]: e.target.value })}
+                        autoComplete="new-password"
+                        required={isCreateMode}
+                        className={cn(fieldClass, 'password-own-toggle pr-10')}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setVisibles((v) => ({ ...v, [id]: !v[id] }))}
+                        aria-label="Mostrar contraseña"
+                        aria-pressed={!!visibles[id]}
+                        aria-controls={id}
+                        className="focus-ring absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-gray-400 hover:text-gray-700"
+                    >
+                        {visibles[id] ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+                    </button>
+                </div>
+            )}
+        </FormField>
+    );
+
+    const columnas = esAdmin ? 8 : 7;
 
     return (
         <>
             <Head title="Usuarios - HelpDesk HUV" />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
-                        <span className="text-gray-400">/</span>
-                        <Link href="/administracion/usuarios" className="text-gray-600 hover:text-[#2c4370] hover:underline">Administración</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">Usuarios</span>
-                    </div>
-                } />
-
-                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    <div className="bg-white shadow border border-gray-200">
-                        {/* Header */}
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Usuarios</h1>
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                                    <div className="relative flex-1 sm:flex-initial">
-                                        <Input type="text" placeholder="Buscar..." className="w-full sm:w-64 pr-10 h-9" value={searchValue}
-                                            onChange={(e) => setSearchValue(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} />
-                                        <Button aria-label="Buscar" size="sm" variant="ghost" className="absolute right-0 top-0 h-full px-3" onClick={handleSearch}>
-                                            <Search className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
-                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}>
-                                            <Filter className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
-                                        </Button>
-                                        {auth.user.role === 'Administrador' && (
-                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial" onClick={handleOpenCreateModal}>
-                                                <Plus className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Crear</span>
-                                            </Button>
-                                        )}
-                                        <Button size="sm" className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial" onClick={handleExport}>
-                                            <span className="hidden sm:inline">Exportar</span><span className="sm:hidden">Excel</span>
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
+            <div className="flex min-h-screen flex-col bg-gray-50">
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="text-gray-600">Administración</span>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Usuarios</span>
                         </div>
+                    }
+                />
 
-                        {showFilters && (
-                            <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                    <div>
-                                        <label htmlFor="filtro-rol" className="text-xs text-gray-600 mb-1 block">Rol</label>
-                                        <Select value={roleFilter} onValueChange={setRoleFilter}>
-                                            <SelectTrigger id="filtro-rol" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="Administrador">Administrador</SelectItem>
-                                                <SelectItem value="Técnico">Técnico</SelectItem>
-                                                <SelectItem value="Usuario">Usuario</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="filtro-estado" className="text-xs text-gray-600 mb-1 block">Estado</label>
-                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                            <SelectTrigger id="filtro-estado" className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="1">Activo</SelectItem>
-                                                <SelectItem value="0">Inactivo</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="filtro-desde" className="text-xs text-gray-600 mb-1 block">Desde</label>
-                                        <Input id="filtro-desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-xs" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="filtro-hasta" className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                                        <Input id="filtro-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs" />
-                                    </div>
-                                </div>
-                                <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3">
-                                    {hasActiveFilters && (
-                                        <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-gray-600">
-                                            <X className="h-3 w-3 mr-1" /> Limpiar
-                                        </Button>
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+                        <PageHeader
+                            title="Usuarios"
+                            description="Cuentas con acceso a la mesa de ayuda y su rol."
+                            actions={
+                                <>
+                                    <button type="button" onClick={handleExport} className={btn.secondary}>
+                                        <Download aria-hidden="true" />
+                                        Exportar
+                                    </button>
+                                    {esAdmin && (
+                                        <button type="button" onClick={() => abrirModal(null)} className={btn.primary}>
+                                            <Plus aria-hidden="true" />
+                                            Crear usuario
+                                        </button>
                                     )}
-                                    <Button size="sm" onClick={applyFilters} className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs">Aplicar</Button>
-                                </div>
-                            </div>
-                        )}
+                                </>
+                            }
+                        />
 
-                        {/* Stats */}
-                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
-                                <Select 
-                                    value={filters.per_page.toString()}
-                                    onValueChange={(value) => {
-                                        router.get('/administracion/usuarios', { ...filters, per_page: value }, { preserveState: false })
-                                    }}
-                                >
-                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="10">10</SelectItem>
-                                        <SelectItem value="15">15</SelectItem>
-                                        <SelectItem value="25">25</SelectItem>
-                                        <SelectItem value="50">50</SelectItem>
-                                        <SelectItem value="100">100</SelectItem>
-                                        <SelectItem value="500">500</SelectItem>
-                                        <SelectItem value="1000">1.000</SelectItem>
-                                        <SelectItem value="5000">5.000</SelectItem>
-                                        <SelectItem value="10000">10.000</SelectItem>
-                                        <SelectItem value="50000">50.000</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-gray-600">
-                                <span className="font-medium">{users.data.length}</span> de{' '}
-                                <span className="font-medium">{users.total}</span>
-                            </p>
-                        </div>
+                        <FlashBanner />
 
-                        <div className="overflow-x-auto">
-                            <Table>
+                        <section aria-label="Lista de usuarios" className="surface-card overflow-hidden">
+                            <DataTableToolbar
+                                search={searchValue}
+                                onSearchChange={setSearchValue}
+                                onSearch={() => go(buildParams())}
+                                placeholder="Buscar por nombre, usuario o correo…"
+                                filtersOpen={showFilters}
+                                onToggleFilters={() => setShowFilters((v) => !v)}
+                                activeFilters={filtrosActivos}
+                            />
+
+                            {showFilters && (
+                                <DataTableFilters onApply={() => go(buildParams())} onClear={clearFilters} canClear={filtrosActivos > 0}>
+                                    <div>
+                                        <FilterLabel htmlFor="filtro-rol">Rol</FilterLabel>
+                                        <Select value={roleFilter} onValueChange={setRoleFilter}>
+                                            <SelectTrigger id="filtro-rol" className={cn(selectTriggerClass, 'h-9')}>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                {ROLES.map((r) => (
+                                                    <SelectItem key={r} value={r}>
+                                                        {r}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="filtro-estado">Estado</FilterLabel>
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger id="filtro-estado" className={cn(selectTriggerClass, 'h-9')}>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="1">Activos</SelectItem>
+                                                <SelectItem value="0">Inactivos</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="filtro-desde">Creado desde</FilterLabel>
+                                        <input id="filtro-desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={cn(fieldClass, 'h-9')} />
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="filtro-hasta">Creado hasta</FilterLabel>
+                                        <input id="filtro-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={cn(fieldClass, 'h-9')} />
+                                    </div>
+                                </DataTableFilters>
+                            )}
+
+                            {/* Pocas columnas: aquí cabe más aire horizontal que en las tablas de inventario. */}
+                            <Table className="[&_td]:px-3 [&_th]:px-3">
                                 <TableHeader>
-                                    <TableRow className="bg-gray-50">
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs w-16"
-                                            aria-sort={filters.sort === 'id' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('id')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                ID
-                                                {getSortIcon('id')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'username' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('username')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Usuario
-                                                {getSortIcon('username')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Nombre Completo
-                                                {getSortIcon('name')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'email' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('email')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Email
-                                                {getSortIcon('email')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'role' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('role')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Rol
-                                                {getSortIcon('role')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-900 text-xs">
-                                            Activo
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'created_at' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('created_at')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Fecha de Creación
-                                                {getSortIcon('created_at')}
-                                            </button>
-                                        </TableHead>
+                                    <TableRow className="hover:bg-transparent">
+                                        <SortableHead field="id" label="ID" sort={filters.sort} direction={filters.direction} onSort={handleSort} className="w-16" />
+                                        <SortableHead field="name" label="Nombre" sort={filters.sort} direction={filters.direction} onSort={handleSort} />
+                                        <SortableHead field="username" label="Usuario" sort={filters.sort} direction={filters.direction} onSort={handleSort} />
+                                        <SortableHead field="email" label="Correo" sort={filters.sort} direction={filters.direction} onSort={handleSort} />
+                                        <SortableHead field="role" label="Rol" sort={filters.sort} direction={filters.direction} onSort={handleSort} />
+                                        <SortableHead field="is_active" label="Estado" sort={filters.sort} direction={filters.direction} onSort={handleSort} />
+                                        <SortableHead field="created_at" label="Creado" sort={filters.sort} direction={filters.direction} onSort={handleSort} />
+                                        {esAdmin && (
+                                            <TableHead className="text-right">
+                                                <span className="sr-only">Acciones</span>
+                                            </TableHead>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {users.data.map((user, index) => (
-                                        <TableRow 
-                                            key={`${user.id}-${index}`} 
-                                            className={`hover:bg-gray-50 ${auth.user.role === 'Administrador' ? 'cursor-pointer' : ''}`}
-                                            onDoubleClick={() => handleRowDoubleClick(user)}
-                                        >
-                                            <TableCell className="text-xs font-medium">{user.id}</TableCell>
-                                            <TableCell className="font-medium text-xs text-[#2c4370]">
-                                                {user.username || '-'}
-                                            </TableCell>
-                                            <TableCell className="text-xs">
-                                                <div className="flex items-center gap-2">
-                                                    {user.avatar ? (
-                                                        <img
-                                                            src={`/storage/${user.avatar}`}
-                                                            alt=""
-                                                            className="w-6 h-6 object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-6 h-6 bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-600">
-                                                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                                                        </div>
-                                                    )}
-                                                    {user.name || '-'}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-xs">{user.email || '-'}</TableCell>
-                                            <TableCell className="text-xs">
-                                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium ${
-                                                    user.role === 'Administrador' 
-                                                        ? 'bg-purple-100 text-purple-800' 
-                                                        : user.role === 'Técnico'
-                                                        ? 'bg-blue-100 text-blue-800'
-                                                        : 'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {user.role}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-xs">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className={`h-6 px-3 text-[10px] font-semibold transition-colors duration-200 ${
-                                                        user.is_active 
-                                                            ? 'bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800' 
-                                                            : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800'
-                                                    }`}
-                                                    onClick={(e) => handleToggleActive(e, user.id)}
+                                    {users.data.length === 0 ? (
+                                        <DataTableEmpty
+                                            colSpan={columnas}
+                                            title="No hay usuarios que coincidan"
+                                            description="Prueba con otra búsqueda o quita alguno de los filtros."
+                                            action={
+                                                filtrosActivos > 0 || filters.search ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSearchValue('');
+                                                            clearFilters();
+                                                        }}
+                                                        className={btn.secondary}
+                                                    >
+                                                        Limpiar búsqueda y filtros
+                                                    </button>
+                                                ) : undefined
+                                            }
+                                        />
+                                    ) : (
+                                        users.data.map((user) => {
+                                            const esYo = user.id === auth.user.id;
+                                            return (
+                                                <TableRow
+                                                    key={user.id}
+                                                    // El doble clic se mantiene como atajo; "Editar" es la vía visible y accesible por teclado.
+                                                    onDoubleClick={esAdmin ? () => abrirModal(user) : undefined}
                                                 >
-                                                    <span className={`mr-1.5 h-1.5 w-1.5 ${
-                                                        user.is_active ? 'bg-green-500' : 'bg-red-500'
-                                                    }`}></span>
-                                                    {user.is_active ? 'Activo' : 'Inactivo'}
-                                                </Button>
-                                            </TableCell>
-                                            <TableCell className="text-xs text-gray-600">
-                                                {user.created_at ? new Date(user.created_at).toLocaleDateString('es-CO', {
-                                                    year: 'numeric',
-                                                    month: '2-digit',
-                                                    day: '2-digit',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                }) : '-'}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                                    <TableCell className="text-xs tabular-nums text-gray-500">{user.id}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar user={user} />
+                                                            <span className="font-medium text-gray-900">
+                                                                {user.name || '—'}
+                                                                {esYo && <span className="ml-2 text-xs font-normal text-gray-500">(tú)</span>}
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-gray-600">{user.username || '—'}</TableCell>
+                                                    <TableCell className="text-gray-600">{user.email || '—'}</TableCell>
+                                                    <TableCell>
+                                                        <span
+                                                            className={cn(
+                                                                'inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset',
+                                                                ROL_PILL[user.role] ?? 'bg-gray-100 text-gray-700 ring-gray-500/15',
+                                                            )}
+                                                        >
+                                                            {user.role}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {esAdmin ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <Switch
+                                                                    checked={user.is_active}
+                                                                    onCheckedChange={() => handleToggleActive(user)}
+                                                                    disabled={esYo}
+                                                                    aria-label={`Cuenta activa: ${user.name || user.username}`}
+                                                                    title={esYo ? 'No puedes desactivar tu propia cuenta' : undefined}
+                                                                />
+                                                                <span className={cn('text-xs', user.is_active ? 'text-gray-700' : 'text-gray-500')}>
+                                                                    {user.is_active ? 'Activo' : 'Inactivo'}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1.5 text-xs text-gray-700">
+                                                                <span aria-hidden="true" className={cn('size-1.5 rounded-full', user.is_active ? 'bg-green-600' : 'bg-gray-400')} />
+                                                                {user.is_active ? 'Activo' : 'Inactivo'}
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-gray-600">
+                                                        {user.created_at ? (
+                                                            <time
+                                                                dateTime={user.created_at}
+                                                                title={new Date(user.created_at).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' })}
+                                                            >
+                                                                {new Date(user.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </time>
+                                                        ) : (
+                                                            '—'
+                                                        )}
+                                                    </TableCell>
+                                                    {esAdmin && (
+                                                        <TableCell className="text-right">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => abrirModal(user)}
+                                                                aria-label={`Editar a ${user.name || user.username}`}
+                                                                className={cn(btn.ghost, 'h-8 px-2.5')}
+                                                            >
+                                                                <Pencil aria-hidden="true" />
+                                                                Editar
+                                                            </button>
+                                                        </TableCell>
+                                                    )}
+                                                </TableRow>
+                                            );
+                                        })
+                                    )}
                                 </TableBody>
                             </Table>
-                        </div>
 
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
-                                Página {users.current_page} de {users.last_page}
-                            </div>
-                            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
-                                {users.links.map((link, index) => {
-                                    const isMobileVisible = index === 0 || index === users.links.length - 1 || link.active;
-                                    if (index === 0) {
-                                        return (
-                                            <Button aria-label="Página anterior" key={index} variant="outline" size="sm" disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
-                                                onClick={() => link.url && router.visit(link.url)}>
-                                                <ChevronLeft className="h-4 w-4" />
-                                            </Button>
-                                        );
-                                    }
-                                    if (index === users.links.length - 1) {
-                                        return (
-                                            <Button aria-label="Página siguiente" key={index} variant="outline" size="sm" disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
-                                                onClick={() => link.url && router.visit(link.url)}>
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        );
-                                    }
-                                    return (
-                                        <Button key={index} variant={link.active ? "default" : "outline"} size="sm" disabled={!link.url}
-                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active 
-                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]" 
-                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
-                                            onClick={() => link.url && router.visit(link.url)}>
-                                            {link.label}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                            <DataTablePagination
+                                paginator={users}
+                                count={users.data.length}
+                                noun="usuarios"
+                                onPerPageChange={(value) => go(buildParams({ per_page: value }))}
+                            />
+                        </section>
                     </div>
                 </main>
 
                 <GLPIFooter />
             </div>
 
-            {/* Modal de Creación/Edición */}
-            <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
-                <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-                    <form onSubmit={handleSubmit}>
-                        <DialogHeader>
-                            <DialogTitle>{isCreateMode ? 'Nuevo Usuario' : 'Editar Usuario'}</DialogTitle>
-                            <DialogDescription>
-                                {isCreateMode 
-                                    ? 'Completa la información para crear un nuevo usuario. Los campos con * son obligatorios.'
-                                    : 'Modifica los datos del usuario. Los campos con * son obligatorios.'
-                                }
+            {/* Modal de creación / edición */}
+            <Dialog open={isModalOpen} onOpenChange={(abierto) => !abierto && handleCloseModal()}>
+                <DialogContent className="max-h-[90vh] gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[560px]">
+                    <form onSubmit={handleSubmit} className="flex max-h-[90vh] flex-col">
+                        <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                            <DialogTitle className="text-lg font-semibold text-gray-900">{isCreateMode ? 'Crear usuario' : 'Editar usuario'}</DialogTitle>
+                            <DialogDescription className="text-sm text-gray-500">
+                                {isCreateMode ? 'La persona entra con el usuario y la contraseña que definas aquí.' : `Cambios a la cuenta de ${editingUser?.name}.`}
                             </DialogDescription>
                         </DialogHeader>
-                        
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="username">Usuario *</Label>
-                                    <Input
-                                        id="username"
-                                        value={formData.username}
-                                        onChange={(e) => setFormData({...formData, username: e.target.value})}
-                                        placeholder="ej: jperez"
-                                        required
-                                    />
-                                    {formErrors.username && <p className="text-xs text-red-600">{formErrors.username}</p>}
-                                </div>
 
-                                <div className="grid gap-2">
-                                    <Label htmlFor="role">Rol *</Label>
-                                    <Select 
-                                        value={formData.role} 
-                                        onValueChange={(value) => setFormData({...formData, role: value})}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Administrador">Administrador</SelectItem>
-                                            <SelectItem value="Técnico">Técnico</SelectItem>
-                                            <SelectItem value="Usuario">Usuario</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    {formErrors.role && <p className="text-xs text-red-600">{formErrors.role}</p>}
-                                </div>
+                        <div className="space-y-5 overflow-y-auto px-6 py-5">
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <FormField id="username" label="Usuario" error={formErrors.username}>
+                                    {(control) => (
+                                        <input
+                                            {...control}
+                                            value={formData.username}
+                                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                            placeholder="Ej.: jperez"
+                                            autoComplete="off"
+                                            required
+                                            className={fieldClass}
+                                        />
+                                    )}
+                                </FormField>
+                                <FormField
+                                    id="role"
+                                    label="Rol"
+                                    error={formErrors.role}
+                                    hint={editandoseASiMismo ? 'No puedes quitarte el rol de administrador.' : undefined}
+                                >
+                                    {(control) => (
+                                        <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })} disabled={editandoseASiMismo}>
+                                            <SelectTrigger {...control} className={selectTriggerClass}>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {ROLES.map((r) => (
+                                                    <SelectItem key={r} value={r}>
+                                                        {r}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </FormField>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">Nombre Completo *</Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                    placeholder="ej: Juan Pérez García"
-                                    required
-                                />
-                                {formErrors.name && <p className="text-xs text-red-600">{formErrors.name}</p>}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="email">Email *</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
-                                        placeholder="ej: jperez@huv.gov.co"
-                                        required
-                                    />
-                                    {formErrors.email && <p className="text-xs text-red-600">{formErrors.email}</p>}
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label htmlFor="phone">Teléfono</Label>
-                                    <Input
-                                        id="phone"
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                                        placeholder="ej: 3001234567"
-                                    />
-                                    {formErrors.phone && <p className="text-xs text-red-600">{formErrors.phone}</p>}
-                                </div>
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="is_active">Estado</Label>
-                                <div className="flex items-center gap-2">
+                            <FormField id="name" label="Nombre completo" error={formErrors.name}>
+                                {(control) => (
                                     <input
-                                        type="checkbox"
+                                        {...control}
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="Ej.: Juan Pérez García"
+                                        autoComplete="off"
+                                        required
+                                        className={fieldClass}
+                                    />
+                                )}
+                            </FormField>
+
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <FormField id="email" label="Correo electrónico" error={formErrors.email}>
+                                    {(control) => (
+                                        <input
+                                            {...control}
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            placeholder="Ej.: jperez@huv.gov.co"
+                                            autoComplete="off"
+                                            required
+                                            className={fieldClass}
+                                        />
+                                    )}
+                                </FormField>
+                                <FormField id="phone" label="Teléfono" error={formErrors.phone} optional>
+                                    {(control) => (
+                                        <input
+                                            {...control}
+                                            type="tel"
+                                            inputMode="tel"
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            placeholder="Ej.: 3001234567"
+                                            maxLength={20}
+                                            className={fieldClass}
+                                        />
+                                    )}
+                                </FormField>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center gap-3">
+                                    <Switch
                                         id="is_active"
                                         checked={formData.is_active}
-                                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                                        className="h-4 w-4 border-gray-300"
+                                        onCheckedChange={(v) => setFormData({ ...formData, is_active: v })}
+                                        disabled={editandoseASiMismo}
+                                        aria-describedby={formErrors.is_active ? 'is_active-error' : undefined}
                                     />
-                                    <span className={`text-sm font-medium ${formData.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                                        {formData.is_active ? 'Activo' : 'Inactivo'}
-                                    </span>
+                                    <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+                                        Cuenta activa
+                                    </label>
+                                    <span className="text-sm text-gray-500">{formData.is_active ? '— puede iniciar sesión' : '— no puede iniciar sesión'}</span>
                                 </div>
+                                {formErrors.is_active && (
+                                    <p id="is_active-error" className="mt-1.5 text-sm text-red-600">
+                                        {formErrors.is_active}
+                                    </p>
+                                )}
                             </div>
 
-                            <div className="border-t pt-4">
-                                <p className="text-sm text-gray-600 mb-3 font-medium">
-                                    {isCreateMode ? 'Contraseña *' : 'Cambiar Contraseña (opcional)'}
+                            <fieldset className="space-y-4 border-t pt-5">
+                                <legend className="sr-only">Contraseña</legend>
+                                <p className="text-sm font-medium text-gray-900">
+                                    {isCreateMode ? 'Contraseña' : 'Cambiar contraseña'}
+                                    {!isCreateMode && <span className="ml-2 text-xs font-normal text-gray-500">Déjala en blanco para mantener la actual</span>}
                                 </p>
-                                
-                                <div className="grid gap-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="password">{isCreateMode ? 'Contraseña' : 'Nueva Contraseña'}</Label>
-                                        <div className="relative">
-                                            <Input
-                                                id="password"
-                                                type={showPassword ? 'text' : 'password'}
-                                                value={formData.password}
-                                                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                                                placeholder={isCreateMode ? 'Mínimo 8 caracteres' : 'Dejar en blanco para mantener la actual'}
-                                                required={isCreateMode}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        {formErrors.password && <p className="text-xs text-red-600">{formErrors.password}</p>}
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="password_confirmation">Confirmar Contraseña</Label>
-                                        <div className="relative">
-                                            <Input
-                                                id="password_confirmation"
-                                                type={showPasswordConfirm ? 'text' : 'password'}
-                                                value={formData.password_confirmation}
-                                                onChange={(e) => setFormData({...formData, password_confirmation: e.target.value})}
-                                                placeholder="Repite la contraseña"
-                                                required={isCreateMode}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showPasswordConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        {formErrors.password_confirmation && <p className="text-xs text-red-600">{formErrors.password_confirmation}</p>}
-                                    </div>
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    {campoPassword('password', isCreateMode ? 'Contraseña' : 'Nueva contraseña', 'Mínimo 8 caracteres.')}
+                                    {campoPassword('password_confirmation', 'Confirmar contraseña')}
                                 </div>
-                            </div>
+                            </fieldset>
                         </div>
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
+                        <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                            <button type="button" onClick={handleCloseModal} disabled={isSubmitting} className={btn.secondary}>
                                 Cancelar
-                            </Button>
-                            <Button type="submit" className="bg-[#2c4370] hover:bg-[#3d5583] text-white" disabled={isSubmitting}>
-                                {isSubmitting ? 'Guardando...' : (isCreateMode ? 'Crear Usuario' : 'Guardar Cambios')}
-                            </Button>
-                        </DialogFooter>
+                            </button>
+                            <button type="submit" disabled={isSubmitting} className={btn.primary}>
+                                {isSubmitting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                {isSubmitting ? 'Guardando…' : isCreateMode ? 'Crear usuario' : 'Guardar cambios'}
+                            </button>
+                        </div>
                     </form>
                 </DialogContent>
             </Dialog>

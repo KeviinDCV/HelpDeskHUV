@@ -27,6 +27,7 @@ class UserController extends Controller
         $dateTo = $request->input('date_to', '');
 
         $sortableFields = [
+            'id' => 'id',
             'username' => 'username',
             'name' => 'name',
             'email' => 'email',
@@ -50,7 +51,9 @@ class UserController extends Controller
         }
 
         if ($roleFilter && $roleFilter !== 'all') { $query->where('role', $roleFilter); }
-        if ($statusFilter && $statusFilter !== 'all') { $query->where('is_active', $statusFilter); }
+        // '0' (Inactivo) es falso en PHP: con `$statusFilter && …` ese filtro nunca se aplicaba. Lista
+        // estricta porque los enlaces de paginación traen `is_active=`, que Laravel convierte en null.
+        if (in_array((string) $statusFilter, ['0', '1'], true)) { $query->where('is_active', $statusFilter); }
         if ($dateFrom) { $query->whereDate('created_at', '>=', $dateFrom); }
         if ($dateTo) { $query->whereDate('created_at', '<=', $dateTo); }
         
@@ -84,6 +87,7 @@ class UserController extends Controller
         $dateTo = $request->input('date_to', '');
 
         $sortableFields = [
+            'id' => 'id',
             'username' => 'username',
             'name' => 'name',
             'email' => 'email',
@@ -106,7 +110,9 @@ class UserController extends Controller
         }
 
         if ($roleFilter && $roleFilter !== 'all') { $query->where('role', $roleFilter); }
-        if ($statusFilter && $statusFilter !== 'all') { $query->where('is_active', $statusFilter); }
+        // '0' (Inactivo) es falso en PHP: con `$statusFilter && …` ese filtro nunca se aplicaba. Lista
+        // estricta porque los enlaces de paginación traen `is_active=`, que Laravel convierte en null.
+        if (in_array((string) $statusFilter, ['0', '1'], true)) { $query->where('is_active', $statusFilter); }
         if ($dateFrom) { $query->whereDate('created_at', '>=', $dateFrom); }
         if ($dateTo) { $query->whereDate('created_at', '<=', $dateTo); }
 
@@ -121,7 +127,7 @@ class UserController extends Controller
         // Encabezado del documento
         $filterInfo = '';
         if ($roleFilter && $roleFilter !== 'all') $filterInfo .= "Rol: {$roleFilter} ";
-        if ($statusFilter !== '') $filterInfo .= "Estado: " . ($statusFilter ? 'Activos' : 'Inactivos');
+        if (in_array((string) $statusFilter, ['0', '1'], true)) $filterInfo .= "Estado: " . ($statusFilter === '1' ? 'Activos' : 'Inactivos');
         $this->createDocumentHeader($sheet, 'HELPDESK HUV - USUARIOS DEL SISTEMA', 'Hospital Universitario del Valle - Gestión de Usuarios', 'G', $filterInfo);
 
         // Resumen rápido
@@ -286,7 +292,21 @@ class UserController extends Controller
 
     public function toggleActive($id)
     {
+        // Mismo control que store() y update(). Faltaba aquí: la ruta solo exige sesión, así que
+        // cualquier técnico o usuario autenticado podía desactivar cualquier cuenta, incluidas
+        // las de los administradores.
+        if (auth()->user()->role !== 'Administrador') {
+            return redirect()->back()->with('error', 'No tienes permisos para realizar esta acción');
+        }
+
         $user = User::findOrFail($id);
+
+        // Desactivarse a uno mismo cierra la puerta: sin otro administrador activo, nadie
+        // podría volver a entrar para revertirlo.
+        if ($user->is(auth()->user())) {
+            return redirect()->back()->with('error', 'No puedes desactivar tu propia cuenta.');
+        }
+
         $user->is_active = !$user->is_active;
         $user->save();
 
@@ -304,21 +324,37 @@ class UserController extends Controller
             'username' => 'required|string|max:255|unique:users,username,' . $id,
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $id,
+            'phone' => 'nullable|string|max:20',
             'role' => 'required|in:Administrador,Técnico,Usuario',
             'is_active' => 'required|boolean',
         ]);
 
         $user = User::findOrFail($id);
+
+        // Un administrador no puede quitarse a sí mismo el acceso ni el rol desde aquí: con el
+        // último administrador desactivado o degradado, nadie podría deshacerlo.
+        if ($user->is(auth()->user()) && (! $request->boolean('is_active') || $request->role !== 'Administrador')) {
+            return redirect()->back()->withErrors([
+                'is_active' => 'No puedes desactivar tu propia cuenta ni quitarte el rol de administrador.',
+            ]);
+        }
+
         $user->username = $request->username;
         $user->name = $request->name;
         $user->email = $request->email;
+        // Antes el formulario mostraba el teléfono pero update() lo ignoraba: lo escrito se perdía.
+        $user->phone = $request->phone;
         $user->role = $request->role;
         $user->is_active = $request->is_active;
-        
-        // Si se proporciona una nueva contraseña
+
+        // Si se proporciona una nueva contraseña. Mínimo 8, como al crear el usuario (aquí
+        // pedía 6, y la interfaz decía 8).
         if ($request->filled('password')) {
             $request->validate([
-                'password' => 'min:6|confirmed'
+                'password' => 'min:8|confirmed'
+            ], [
+                'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+                'password.confirmed' => 'Las contraseñas no coinciden.',
             ]);
             $user->password = Hash::make($request->password);
         }
