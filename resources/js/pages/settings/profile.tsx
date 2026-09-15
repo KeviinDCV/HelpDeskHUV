@@ -1,11 +1,11 @@
-import { GLPIHeader } from '@/components/glpi-header';
+import { FormField } from '@/components/form-field';
 import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { btn, fieldClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { User, Mail, Phone, Camera, Lock, Eye, EyeOff } from 'lucide-react';
-import React, { useState, useRef } from 'react';
+import { Camera, Check, CheckCircle2, Circle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 
 interface AuthUser {
     id: number;
@@ -17,25 +17,71 @@ interface AuthUser {
     role: string;
 }
 
-interface ProfileProps {
-    mustVerifyEmail: boolean;
-    status?: string;
-    flash?: { success?: string };
+type Formulario = 'perfil' | 'password';
+
+// Los mismos límites que valida ProfileUpdateRequest (mimes:jpg,jpeg,png,gif · max:2048 KB).
+// Revisarlos aquí evita subir la foto para enterarse después, en el error del servidor.
+const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/gif'];
+const MAX_FOTO = 2 * 1024 * 1024;
+
+function iniciales(nombre: string): string {
+    return nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
 }
 
-export default function Profile({ status, flash }: ProfileProps) {
+function Seccion({ id, titulo, descripcion, children }: { id: string; titulo: string; descripcion: ReactNode; children: ReactNode }) {
+    return (
+        <section aria-labelledby={id} className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10">
+            <div className="lg:pt-1">
+                <h2 id={id} className="text-base font-semibold text-gray-900">
+                    {titulo}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">{descripcion}</p>
+            </div>
+            {children}
+        </section>
+    );
+}
+
+/** Pie de tarjeta con el botón de guardar y la confirmación, que se anuncia al lector de pantalla. */
+function PieFormulario({ aviso, children }: { aviso: string | null; children: ReactNode }) {
+    return (
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t bg-gray-50 px-5 py-3 sm:px-6">
+            <p role="status" className="flex items-center gap-1.5 text-sm text-green-700">
+                {aviso && (
+                    <>
+                        <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+                        {aviso}
+                    </>
+                )}
+            </p>
+            {children}
+        </div>
+    );
+}
+
+function Requisito({ cumplido, children }: { cumplido: boolean; children: ReactNode }) {
+    return (
+        <span className={cn('inline-flex items-center gap-1.5', cumplido ? 'text-green-700' : 'text-gray-500')}>
+            {cumplido ? <Check className="size-3.5" aria-hidden="true" /> : <Circle className="size-3" aria-hidden="true" />}
+            {children}
+            <span className="sr-only">{cumplido ? '(cumplido)' : '(pendiente)'}</span>
+        </span>
+    );
+}
+
+export default function Profile() {
     const { auth } = usePage<{ auth: { user: AuthUser } }>().props;
     const user = auth.user;
-    
+    const fotoGuardada = user.avatar ? `/storage/${user.avatar}` : null;
+
     const [formData, setFormData] = useState({
         name: user.name || '',
         email: user.email || '',
         phone: user.phone || '',
     });
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(
-        user.avatar ? `/storage/${user.avatar}` : null
-    );
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(fotoGuardada);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarError, setAvatarError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,21 +94,46 @@ export default function Profile({ status, flash }: ProfileProps) {
     });
     const [passwordProcessing, setPasswordProcessing] = useState(false);
     const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [passwordSuccess, setPasswordSuccess] = useState(false);
+    const [visibles, setVisibles] = useState<Record<string, boolean>>({});
+
+    // Confirmación junto al formulario que se guardó (antes el aviso de contraseña salía
+    // también en la tarjeta del perfil, porque ambos leían el mismo flash).
+    const [aviso, setAviso] = useState<{ form: Formulario; texto: string } | null>(null);
+    useEffect(() => {
+        if (!aviso) return;
+        const t = setTimeout(() => setAviso(null), 6000);
+        return () => clearTimeout(t);
+    }, [aviso]);
+
+    const hayCambios =
+        formData.name !== (user.name || '') ||
+        formData.email !== (user.email || '') ||
+        formData.phone !== (user.phone || '') ||
+        avatarFile !== null;
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setAvatarFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setAvatarPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+        e.target.value = ''; // permite volver a elegir el mismo archivo tras descartarlo
+        if (!file) return;
+        if (!TIPOS_FOTO.includes(file.type)) {
+            setAvatarError('La foto debe ser JPG, PNG o GIF.');
+            return;
         }
+        if (file.size > MAX_FOTO) {
+            setAvatarError(`La foto pesa ${(file.size / 1048576).toFixed(1)} MB; el máximo es 2 MB.`);
+            return;
+        }
+        setAvatarError(null);
+        setAvatarFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => setAvatarPreview(reader.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const descartarFoto = () => {
+        setAvatarFile(null);
+        setAvatarPreview(fotoGuardada);
+        setAvatarError(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -81,9 +152,12 @@ export default function Profile({ status, flash }: ProfileProps) {
 
         router.post('/settings/profile', data, {
             forceFormData: true,
-            onSuccess: () => {
+            preserveScroll: true,
+            onSuccess: (page) => {
                 setProcessing(false);
                 setAvatarFile(null);
+                const flash = (page.props as { flash?: { success?: string } }).flash;
+                setAviso({ form: 'perfil', texto: flash?.success ?? 'Cambios guardados.' });
             },
             onError: (errs) => {
                 setErrors(errs as Record<string, string>);
@@ -96,18 +170,19 @@ export default function Profile({ status, flash }: ProfileProps) {
         e.preventDefault();
         setPasswordProcessing(true);
         setPasswordErrors({});
-        setPasswordSuccess(false);
 
         router.put('/settings/profile/password', passwordData, {
-            onSuccess: () => {
+            preserveScroll: true,
+            onSuccess: (page) => {
                 setPasswordProcessing(false);
                 setPasswordData({
                     current_password: '',
                     password: '',
                     password_confirmation: '',
                 });
-                setPasswordSuccess(true);
-                setTimeout(() => setPasswordSuccess(false), 5000);
+                setVisibles({});
+                const flash = (page.props as { flash?: { success?: string } }).flash;
+                setAviso({ form: 'password', texto: flash?.success ?? 'Contraseña actualizada.' });
             },
             onError: (errs) => {
                 setPasswordErrors(errs as Record<string, string>);
@@ -116,251 +191,199 @@ export default function Profile({ status, flash }: ProfileProps) {
         });
     };
 
+    const largoOk = passwordData.password.length >= 8;
+    const coinciden = passwordData.password_confirmation.length > 0 && passwordData.password === passwordData.password_confirmation;
+
+    const campoPassword = (id: keyof typeof passwordData, etiqueta: string, autoComplete: string, hint?: ReactNode) => (
+        <FormField id={id} label={etiqueta} error={passwordErrors[id]} hint={hint}>
+            {(control) => (
+                <div className="relative">
+                    <input
+                        {...control}
+                        type={visibles[id] ? 'text' : 'password'}
+                        value={passwordData[id]}
+                        onChange={(e) => setPasswordData({ ...passwordData, [id]: e.target.value })}
+                        autoComplete={autoComplete}
+                        required
+                        className={cn(fieldClass, 'password-own-toggle pr-10')}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setVisibles((v) => ({ ...v, [id]: !v[id] }))}
+                        aria-label="Mostrar contraseña"
+                        aria-pressed={!!visibles[id]}
+                        aria-controls={id}
+                        className="focus-ring absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-gray-400 hover:text-gray-700"
+                    >
+                        {visibles[id] ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+                    </button>
+                </div>
+            )}
+        </FormField>
+    );
+
     return (
         <>
-            <Head title="Mi Perfil - HelpDesk HUV" />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">Mi Perfil</span>
-                    </div>
-                } />
+            <Head title="Mi perfil - HelpDesk HUV" />
+            <div className="flex min-h-screen flex-col bg-gray-50">
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Mi perfil</span>
+                        </div>
+                    }
+                />
 
-                <main className="flex-1 px-6 py-6">
-                    <div className="max-w-6xl mx-auto">
-                        {/* Grid de 2 columnas */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Mi Perfil */}
-                            <div className="bg-white shadow">
-                                <div className="px-6 py-4 border-b">
-                                    <h1 className="text-xl font-semibold text-gray-900">Mi Perfil</h1>
-                                    <p className="text-sm text-gray-500 mt-1">Actualiza tu información personal</p>
-                                </div>
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-5xl space-y-10 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+                        <div>
+                            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Mi perfil</h1>
+                            <p className="mt-1 text-sm text-gray-500">Tus datos de contacto y el acceso a tu cuenta.</p>
+                        </div>
 
-                                {flash?.success && (
-                                    <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
-                                        <p className="text-sm text-green-700">{flash.success}</p>
-                                    </div>
-                                )}
-
-                                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                                    {/* Avatar */}
-                                    <div className="flex items-center gap-6">
-                                        <div className="relative">
-                                            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                                                {avatarPreview ? (
-                                                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <User className="w-12 h-12 text-gray-400" />
+                        <Seccion id="seccion-personal" titulo="Información personal" descripcion="Nombre, correo y teléfono con los que te identificas en la mesa de ayuda.">
+                            <form onSubmit={handleSubmit} className="surface-card overflow-hidden">
+                                <div className="space-y-6 p-5 sm:p-6">
+                                    <div className="flex items-center gap-5">
+                                        <div className="relative size-20 shrink-0 overflow-hidden rounded-full bg-huv-soft ring-1 ring-black/5">
+                                            {avatarPreview ? (
+                                                <img src={avatarPreview} alt="" className="size-full object-cover" />
+                                            ) : (
+                                                <span aria-hidden="true" className="flex size-full items-center justify-center text-2xl font-semibold text-huv-ink">
+                                                    {iniciales(user.name)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap gap-2">
+                                                <button type="button" onClick={() => fileInputRef.current?.click()} className={btn.secondary}>
+                                                    <Camera aria-hidden="true" />
+                                                    {avatarPreview ? 'Cambiar foto' : 'Subir foto'}
+                                                </button>
+                                                {avatarFile && (
+                                                    <button type="button" onClick={descartarFoto} className={btn.ghost}>
+                                                        Descartar
+                                                    </button>
                                                 )}
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="absolute bottom-0 right-0 w-8 h-8 bg-[#2c4370] text-white rounded-full flex items-center justify-center shadow-md hover:bg-[#3d5583] transition-colors"
-                                            >
-                                                <Camera className="w-4 h-4" />
-                                            </button>
+                                            <p className="mt-2 text-xs text-gray-500">
+                                                {avatarFile ? 'Foto nueva: se guarda al pulsar «Guardar cambios».' : 'JPG, PNG o GIF. Máximo 2 MB.'}
+                                            </p>
+                                            {(avatarError || errors.avatar) && (
+                                                <p role="alert" className="mt-1 text-sm text-red-600">
+                                                    {avatarError || errors.avatar}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept={TIPOS_FOTO.join(',')}
+                                            onChange={handleAvatarChange}
+                                            className="hidden"
+                                            aria-label="Elegir foto de perfil"
+                                        />
+                                    </div>
+
+                                    <FormField id="name" label="Nombre completo" error={errors.name}>
+                                        {(control) => (
                                             <input
-                                                ref={fileInputRef}
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleAvatarChange}
-                                                className="hidden"
+                                                {...control}
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                autoComplete="name"
+                                                required
+                                                className={fieldClass}
                                             />
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-gray-900">{user.name}</p>
-                                            <p className="text-sm text-gray-500">{user.role}</p>
-                                            <p className="text-xs text-gray-400 mt-1">@{user.username}</p>
-                                        </div>
-                                    </div>
-                                    {errors.avatar && <p className="text-sm text-red-600">{errors.avatar}</p>}
+                                        )}
+                                    </FormField>
 
-                                    {/* Nombre */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name" className="flex items-center gap-2">
-                                            <User className="w-4 h-4 text-gray-400" />
-                                            Nombre Completo
-                                        </Label>
-                                        <Input
-                                            id="name"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            placeholder="Tu nombre completo"
-                                            required
-                                        />
-                                        {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
-                                    </div>
+                                    <div className="grid gap-6 sm:grid-cols-2">
+                                        <FormField id="email" label="Correo electrónico" error={errors.email}>
+                                            {(control) => (
+                                                <input
+                                                    {...control}
+                                                    type="email"
+                                                    value={formData.email}
+                                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                    autoComplete="email"
+                                                    required
+                                                    className={fieldClass}
+                                                />
+                                            )}
+                                        </FormField>
 
-                                    {/* Email */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email" className="flex items-center gap-2">
-                                            <Mail className="w-4 h-4 text-gray-400" />
-                                            Correo Electrónico
-                                        </Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            placeholder="tu@email.com"
-                                            required
-                                        />
-                                        {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+                                        <FormField id="phone" label="Teléfono" error={errors.phone} optional>
+                                            {(control) => (
+                                                <input
+                                                    {...control}
+                                                    type="tel"
+                                                    inputMode="tel"
+                                                    value={formData.phone}
+                                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                    autoComplete="tel"
+                                                    placeholder="Ej.: 3001234567"
+                                                    maxLength={20}
+                                                    className={fieldClass}
+                                                />
+                                            )}
+                                        </FormField>
                                     </div>
-
-                                    {/* Teléfono */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="phone" className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-gray-400" />
-                                            Teléfono
-                                        </Label>
-                                        <Input
-                                            id="phone"
-                                            type="tel"
-                                            value={formData.phone}
-                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            placeholder="Ej: 3001234567"
-                                        />
-                                        {errors.phone && <p className="text-sm text-red-600">{errors.phone}</p>}
-                                    </div>
-
-                                    {/* Info de solo lectura */}
-                                    <div className="pt-4 border-t space-y-3">
-                                        <p className="text-xs text-gray-500 uppercase font-semibold">Información de la cuenta</p>
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <span className="text-gray-500">Usuario:</span>
-                                                <span className="ml-2 font-medium">{user.username}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-500">Rol:</span>
-                                                <span className="ml-2 font-medium">{user.role}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Botón guardar */}
-                                    <div className="pt-4 flex justify-end">
-                                        <Button
-                                            type="submit"
-                                            disabled={processing}
-                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
-                                        >
-                                            {processing ? 'Guardando...' : 'Guardar Cambios'}
-                                        </Button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            {/* Cambiar Contraseña */}
-                            <div className="bg-white shadow h-fit">
-                                <div className="px-6 py-4 border-b">
-                                    <h2 className="text-xl font-semibold text-gray-900">Cambiar Contraseña</h2>
-                                    <p className="text-sm text-gray-500 mt-1">Asegúrate de usar una contraseña segura</p>
                                 </div>
 
-                                {passwordSuccess && (
-                                    <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200">
-                                        <p className="text-sm text-green-700">Contraseña actualizada correctamente</p>
-                                    </div>
-                                )}
+                                <PieFormulario aviso={aviso?.form === 'perfil' ? aviso.texto : null}>
+                                    <button type="submit" disabled={processing || !hayCambios} className={btn.primary}>
+                                        {processing && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                        {processing ? 'Guardando…' : 'Guardar cambios'}
+                                    </button>
+                                </PieFormulario>
+                            </form>
+                        </Seccion>
 
-                                <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
-                                    {/* Contraseña actual */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="current_password" className="flex items-center gap-2">
-                                            <Lock className="w-4 h-4 text-gray-400" />
-                                            Contraseña Actual
-                                        </Label>
-                                        <div className="relative">
-                                            <Input
-                                                id="current_password"
-                                                type={showCurrentPassword ? 'text' : 'password'}
-                                                value={passwordData.current_password}
-                                                onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                                                placeholder="Ingresa tu contraseña actual"
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        {passwordErrors.current_password && <p className="text-sm text-red-600">{passwordErrors.current_password}</p>}
+                        <Seccion id="seccion-password" titulo="Contraseña" descripcion="Para cambiarla necesitas la actual. La nueva debe tener al menos 8 caracteres.">
+                            <form onSubmit={handlePasswordSubmit} className="surface-card overflow-hidden">
+                                <div className="space-y-6 p-5 sm:p-6">
+                                    {campoPassword('current_password', 'Contraseña actual', 'current-password')}
+                                    <div className="grid gap-6 sm:grid-cols-2">
+                                        {campoPassword('password', 'Nueva contraseña', 'new-password', <Requisito cumplido={largoOk}>Al menos 8 caracteres</Requisito>)}
+                                        {campoPassword(
+                                            'password_confirmation',
+                                            'Confirmar nueva contraseña',
+                                            'new-password',
+                                            passwordData.password_confirmation ? (
+                                                <Requisito cumplido={coinciden}>{coinciden ? 'Coinciden' : 'Todavía no coinciden'}</Requisito>
+                                            ) : undefined,
+                                        )}
                                     </div>
+                                </div>
 
-                                    {/* Nueva contraseña */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password" className="flex items-center gap-2">
-                                            <Lock className="w-4 h-4 text-gray-400" />
-                                            Nueva Contraseña
-                                        </Label>
-                                        <div className="relative">
-                                            <Input
-                                                id="password"
-                                                type={showNewPassword ? 'text' : 'password'}
-                                                value={passwordData.password}
-                                                onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
-                                                placeholder="Mínimo 8 caracteres"
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowNewPassword(!showNewPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        {passwordErrors.password && <p className="text-sm text-red-600">{passwordErrors.password}</p>}
-                                    </div>
+                                <PieFormulario aviso={aviso?.form === 'password' ? aviso.texto : null}>
+                                    <button type="submit" disabled={passwordProcessing} className={btn.primary}>
+                                        {passwordProcessing && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                        {passwordProcessing ? 'Actualizando…' : 'Cambiar contraseña'}
+                                    </button>
+                                </PieFormulario>
+                            </form>
+                        </Seccion>
 
-                                    {/* Confirmar contraseña */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password_confirmation" className="flex items-center gap-2">
-                                            <Lock className="w-4 h-4 text-gray-400" />
-                                            Confirmar Nueva Contraseña
-                                        </Label>
-                                        <div className="relative">
-                                            <Input
-                                                id="password_confirmation"
-                                                type={showConfirmPassword ? 'text' : 'password'}
-                                                value={passwordData.password_confirmation}
-                                                onChange={(e) => setPasswordData({ ...passwordData, password_confirmation: e.target.value })}
-                                                placeholder="Repite la nueva contraseña"
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        {passwordErrors.password_confirmation && <p className="text-sm text-red-600">{passwordErrors.password_confirmation}</p>}
-                                    </div>
-
-                                    {/* Botón guardar */}
-                                    <div className="pt-4 flex justify-end">
-                                        <Button
-                                            type="submit"
-                                            disabled={passwordProcessing}
-                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white px-8"
-                                        >
-                                            {passwordProcessing ? 'Actualizando...' : 'Cambiar Contraseña'}
-                                        </Button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+                        <Seccion id="seccion-cuenta" titulo="Cuenta" descripcion="Los define un administrador en Administración › Usuarios.">
+                            <dl className="surface-card divide-y">
+                                <div className="flex items-center justify-between gap-4 px-5 py-4 sm:px-6">
+                                    <dt className="text-sm text-gray-500">Usuario</dt>
+                                    <dd className="text-sm font-medium text-gray-900">{user.username}</dd>
+                                </div>
+                                <div className="flex items-center justify-between gap-4 px-5 py-4 sm:px-6">
+                                    <dt className="text-sm text-gray-500">Rol</dt>
+                                    <dd>
+                                        <span className="inline-flex items-center rounded-md bg-huv-soft px-2 py-0.5 text-xs font-semibold text-huv-ink">{user.role}</span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </Seccion>
                     </div>
                 </main>
 

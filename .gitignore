@@ -25,3 +25,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Banco de pruebas local del rediseño (páginas con datos ficticios, sin backend)
+/_harness/
