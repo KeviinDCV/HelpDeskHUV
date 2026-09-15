@@ -1,43 +1,35 @@
-import { GLPIHeader } from '@/components/glpi-header';
-import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router, usePage, Link } from '@inertiajs/react';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, ChevronsUpDown, Filter, X, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import React from 'react';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { SearchableSelect } from '@/components/ui/searchable-select';
 import AdvancedFilterBar, { FilterRow, FieldDef, activeFilterRows } from '@/components/AdvancedFilterBar';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import {
+    DataTableEmpty,
+    DataTableFilters,
+    DataTablePagination,
+    DataTableToolbar,
+    FilterLabel,
+    SortableHead,
+    TruncatedText,
+    type Paginator,
+} from '@/components/data-table';
+import { FlashBanner } from '@/components/flash-banner';
+import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { PageHeader } from '@/components/page-header';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { btn, filterSelectClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Download, Pencil, Plus, Trash2 } from 'lucide-react';
+import React from 'react';
 
 interface Software {
     id: number;
     name: string;
-    entity_name: string;
+    entity_name: string | null;
     manufacturer_name: string | null;
     num_versions: number;
     num_installations: number;
     num_licenses: number;
-}
-
-interface PaginationLinks {
-    url: string | null;
-    label: string;
-    active: boolean;
 }
 
 interface Manufacturer {
@@ -46,14 +38,7 @@ interface Manufacturer {
 }
 
 interface SoftwaresProps {
-    softwares: {
-        data: Software[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: PaginationLinks[];
-    };
+    softwares: Paginator & { data: Software[] };
     manufacturers: Manufacturer[];
     filters: {
         per_page: number;
@@ -65,11 +50,26 @@ interface SoftwaresProps {
     };
 }
 
+const RUTA = '/inventario/programas';
+
+type Params = Record<string, string | number | undefined>;
+
+// ─── Campos del filtro avanzado ─────────────────────────────────────
+const CAMPOS: FieldDef[] = [
+    { key: 'nombre', label: 'Nombre', type: 'text' },
+    { key: 'id', label: 'ID', type: 'number' },
+    { key: 'entidad', label: 'Entidad', type: 'text' },
+    { key: 'editor', label: 'Editor', type: 'select' },
+];
+
+const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('es-CO');
+
 export default function Programas({ softwares, manufacturers, filters }: SoftwaresProps) {
-    const { auth } = usePage().props as any;
+    const { auth } = usePage<{ auth: { user: { role: string } } }>().props;
     const isAdmin = auth?.user?.role === 'Administrador';
     const [searchValue, setSearchValue] = React.useState(filters.search || '');
-    const [deleteModal, setDeleteModal] = React.useState<{ open: boolean, id: number | null, name: string }>({ open: false, id: null, name: '' });
+    const [deleteTarget, setDeleteTarget] = React.useState<Software | null>(null);
+    const [deleting, setDeleting] = React.useState(false);
     const [showFilters, setShowFilters] = React.useState(false);
 
     // Filtros avanzados
@@ -78,82 +78,52 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
             try {
                 const parsed = JSON.parse(filters.advanced_filters);
                 if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            } catch (e) {}
+            } catch {
+                /* filtro corrupto en la URL: se ignora */
+            }
         }
         return [];
     });
 
-    // Estados de filtros
     const [manufacturerFilter, setManufacturerFilter] = React.useState(filters.manufacturer || 'all');
-
-    const hasActiveFilters = (manufacturerFilter && manufacturerFilter !== 'all') || advancedFilters.length > 0;
-
-    const handleSort = (field: string) => {
-        const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        const params: Record<string, any> = {
-            per_page: filters.per_page,
-            sort: field,
-            direction: newDirection
-        };
-        if (filters.search) params.search = filters.search;
-        if (filters.manufacturer && filters.manufacturer !== 'all') params.manufacturer = filters.manufacturer;
-        if (filters.advanced_filters) params.advanced_filters = filters.advanced_filters;
-        router.get('/inventario/programas', params, { preserveState: false });
-    };
+    const filtrosActivos = manufacturerFilter !== 'all' ? 1 : 0;
 
     /**
-     * Junta TODOS los filtros activos en un solo juego de parámetros.
-     *
-     * La pantalla tiene dos zonas de filtrado —la barra avanzada de arriba y el panel
-     * "Filtros"— y cada acción construía su propia lista a mano. Se olvidaban la de la otra
-     * zona, así que aplicar unos borraba los otros en silencio: ponías Editor en el panel,
-     * usabas "Buscar" arriba, y volvías con solo el filtro de arriba puesto.
-     *
-     * Ahora toda acción parte de aquí y solo sobrescribe lo suyo, así que ninguna puede
-     * descartar lo que el usuario configuró en la otra zona. Mismo patrón que casos.tsx.
+     * Junta TODOS los filtros activos en un solo juego de parámetros: el panel "Filtros" y la
+     * barra avanzada. Cada acción parte de aquí y solo sobrescribe lo suyo, así que ninguna
+     * descarta lo configurado en la otra zona. Mismo patrón que casos.tsx.
      */
-    const buildParams = (overrides: Record<string, any> = {}): Record<string, any> => {
-        const params: Record<string, any> = {
+    const buildParams = (overrides: Params = {}): Params => {
+        const params: Params = {
             per_page: filters.per_page,
             sort: filters.sort,
             direction: filters.direction,
             page: 1,
         };
-
-        // Panel "Filtros" (básicos)
         if (searchValue) params.search = searchValue;
         if (manufacturerFilter && manufacturerFilter !== 'all') params.manufacturer = manufacturerFilter;
 
-        // Barra avanzada. Se podan las filas sin valor: el backend las traduciría a
-        // `columna = ''` y devolvería cero resultados sin decir por qué.
+        // Se podan las filas sin valor: el backend las traduciría a `columna = ''`.
         const avanzados = activeFilterRows(advancedFilters);
         if (avanzados.length > 0) params.advanced_filters = JSON.stringify(avanzados);
 
         return { ...params, ...overrides };
     };
 
-    const go = (params: Record<string, any>) => {
-        // Se descartan las claves en undefined para que un override pueda QUITAR un filtro
-        // (p. ej. "Restablecer" de la barra avanzada) sin depender de cómo serialice Inertia.
-        const limpios = Object.fromEntries(
-            Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
-        );
-        router.get('/inventario/programas', limpios, {
-            preserveState: false,
-            preserveScroll: false,
-            replace: true,
-        });
+    const go = (params: Params) => {
+        const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+        router.get(RUTA, limpios, { preserveState: false, preserveScroll: false, replace: true });
     };
 
-    const handleSearch = () => go(buildParams());
-
-    const applyFilters = () => go(buildParams());
+    const handleSort = (field: string) => {
+        const direction = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
+        go(buildParams({ sort: field, direction }));
+    };
 
     /** "Limpiar filtros": vacía SOLO el panel de filtros; la barra avanzada se respeta. */
     const clearFilters = () => {
         setManufacturerFilter('all');
         setSearchValue('');
-
         const avanzados = activeFilterRows(advancedFilters);
         go({
             per_page: filters.per_page,
@@ -164,54 +134,20 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         });
     };
 
-    /**
-     * Exporta exactamente lo que el usuario tiene filtrado, de las DOS zonas.
-     *
-     * Usa el mismo buildParams() que "Aplicar filtros" y "Buscar", así que el Excel no puede
-     * volver a quedarse a medias: antes leía solo los filtros ya aplicados en el servidor, de
-     * modo que lo configurado en el panel sin haber pulsado "Aplicar" no llegaba a la
-     * exportación. `page` y `per_page` no aplican a un export: se descartan.
-     */
+    /** Exporta exactamente lo filtrado en las DOS zonas; `page` y `per_page` no aplican. */
     const handleExport = () => {
-        const { page: _p, per_page: _pp, ...exportables } = buildParams();
-        const params = new URLSearchParams(
-            Object.entries(exportables).map(([k, v]) => [k, String(v)])
-        );
-        window.location.href = `/inventario/programas/export?${params}`;
+        const exportables = buildParams();
+        delete exportables.page;
+        delete exportables.per_page;
+        const params = new URLSearchParams(Object.entries(exportables).map(([k, v]) => [k, String(v)]));
+        window.location.href = `${RUTA}/export?${params}`;
     };
-
-    const getSortIcon = (field: string) => {
-        if (filters.sort !== field) {
-            return <ChevronsUpDown className="h-3 w-3 ml-1 text-gray-500" />;
-        }
-        return filters.direction === 'asc'
-            ? <ArrowUp className="h-3 w-3 ml-1 text-[#2c4370]" />
-            : <ArrowDown className="h-3 w-3 ml-1 text-[#2c4370]" />;
-    };
-
-    const handleDelete = (id: number, name: string) => {
-        setDeleteModal({ open: true, id, name });
-    };
-
-    const confirmDelete = () => {
-        if (deleteModal.id) {
-            router.delete(`/inventario/programas/${deleteModal.id}`);
-        }
-        setDeleteModal({ open: false, id: null, name: '' });
-    };
-
-    // ─── Advanced Filter Handlers ────────────────────────────────────
 
     /** "Buscar" de la barra avanzada: aplica sus filas SIN tocar el panel de filtros. */
     const handleAdvancedSearch = (filterRows: FilterRow[]) => {
         setAdvancedFilters(filterRows);
-
         const avanzados = activeFilterRows(filterRows);
-        go(buildParams(
-            avanzados.length > 0
-                ? { advanced_filters: JSON.stringify(avanzados) }
-                : { advanced_filters: undefined }
-        ));
+        go(buildParams(avanzados.length > 0 ? { advanced_filters: JSON.stringify(avanzados) } : { advanced_filters: undefined }));
     };
 
     /** "Restablecer" de la barra avanzada: vacía SOLO sus filas; el panel se respeta. */
@@ -220,352 +156,197 @@ export default function Programas({ softwares, manufacturers, filters }: Softwar
         go(buildParams({ advanced_filters: undefined }));
     };
 
-    // ─── Software Field Definitions for Advanced Filter ──────────────
-    const SOFTWARE_FIELDS: FieldDef[] = [
-        { key: 'nombre', label: 'Nombre', type: 'text' },
-        { key: 'id', label: 'ID', type: 'number' },
-        { key: 'entidad', label: 'Entidad', type: 'text' },
-        { key: 'editor', label: 'Editor', type: 'select' },
-    ];
-
-    // ─── Select Options for Advanced Filter (catalog fields) ─────────
-    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
-        editor: (manufacturers || []).filter(m => m.name).map(m => ({ value: m.name, label: m.name })),
+    const confirmDelete = () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        router.delete(`${RUTA}/${deleteTarget.id}`, {
+            preserveScroll: true,
+            onFinish: () => {
+                setDeleting(false);
+                setDeleteTarget(null);
+            },
+        });
     };
+
+    const FILTER_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+        editor: (manufacturers || []).filter((m) => m.name).map((m) => ({ value: m.name, label: m.name })),
+    };
+
+    const orden = { sort: filters.sort, direction: filters.direction, onSort: handleSort };
 
     return (
         <>
             <Head title="HelpDesk HUV - Programas" />
-            <div className="min-h-screen flex flex-col bg-gray-50">
+            <div className="flex min-h-screen flex-col bg-gray-50">
                 <GLPIHeader
                     breadcrumb={
                         <div className="flex items-center gap-2 text-sm">
-                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
                             <span className="text-gray-400">/</span>
-                            <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link>
+                            <Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inventario
+                            </Link>
                             <span className="text-gray-400">/</span>
                             <span className="font-medium text-gray-900">Programas</span>
                         </div>
                     }
                 />
 
-                <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
-                    <div className="bg-white shadow border border-gray-200">
-                        {/* Header */}
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Programas</h1>
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                                    <div className="relative flex-1 sm:flex-initial">
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar..."
-                                            className="w-full sm:w-64 pr-10 h-9"
-                                            value={searchValue}
-                                            onChange={(e) => setSearchValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    handleSearch();
-                                                }
-                                            }}
-                                        />
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            aria-label="Buscar"
-                                            className="absolute right-0 top-0 h-full px-3"
-                                            onClick={handleSearch}
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowFilters(!showFilters)}
-                                            className={`h-9 flex-1 sm:flex-initial ${hasActiveFilters ? 'border-[#2c4370] text-[#2c4370]' : ''}`}
-                                        >
-                                            <Filter className="h-4 w-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">Filtros</span>
-                                            {hasActiveFilters && <span className="ml-1 bg-[#2c4370] text-white text-xs w-5 h-5 flex items-center justify-center">!</span>}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-9 flex-1 sm:flex-initial"
-                                            onClick={handleExport}
-                                        >
-                                            <span className="hidden sm:inline">Exportar</span>
-                                            <span className="sm:hidden">Excel</span>
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-initial"
-                                            onClick={() => router.visit('/inventario/programas/crear')}
-                                        >
-                                            <Plus className="h-4 w-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">Crear</span>
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Advanced Filter Bar */}
-                        <AdvancedFilterBar
-                            initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
-                            onSearch={handleAdvancedSearch}
-                            onReset={handleAdvancedReset}
-                            fields={SOFTWARE_FIELDS}
-                            selectOptions={FILTER_SELECT_OPTIONS}
-                            defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
+                        <PageHeader
+                            title="Programas"
+                            description="Software del inventario con sus versiones, instalaciones y licencias."
+                            actions={
+                                <>
+                                    <button type="button" onClick={handleExport} className={btn.secondary}>
+                                        <Download aria-hidden="true" />
+                                        Exportar
+                                    </button>
+                                    <Link href={`${RUTA}/crear`} className={btn.primary}>
+                                        <Plus aria-hidden="true" />
+                                        Crear programa
+                                    </Link>
+                                </>
+                            }
                         />
 
-                        {/* Panel de Filtros */}
-                        {showFilters && (
-                            <section aria-label="Filtros rápidos" className="px-6 py-4 bg-gray-50 border-b">
-                                {/* Rótulo de zona: distingue este "Aplicar filtros" del "Buscar" de la barra de arriba. */}
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <Filter className="w-3 h-3 text-gray-400 shrink-0" aria-hidden="true" />
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Filtros rápidos</span>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                        <FlashBanner />
+
+                        <section aria-label="Lista de programas" className="surface-card overflow-hidden">
+                            <DataTableToolbar
+                                search={searchValue}
+                                onSearchChange={setSearchValue}
+                                onSearch={() => go(buildParams())}
+                                placeholder="Buscar programa…"
+                                filtersOpen={showFilters}
+                                onToggleFilters={() => setShowFilters((v) => !v)}
+                                activeFilters={filtrosActivos}
+                                summary={`${softwares.total.toLocaleString('es-CO')} programas`}
+                            />
+
+                            <AdvancedFilterBar
+                                initialFilters={advancedFilters.length > 0 ? advancedFilters : undefined}
+                                onSearch={handleAdvancedSearch}
+                                onReset={handleAdvancedReset}
+                                fields={CAMPOS}
+                                selectOptions={FILTER_SELECT_OPTIONS}
+                                defaultFirstRow={{ field: 'nombre', operator: 'contiene', value: '' }}
+                            />
+
+                            {showFilters && (
+                                <DataTableFilters label="Filtros rápidos" visibleLabel onApply={() => go(buildParams())} onClear={clearFilters} canClear={filtrosActivos > 0}>
                                     <div>
-                                        <label htmlFor="filtro-editor" className="text-xs text-gray-600 mb-1 block">Editor</label>
+                                        <FilterLabel htmlFor="filtro-editor">Editor</FilterLabel>
                                         <SearchableSelect
                                             id="filtro-editor"
                                             value={manufacturerFilter}
                                             onValueChange={setManufacturerFilter}
-                                            options={[{ value: 'all', label: 'Todos' }, ...(manufacturers || []).map((manufacturer) => ({ value: manufacturer.id.toString(), label: manufacturer.name }))]}
+                                            options={[{ value: 'all', label: 'Todos' }, ...(manufacturers || []).map((m) => ({ value: m.id.toString(), label: m.name }))]}
                                             placeholder="Todos"
-                                            triggerClassName="h-8 text-xs"
+                                            triggerClassName={filterSelectClass}
                                         />
                                     </div>
-                                </div>
-                                <div className="flex justify-end gap-2 mt-3">
-                                    {hasActiveFilters && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={clearFilters}
-                                            className="h-8 text-xs text-gray-600"
-                                        >
-                                            <X className="h-3 w-3 mr-1" />
-                                            Limpiar filtros
-                                        </Button>
-                                    )}
-                                    <Button
-                                        size="sm"
-                                        onClick={applyFilters}
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs"
-                                    >
-                                        Aplicar filtros
-                                    </Button>
-                                </div>
-                            </section>
-                        )}
+                                </DataTableFilters>
+                            )}
 
-                        {/* Stats */}
-                        <div className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                <span className="text-xs sm:text-sm text-gray-600">Mostrar</span>
-                                <Select
-                                    value={filters.per_page.toString()}
-                                    onValueChange={(value) => {
-                                        router.get('/inventario/programas', { ...filters, per_page: value }, { preserveState: false })
-                                    }}
-                                >
-                                    <SelectTrigger className="w-16 sm:w-20 h-7 sm:h-8 text-xs sm:text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="10">10</SelectItem>
-                                        <SelectItem value="15">15</SelectItem>
-                                        <SelectItem value="25">25</SelectItem>
-                                        <SelectItem value="50">50</SelectItem>
-                                        <SelectItem value="100">100</SelectItem>
-                                        <SelectItem value="500">500</SelectItem>
-                                        <SelectItem value="1000">1.000</SelectItem>
-                                        <SelectItem value="5000">5.000</SelectItem>
-                                        <SelectItem value="10000">10.000</SelectItem>
-                                        <SelectItem value="50000">50.000</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">elementos</span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-gray-600">
-                                <span className="font-medium">{softwares.data.length}</span> de{' '}
-                                <span className="font-medium">{softwares.total}</span>
-                            </p>
-                        </div>
-
-                        {/* Table */}
-                        <div className="overflow-x-auto">
-                            <Table>
+                            <Table className="text-[13px]">
                                 <TableHeader>
-                                    <TableRow className="bg-gray-50">
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Nombre
-                                                {getSortIcon('name')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'entity_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('entity_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Entidad
-                                                {getSortIcon('entity_name')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'manufacturer_name' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('manufacturer_name')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Editor
-                                                {getSortIcon('manufacturer_name')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'num_versions' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('num_versions')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Número de versiones
-                                                {getSortIcon('num_versions')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'num_installations' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('num_installations')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Número de instalaciones
-                                                {getSortIcon('num_installations')}
-                                            </button>
-                                        </TableHead>
-                                        <TableHead
-                                            className="font-semibold text-gray-900 text-xs"
-                                            aria-sort={filters.sort === 'num_licenses' ? (filters.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                                        >
-                                            <button type="button" onClick={() => handleSort('num_licenses')} className="flex items-center w-full text-left cursor-pointer hover:text-[#2c4370]">
-                                                Número de licencias
-                                                {getSortIcon('num_licenses')}
-                                            </button>
-                                        </TableHead>
+                                    <TableRow className="hover:bg-transparent">
+                                        <SortableHead field="name" label="Nombre" {...orden} />
+                                        <SortableHead field="entity_name" label="Entidad" {...orden} />
+                                        <SortableHead field="manufacturer_name" label="Editor" {...orden} />
+                                        <SortableHead field="num_versions" label="Versiones" {...orden} className="text-right" />
+                                        <SortableHead field="num_installations" label="Instalaciones" {...orden} className="text-right" />
+                                        <SortableHead field="num_licenses" label="Licencias" {...orden} className="text-right" />
                                         {isAdmin && (
-                                            <TableHead className="font-semibold text-gray-900 text-xs text-center">Acciones</TableHead>
+                                            <TableHead className="text-right">
+                                                <span className="sr-only">Acciones</span>
+                                            </TableHead>
                                         )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {softwares.data.map((software) => (
-                                        <TableRow key={software.id} className="hover:bg-gray-50">
-                                            <TableCell className="font-medium text-xs">
-                                                <a href={`/inventario/programas/${software.id}`} className="text-[#2c4370] hover:underline">
-                                                    {software.name || '-'}
-                                                </a>
-                                            </TableCell>
-                                            <TableCell className="text-xs">{software.entity_name || '-'}</TableCell>
-                                            <TableCell className="text-xs">{software.manufacturer_name || '-'}</TableCell>
-                                            <TableCell className="text-xs text-center">{software.num_versions || 0}</TableCell>
-                                            <TableCell className="text-xs text-center">{software.num_installations || 0}</TableCell>
-                                            <TableCell className="text-xs text-center">{software.num_licenses || 0}</TableCell>
-                                            {isAdmin && (
-                                                <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => router.visit(`/inventario/programas/${software.id}/editar`)} title="Editar" aria-label="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleDelete(software.id, software.name || '')} title="Eliminar" aria-label="Eliminar"><Trash2 className="h-3.5 w-3.5" /></Button>
-                                                    </div>
+                                    {softwares.data.length === 0 ? (
+                                        <DataTableEmpty
+                                            colSpan={isAdmin ? 7 : 6}
+                                            title="No hay programas que coincidan"
+                                            description="Prueba con otra búsqueda o quita alguno de los filtros."
+                                        />
+                                    ) : (
+                                        softwares.data.map((software) => (
+                                            <TableRow key={software.id}>
+                                                <TableCell>
+                                                    <Link href={`${RUTA}/${software.id}`} className="focus-ring rounded font-medium text-huv-ink hover:underline">
+                                                        <TruncatedText value={software.name} lines={2} className="max-w-[24rem]" />
+                                                    </Link>
                                                 </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))}
+                                                <TableCell className="text-gray-600">
+                                                    <TruncatedText value={software.entity_name} lines={2} className="max-w-[10rem]" />
+                                                </TableCell>
+                                                <TableCell className="text-gray-700">
+                                                    <TruncatedText value={software.manufacturer_name} lines={2} className="max-w-[14rem]" />
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums text-gray-700">{fmt(software.num_versions)}</TableCell>
+                                                <TableCell className="text-right tabular-nums text-gray-700">{fmt(software.num_installations)}</TableCell>
+                                                <TableCell className="text-right tabular-nums text-gray-700">{fmt(software.num_licenses)}</TableCell>
+                                                {isAdmin && (
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-0.5">
+                                                            <Link
+                                                                href={`${RUTA}/${software.id}/editar`}
+                                                                aria-label={`Editar ${software.name}`}
+                                                                title="Editar"
+                                                                className={cn(btn.ghost, 'size-7 px-0')}
+                                                            >
+                                                                <Pencil aria-hidden="true" />
+                                                            </Link>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setDeleteTarget(software)}
+                                                                aria-label={`Eliminar ${software.name}`}
+                                                                title="Eliminar"
+                                                                className={cn(btn.ghost, 'size-7 px-0 text-red-600 hover:bg-red-50 hover:text-red-700')}
+                                                            >
+                                                                <Trash2 aria-hidden="true" />
+                                                            </button>
+                                                        </div>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        ))
+                                    )}
                                 </TableBody>
                             </Table>
-                        </div>
 
-                        {/* Pagination */}
-                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                            <div className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
-                                Página {softwares.current_page} de {softwares.last_page}
-                            </div>
-                            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
-                                {softwares.links.map((link: PaginationLinks, index: number) => {
-                                    const isMobileVisible = index === 0 || index === softwares.links.length - 1 || link.active;
-                                    if (index === 0) {
-                                        return (
-                                            <Button
-                                                key={index}
-                                                variant="outline"
-                                                size="sm"
-                                                aria-label="Página anterior"
-                                                disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
-                                                onClick={() => link.url && router.visit(link.url)}
-                                            >
-                                                <ChevronLeft className="h-4 w-4" />
-                                            </Button>
-                                        );
-                                    }
-                                    if (index === softwares.links.length - 1) {
-                                        return (
-                                            <Button
-                                                key={index}
-                                                variant="outline"
-                                                size="sm"
-                                                aria-label="Página siguiente"
-                                                disabled={!link.url}
-                                                className="border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white disabled:opacity-50 h-8 w-8 p-0"
-                                                onClick={() => link.url && router.visit(link.url)}
-                                            >
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        );
-                                    }
-                                    return (
-                                        <Button
-                                            key={index}
-                                            variant={link.active ? "default" : "outline"}
-                                            size="sm"
-                                            disabled={!link.url}
-                                            className={`${!isMobileVisible ? 'hidden sm:inline-flex' : ''} h-8 min-w-[32px] px-2 text-xs sm:text-sm ${link.active
-                                                ? "bg-[#2c4370] hover:!bg-[#3d5583] text-white border-[#2c4370]"
-                                                : "border-[#2c4370] text-[#2c4370] hover:!bg-[#2c4370] hover:!text-white"}`}
-                                            onClick={() => link.url && router.visit(link.url)}
-                                        >
-                                            {link.label}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                            <DataTablePagination
+                                paginator={softwares}
+                                count={softwares.data.length}
+                                noun="programas"
+                                onPerPageChange={(value) => go(buildParams({ per_page: value }))}
+                            />
+                        </section>
                     </div>
                 </main>
 
                 <GLPIFooter />
             </div>
 
-            <Dialog open={deleteModal.open} onOpenChange={(open) => setDeleteModal({ ...deleteModal, open })}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center bg-red-100"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
-                            <DialogTitle>Eliminar Programa</DialogTitle>
-                        </div>
-                        <DialogDescription className="pt-2">¿Está seguro de eliminar el programa <span className="font-semibold text-gray-900">"{deleteModal.name}"</span>? Esta acción no se puede deshacer.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="outline" onClick={() => setDeleteModal({ open: false, id: null, name: '' })}>Cancelar</Button>
-                        <Button variant="destructive" onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Eliminar</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(abierto) => !abierto && setDeleteTarget(null)}
+                title="Eliminar programa"
+                description={
+                    <>
+                        ¿Eliminar <strong className="font-semibold text-gray-900">{deleteTarget?.name}</strong>? No se puede deshacer.
+                    </>
+                }
+                confirmLabel="Eliminar"
+                onConfirm={confirmDelete}
+                processing={deleting}
+            />
         </>
     );
 }

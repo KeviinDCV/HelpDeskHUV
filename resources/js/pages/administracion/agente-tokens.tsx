@@ -173,7 +173,7 @@ export default function AgenteTokens({ tokens, users, filters, flash, auth }: Pr
                 />
 
                 <main className="flex-1">
-                    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
                         <PageHeader
                             title="Tokens del agente"
                             description="Credenciales con las que cada PC reporta su inventario al HelpDesk."
@@ -205,6 +205,7 @@ export default function AgenteTokens({ tokens, users, filters, flash, auth }: Pr
                                 onSearchChange={setSearchValue}
                                 onSearch={() => go(buildParams())}
                                 placeholder="Buscar por nombre, usuario, equipo, UUID o serial…"
+                                summary={`${tokens.total.toLocaleString('es-CO')} tokens`}
                             >
                                 {filters.search && (
                                     <button

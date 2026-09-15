@@ -209,7 +209,7 @@ class PhoneController extends Controller
             'Tipo',
             'Modelo',
             'Última actualización',
-            'Nombre de usuario alternativo'
+            'Nº de inventario'
         ]);
 
         // Datos

@@ -244,7 +244,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                 />
 
                 <main className="flex-1">
-                    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
                         <PageHeader
                             title="Usuarios"
                             description="Cuentas con acceso a la mesa de ayuda y su rol."
@@ -275,6 +275,7 @@ export default function Usuarios({ users, filters, auth }: UsersProps) {
                                 filtersOpen={showFilters}
                                 onToggleFilters={() => setShowFilters((v) => !v)}
                                 activeFilters={filtrosActivos}
+                                summary={`${users.total.toLocaleString('es-CO')} usuarios`}
                             />
 
                             {showFilters && (

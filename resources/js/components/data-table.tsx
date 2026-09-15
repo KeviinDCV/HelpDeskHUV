@@ -40,6 +40,7 @@ export function DataTableToolbar({
     onToggleFilters,
     activeFilters = 0,
     filtersId = 'panel-filtros',
+    summary,
     children,
 }: {
     search: string;
@@ -50,6 +51,8 @@ export function DataTableToolbar({
     onToggleFilters?: () => void;
     activeFilters?: number;
     filtersId?: string;
+    /** Texto corto a la derecha, p. ej. "1.284 computadores". */
+    summary?: ReactNode;
     children?: ReactNode;
 }) {
     return (
@@ -80,6 +83,7 @@ export function DataTableToolbar({
             </form>
 
             <div className="flex items-center gap-2 sm:ml-auto">
+                {summary && <p className="mr-1 hidden text-sm text-gray-500 tabular-nums md:block">{summary}</p>}
                 {children}
                 {onToggleFilters && (
                     <button
@@ -113,6 +117,8 @@ export function DataTableFilters({
     onApply,
     onClear,
     canClear,
+    visibleLabel = false,
+    gridClassName = 'lg:grid-cols-4',
     children,
 }: {
     id?: string;
@@ -120,11 +126,21 @@ export function DataTableFilters({
     onApply: () => void;
     onClear: () => void;
     canClear: boolean;
+    /** Muestra el nombre de la zona. Hace falta donde conviven con la "Búsqueda avanzada":
+     *  sin rótulo, su "Aplicar filtros" y el "Buscar" de arriba parecen el mismo control. */
+    visibleLabel?: boolean;
+    gridClassName?: string;
     children: ReactNode;
 }) {
     return (
         <section id={id} aria-label={label} className="border-b bg-gray-50 px-4 py-4 sm:px-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
+            {visibleLabel && (
+                <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                    {label}
+                </p>
+            )}
+            <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2', gridClassName)}>{children}</div>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
                 {canClear && (
                     <button type="button" onClick={onClear} className={cn(btn.ghost, 'h-8 px-3')}>
@@ -146,6 +162,45 @@ export function FilterLabel({ htmlFor, children }: { htmlFor: string; children: 
         <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-gray-600">
             {children}
         </label>
+    );
+}
+
+/**
+ * Pestañas que filtran la lista (p. ej. Todos / Switches / Platos WiFi). aria-pressed y no
+ * role="tab": no conmutan paneles, filtran la misma tabla.
+ */
+export function SegmentedControl<T extends string>({
+    label,
+    options,
+    value,
+    onChange,
+}: {
+    label: string;
+    options: { value: T; label: string; icon?: ReactNode }[];
+    value: T;
+    onChange: (value: T) => void;
+}) {
+    return (
+        <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-xl bg-gray-100 p-1">
+            {options.map((o) => {
+                const activa = o.value === value;
+                return (
+                    <button
+                        key={o.value}
+                        type="button"
+                        aria-pressed={activa}
+                        onClick={() => onChange(o.value)}
+                        className={cn(
+                            'focus-ring inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors [&_svg]:size-4',
+                            activa ? 'elev-1 bg-[#fff] text-gray-900 dark:bg-white/10' : 'text-gray-500 hover:text-gray-900',
+                        )}
+                    >
+                        {o.icon}
+                        {o.label}
+                    </button>
+                );
+            })}
+        </div>
     );
 }
 
@@ -191,6 +246,39 @@ export function DataTableEmpty({ colSpan, title, description, action }: { colSpa
                 {action && <div className="mt-4">{action}</div>}
             </TableCell>
         </TableRow>
+    );
+}
+
+/**
+ * Fecha y hora compactas para celdas ("10/01/2026, 10:20 a. m."), el mismo formato que ya
+ * usaban las tablas. GLPI entrega "YYYY-MM-DD HH:mm:ss": con el espacio, Safari no la entiende.
+ */
+export function formatTableDate(value: string | null | undefined, withTime = true): string {
+    if (!value) return '—';
+    const d = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('es-CO', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+    });
+}
+
+/**
+ * Texto de celda que se recorta con "…" pasado cierto ancho, con el valor completo al pasar el
+ * mouse. Las localizaciones de GLPI ("Hospital > Subgerencia … > Consulta Externa") estiraban
+ * la tabla hasta sacarle scroll lateral. Con lines={2} pasa a una segunda línea antes de
+ * recortar, que en columnas de texto libre muestra más sin ensanchar la tabla.
+ * (max-width no funciona en el <td>: va en el span.)
+ */
+export function TruncatedText({ value, lines = 1, className }: { value: string | null | undefined; lines?: 1 | 2; className?: string }) {
+    if (!value) return <>—</>;
+    return (
+        <span
+            title={value}
+            className={cn('block max-w-[14rem]', lines === 2 ? 'line-clamp-2 whitespace-normal break-words' : 'truncate', className)}
+        >
+            {value}
+        </span>
     );
 }
 
