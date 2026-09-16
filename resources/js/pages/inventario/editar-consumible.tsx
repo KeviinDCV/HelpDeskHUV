@@ -1,75 +1,34 @@
-import { GLPIHeader } from '@/components/glpi-header';
-import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, Link, router } from '@inertiajs/react';
-import { Button } from "@/components/ui/button";
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SelectWithCreate } from '@/components/select-with-create';
-import { Save } from 'lucide-react';
-import React, { useState } from 'react';
+import { seccionesConsumible, valoresConsumible, type OpcionesConsumible } from '@/components/inventario/campos-consumible-programa';
+import { FormularioInventario, type FormularioBase } from '@/components/inventario-formulario';
+import { PageHeader } from '@/components/page-header';
+import { Pagina } from '@/components/pagina';
+import { btn } from '@/lib/ui-classes';
+import { Link, useForm } from '@inertiajs/react';
+import { Eye } from 'lucide-react';
 
-interface Option { id: number; name: string; completename?: string; }
-interface Consumable { id: number; name: string; ref: string | null; consumableitemtypes_id: number; manufacturers_id: number; entities_id: number; locations_id: number; comment: string | null; }
-interface Props { consumable: Consumable; types: Option[]; manufacturers: Option[]; entities: Option[]; locations: Option[]; }
-
-export default function EditarConsumible({ consumable, types, manufacturers, entities, locations }: Props) {
-    const [formData, setFormData] = useState({
-        name: consumable.name || '', ref: consumable.ref || '',
-        consumableitemtypes_id: consumable.consumableitemtypes_id ? consumable.consumableitemtypes_id.toString() : '',
-        manufacturers_id: consumable.manufacturers_id ? consumable.manufacturers_id.toString() : '',
-        entities_id: consumable.entities_id ? consumable.entities_id.toString() : '',
-        locations_id: consumable.locations_id ? consumable.locations_id.toString() : '',
-        comment: consumable.comment || '',
-    });
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [processing, setProcessing] = useState(false);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault(); setProcessing(true); setErrors({});
-        router.put(`/inventario/consumibles/${consumable.id}`, formData, {
-            onSuccess: () => setProcessing(false),
-            onError: (errs) => { setErrors(errs as Record<string, string>); setProcessing(false); },
-        });
-    };
-
+export default function EditarConsumible({ consumable, ...opciones }: OpcionesConsumible & { consumable: { id: number; name: string } & Record<string, unknown> }) {
+    const form = useForm(valoresConsumible(consumable));
     return (
-        <>
-            <Head title="Editar Consumible - HelpDesk HUV" />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={<div className="flex items-center gap-2 text-sm"><Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link><span className="text-gray-400">/</span><Link href="/inventario/global" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inventario</Link><span className="text-gray-400">/</span><Link href="/inventario/consumibles" className="text-gray-600 hover:text-[#2c4370] hover:underline">Consumibles</Link><span className="text-gray-400">/</span><span className="font-medium text-gray-900">Editar</span></div>} />
-                <main className="flex-1 px-6 py-6">
-                    <div className="max-w-5xl mx-auto">
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="px-6 py-4 border-b"><h1 className="text-xl font-semibold text-gray-900">Editar Consumible</h1><p className="text-sm text-gray-500 mt-1">Modifique los campos del consumible</p></div>
-                            <form onSubmit={handleSubmit} className="p-4">
-                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Información Básica</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="md:col-span-2"><Label htmlFor="name" className="text-xs">Nombre *</Label><Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} className="mt-1 h-8 text-sm" />{errors.name && <p id="name-error" role="alert" className="text-red-600 text-xs mt-0.5">{errors.name}</p>}</div>
-                                        <div><Label htmlFor="ref" className="text-xs">Referencia</Label><Input id="ref" value={formData.ref} onChange={(e) => setFormData({ ...formData, ref: e.target.value })} className="mt-1 h-8 text-sm" /></div>
-                                    </div>
-                                </div>
-                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Clasificación</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><Label htmlFor="consumableitemtypes_id" className="text-xs">Tipo</Label><SelectWithCreate id="consumableitemtypes_id" value={formData.consumableitemtypes_id} onValueChange={(v) => setFormData({ ...formData, consumableitemtypes_id: v })} options={types} dropdownType="consumableitemtypes" createLabel="Nuevo tipo" className="mt-1" triggerClassName="h-8 text-xs" /></div>
-                                        <div><Label htmlFor="manufacturers_id" className="text-xs">Fabricante</Label><SelectWithCreate id="manufacturers_id" value={formData.manufacturers_id} onValueChange={(v) => setFormData({ ...formData, manufacturers_id: v })} options={manufacturers} dropdownType="manufacturers" createLabel="Nuevo fabricante" className="mt-1" triggerClassName="h-8 text-xs" /></div>
-                                    </div>
-                                </div>
-                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ubicación</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><Label htmlFor="locations_id" className="text-xs">Ubicación</Label><SelectWithCreate id="locations_id" value={formData.locations_id} onValueChange={(v) => setFormData({ ...formData, locations_id: v })} options={locations} dropdownType="locations" useCompletename createLabel="Nueva localización" placeholder="Seleccionar ubicación..." className="mt-1" triggerClassName="h-8 text-xs" /></div>
-                                        <div><Label htmlFor="entities_id" className="text-xs">Entidad</Label><Select value={formData.entities_id} onValueChange={(v) => setFormData({ ...formData, entities_id: v })}><SelectTrigger id="entities_id" className="mt-1 h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{entities.map((e) => (<SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>))}</SelectContent></Select></div>
-                                    </div>
-                                </div>
-                                <div className="mb-4"><h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notas</h3><Label htmlFor="comment" className="text-xs">Comentarios</Label><Textarea id="comment" value={formData.comment} onChange={(e) => setFormData({ ...formData, comment: e.target.value })} rows={2} className="text-sm" /></div>
-                                <div className="flex justify-end gap-3 pt-4 border-t"><Button type="button" variant="outline" size="sm" onClick={() => router.visit('/inventario/consumibles')}>Cancelar</Button><Button type="submit" size="sm" disabled={processing} className="bg-[#2c4370] hover:bg-[#3d5583] text-white"><Save className="h-4 w-4 mr-1" />{processing ? 'Guardando...' : 'Guardar'}</Button></div>
-                            </form>
-                        </div>
-                    </div>
-                </main>
-                <GLPIFooter />
-            </div>
-        </>
+        <Pagina titulo={`Editar ${consumable.name}`} ancho="max-w-5xl" migas={[{ texto: 'Inicio', href: '/dashboard' }, { texto: 'Inventario', href: '/inventario/global' }, { texto: 'Consumibles', href: '/inventario/consumibles' }, { texto: 'Editar' }]}>
+            <PageHeader
+                title="Editar consumible"
+                description={consumable.name}
+                actions={
+                    <Link href={`/inventario/consumibles/${consumable.id}`} className={btn.secondary}>
+                        <Eye aria-hidden="true" />
+                        Ver consumible
+                    </Link>
+                }
+            />
+            <FormularioInventario
+                secciones={seccionesConsumible(opciones)}
+                form={form as unknown as FormularioBase}
+                enviar={() => form.put(`/inventario/consumibles/${consumable.id}`, { preserveState: true, preserveScroll: true })}
+                accion="guardar los cambios"
+                cancelarHref="/inventario/consumibles"
+                textoEnviar="Guardar"
+                textoEnviando="Guardando…"
+            />
+        </Pagina>
     );
 }

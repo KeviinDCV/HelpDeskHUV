@@ -278,7 +278,9 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
 
                         <DashboardHeader stats={stats} />
 
-                        <div className="grid items-start gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
+                        {/* minmax(0,1fr) también en móvil: sin él, una fila larga ensancha la
+                            columna y el tablero se desplazaba a lo ancho en pantallas de 320–375 px */}
+                        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
                             <section aria-labelledby="lista-titulo" className="surface-card overflow-hidden">
                                 <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
                                     <div className="min-w-0">
@@ -287,7 +289,8 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                         </h2>
                                         {/* aria-pressed y no role="tab": filtran una lista en la misma página,
                                             no conmutan paneles. */}
-                                        <div role="group" aria-label="Lista de casos" className="inline-flex w-full rounded-xl bg-gray-100 p-1 sm:w-auto">
+                                        {/* Por debajo de 400 px los dos nombres no caben uno al lado del otro: se apilan */}
+                                        <div role="group" aria-label="Lista de casos" className="inline-flex w-full max-w-full flex-col rounded-xl bg-gray-100 p-1 min-[400px]:flex-row sm:w-auto">
                                             {pestanas.map((p) => {
                                                 const activa = lista === p.id;
                                                 return (

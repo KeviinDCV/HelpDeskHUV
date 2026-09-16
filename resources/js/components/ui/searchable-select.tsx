@@ -58,7 +58,20 @@ export function SearchableSelect({
 
     const reactId = React.useId();
     const listboxId = `${reactId}-listbox`;
+    const valueId = `${reactId}-valor`;
     const optionId = (index: number) => `${reactId}-opt-${index}`;
+
+    // Con un <label for> el lector de pantalla toma el nombre del botón de la etiqueta y deja de
+    // leer su texto, que es el valor: anunciaba «Categoría, botón» sin decir cuál. Se nombra con
+    // la etiqueta Y el valor («Categoría Redes > Wifi, botón»).
+    React.useEffect(() => {
+        const trigger = triggerRef.current;
+        if (!id || !trigger) return;
+        const label = document.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(id)}"]`);
+        if (!label) return;
+        if (!label.id) label.id = `${id}-etiqueta`;
+        trigger.setAttribute("aria-labelledby", `${label.id} ${valueId}`);
+    }, [id, valueId]);
 
     const filteredOptions = React.useMemo(() => {
         if (!search) return options;
@@ -185,7 +198,8 @@ export function SearchableSelect({
                     triggerClassName
                 )}
             >
-                <span className={cn("truncate", !selectedOption && "text-muted-foreground")}>
+                {/* title: una ruta larga («Software > Servinte > Administrativo > …») se corta */}
+                <span id={valueId} title={selectedOption?.label} className={cn("truncate", !selectedOption && "text-muted-foreground")}>
                     {loading ? "Cargando..." : selectedOption?.label || placeholder}
                 </span>
                 <ChevronDown className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />
@@ -241,16 +255,17 @@ export function SearchableSelect({
                                         onMouseEnter={() => setActiveIndex(index)}
                                         onClick={() => handleSelect(opt.value)}
                                         className={cn(
-                                            "flex items-center gap-2 px-2 py-1.5 text-xs rounded cursor-pointer",
+                                            "flex items-start gap-2 px-2 py-1.5 text-xs rounded cursor-pointer",
                                             isActive && "bg-accent text-accent-foreground",
                                             isSelected && "font-medium"
                                         )}
                                     >
                                         <Check
                                             aria-hidden="true"
-                                            className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
+                                            className={cn("mt-px h-3 w-3 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
                                         />
-                                        <span className="truncate">{opt.label}</span>
+                                        {/* En la lista se ve la ruta completa: dos categorías que solo difieren al final no se confunden */}
+                                        <span className="min-w-0 break-words">{opt.label}</span>
                                     </div>
                                 );
                             })

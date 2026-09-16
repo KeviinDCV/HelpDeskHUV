@@ -1,4 +1,4 @@
-import { stripHtml } from '@/lib/strip-html';
+import { stripHtmlDoble } from '@/lib/strip-html';
 
 /**
  * GLPI guarda las fechas como "YYYY-MM-DD HH:mm:ss" en hora local de Bogotá, sin zona.
@@ -6,6 +6,8 @@ import { stripHtml } from '@/lib/strip-html';
  * "T" es ISO sin desfase, que el estándar obliga a leer como hora local en todos los motores.
  */
 export function parseFecha(fecha: string): Date {
+    // Solo fecha ("2026-09-15"): new Date() la toma como UTC y en Colombia se veía el día anterior
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return new Date(`${fecha}T00:00`);
     return new Date(fecha.includes('T') ? fecha : fecha.replace(' ', 'T'));
 }
 
@@ -34,8 +36,7 @@ export function fechaCompleta(fecha: string): string {
  * (&lt;p&gt;…): el primer paso lo decodifica a etiquetas literales y el segundo las quita.
  */
 function textoPlano(content: string): string {
-    const una = stripHtml(content);
-    return /<[a-z][\s\S]*>/i.test(una) ? stripHtml(una) : una;
+    return stripHtmlDoble(content);
 }
 
 /**

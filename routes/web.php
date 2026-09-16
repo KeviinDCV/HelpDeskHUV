@@ -94,6 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/dispositivos/crear', [App\Http\Controllers\PeripheralController::class, 'create'])->name('inventario.dispositivos.crear');
     Route::post('/inventario/dispositivos', [App\Http\Controllers\PeripheralController::class, 'store'])->name('inventario.dispositivos.store');
     Route::get('/inventario/dispositivos/{id}/editar', [App\Http\Controllers\PeripheralController::class, 'edit'])->name('inventario.dispositivos.edit');
+    Route::get('/inventario/dispositivos/{id}', [App\Http\Controllers\PeripheralController::class, 'show'])->name('inventario.dispositivos.show');
     Route::put('/inventario/dispositivos/{id}', [App\Http\Controllers\PeripheralController::class, 'update'])->name('inventario.dispositivos.update');
     Route::delete('/inventario/dispositivos/{id}', [App\Http\Controllers\PeripheralController::class, 'destroy'])->name('inventario.dispositivos.destroy');
     Route::get('/inventario/impresoras', [App\Http\Controllers\PrinterController::class, 'index'])->name('inventario.impresoras');
@@ -117,6 +118,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/inventario/telefonos/crear', [App\Http\Controllers\PhoneController::class, 'create'])->name('inventario.telefonos.crear');
     Route::post('/inventario/telefonos', [App\Http\Controllers\PhoneController::class, 'store'])->name('inventario.telefonos.store');
     Route::get('/inventario/telefonos/{id}/editar', [App\Http\Controllers\PhoneController::class, 'edit'])->name('inventario.telefonos.edit');
+    Route::get('/inventario/telefonos/{id}', [App\Http\Controllers\PhoneController::class, 'show'])->name('inventario.telefonos.show');
     Route::put('/inventario/telefonos/{id}', [App\Http\Controllers\PhoneController::class, 'update'])->name('inventario.telefonos.update');
     Route::delete('/inventario/telefonos/{id}', [App\Http\Controllers\PhoneController::class, 'destroy'])->name('inventario.telefonos.destroy');
     Route::get('/inventario/global', [App\Http\Controllers\GlobalInventoryController::class, 'index'])->name('inventario.global');

@@ -1,8 +1,8 @@
-import { GLPIHeader } from '@/components/glpi-header';
-import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, Link, router } from '@inertiajs/react';
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pencil, Package, Ticket, Tag } from 'lucide-react';
+import { CasosRelacionados, Dato, Datos, FichaEncabezado, FichaSeccion, fechaFicha, useEsAdministrador, type CasoRelacionado } from '@/components/ficha';
+import { Pagina } from '@/components/pagina';
+import { btn } from '@/lib/ui-classes';
+import { Link } from '@inertiajs/react';
+import { Package, Pencil, Tag, Ticket } from 'lucide-react';
 
 interface Software {
     id: number;
@@ -21,192 +21,70 @@ interface Version {
     date_creation: string | null;
 }
 
-interface TicketItem {
-    id: number;
-    name: string;
-    status: number;
-    date: string;
-}
-
 interface Props {
     software: Software;
     versions: Version[];
-    tickets: TicketItem[];
+    tickets: CasoRelacionado[];
 }
 
-const getStatusLabel = (status: number) => {
-    const statusMap: Record<number, { label: string; color: string }> = {
-        1: { label: 'Nuevo', color: 'bg-blue-100 text-blue-800' },
-        2: { label: 'En curso', color: 'bg-yellow-100 text-yellow-800' },
-        3: { label: 'Planificado', color: 'bg-purple-100 text-purple-800' },
-        4: { label: 'En espera', color: 'bg-orange-100 text-orange-800' },
-        5: { label: 'Resuelto', color: 'bg-green-100 text-green-800' },
-        6: { label: 'Cerrado', color: 'bg-gray-100 text-gray-800' },
-    };
-    return statusMap[status] || { label: 'Desconocido', color: 'bg-gray-100 text-gray-800' };
-};
-
-export default function VerPrograma({ software, versions, tickets }: Props) {
+export default function VerPrograma({ software: s, versions, tickets }: Props) {
+    const esAdmin = useEsAdministrador();
+    const nombre = s.name || `#${s.id}`;
     return (
-        <>
-            <Head title={`${software.name} - HelpDesk HUV`} />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/inventario/programas" className="text-[#2c4370] hover:underline">Programas</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">{software.name}</span>
-                    </div>
-                } />
+        <Pagina titulo={nombre} migas={[{ texto: 'Inicio', href: '/dashboard' }, { texto: 'Inventario', href: '/inventario/global' }, { texto: 'Programas', href: '/inventario/programas' }, { texto: nombre }]}>
+            <FichaEncabezado
+                titulo={nombre}
+                detalle={<span className="tabular-nums">ID: {s.id}</span>}
+                volverHref="/inventario/programas"
+                volverTexto="Programas"
+                acciones={
+                    esAdmin && (
+                        <Link href={`/inventario/programas/${s.id}/editar`} className={btn.primary}>
+                            <Pencil aria-hidden="true" />
+                            Editar
+                        </Link>
+                    )
+                }
+            />
 
-                <main className="flex-1 p-4 sm:p-6">
-                    <div className="max-w-4xl mx-auto">
-                        {/* Header */}
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => router.visit('/inventario/programas')}
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-1" />
-                                    Volver
-                                </Button>
-                                <div>
-                                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{software.name}</h1>
-                                    <p className="text-sm text-gray-500">ID: {software.id}</p>
-                                </div>
-                            </div>
-                            <Button
-                                onClick={() => router.visit(`/inventario/programas/${software.id}/editar`)}
-                                className="bg-[#2c4370] hover:bg-[#3d5583]"
-                            >
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Editar
-                            </Button>
-                        </div>
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <FichaSeccion titulo="Información general" icono={<Package className="size-5 text-huv-ink" aria-hidden="true" />}>
+                    <Datos>
+                        <Dato etiqueta="Nombre">{s.name}</Dato>
+                        <Dato etiqueta="Entidad">{s.entity_name}</Dato>
+                        <Dato etiqueta="Editor">{s.manufacturer_name}</Dato>
+                        <Dato etiqueta="Categoría">{s.category_name}</Dato>
+                        {s.comment && (
+                            <Dato etiqueta="Comentarios" ancho>
+                                <span className="whitespace-pre-wrap">{s.comment}</span>
+                            </Dato>
+                        )}
+                        <Dato etiqueta="Fecha de creación">{fechaFicha(s.date_creation)}</Dato>
+                        <Dato etiqueta="Última modificación">{fechaFicha(s.date_mod)}</Dato>
+                    </Datos>
+                </FichaSeccion>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Información Principal */}
-                            <div className="lg:col-span-2">
-                                <div className="bg-white rounded-lg shadow-sm border p-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Package className="h-5 w-5 text-[#2c4370]" />
-                                        Información General
-                                    </h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Nombre</label>
-                                            <p className="text-sm font-medium text-gray-900">{software.name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Entidad</label>
-                                            <p className="text-sm font-medium text-gray-900">{software.entity_name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Fabricante</label>
-                                            <p className="text-sm font-medium text-gray-900">{software.manufacturer_name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Categoría</label>
-                                            <p className="text-sm font-medium text-gray-900">{software.category_name || '-'}</p>
-                                        </div>
-                                        {software.comment && (
-                                            <div className="sm:col-span-2">
-                                                <label className="text-xs text-gray-500 uppercase tracking-wide">Comentarios</label>
-                                                <p className="text-sm text-gray-900 whitespace-pre-wrap">{software.comment}</p>
-                                            </div>
-                                        )}
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Fecha de Creación</label>
-                                            <p className="text-sm text-gray-600">
-                                                {software.date_creation 
-                                                    ? new Date(software.date_creation).toLocaleString('es-CO') 
-                                                    : '-'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Última Modificación</label>
-                                            <p className="text-sm text-gray-600">
-                                                {software.date_mod 
-                                                    ? new Date(software.date_mod).toLocaleString('es-CO') 
-                                                    : '-'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                <div className="min-w-0 space-y-5">
+                    <FichaSeccion titulo="Versiones" contador={versions.length} icono={<Tag className="size-5 text-huv-ink" aria-hidden="true" />}>
+                        {versions.length > 0 ? (
+                            <ul className="max-h-60 divide-y overflow-y-auto">
+                                {versions.map((v) => (
+                                    <li key={v.id} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+                                        <span className="min-w-0 font-medium break-words text-gray-900">{v.name}</span>
+                                        {v.date_creation && <span className="shrink-0 text-xs text-gray-500">{fechaFicha(v.date_creation, false)}</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-gray-500">Sin versiones registradas</p>
+                        )}
+                    </FichaSeccion>
 
-                            {/* Sidebar */}
-                            <div className="space-y-6">
-                                {/* Versiones */}
-                                <div className="bg-white rounded-lg shadow-sm border p-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Tag className="h-5 w-5 text-[#2c4370]" />
-                                        Versiones
-                                        <span className="text-sm font-normal text-gray-500">({versions.length})</span>
-                                    </h2>
-                                    {versions.length > 0 ? (
-                                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                                            {versions.map((version) => (
-                                                <div key={version.id} className="p-2 bg-gray-50 rounded text-sm">
-                                                    <p className="font-medium text-gray-900">{version.name}</p>
-                                                    {version.date_creation && (
-                                                        <p className="text-xs text-gray-500">
-                                                            {new Date(version.date_creation).toLocaleDateString('es-CO')}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-gray-500 text-center py-2">Sin versiones registradas</p>
-                                    )}
-                                </div>
-
-                                {/* Tickets Relacionados */}
-                                <div className="bg-white rounded-lg shadow-sm border p-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Ticket className="h-5 w-5 text-[#2c4370]" />
-                                        Casos Recientes
-                                        <span className="text-sm font-normal text-gray-500">({tickets.length})</span>
-                                    </h2>
-                                    {tickets.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {tickets.map((ticket) => {
-                                                const status = getStatusLabel(ticket.status);
-                                                return (
-                                                    <Link 
-                                                        key={ticket.id} 
-                                                        href={`/soporte/casos/${ticket.id}/editar`}
-                                                        className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                                    >
-                                                        <div className="flex items-start justify-between gap-2">
-                                                            <p className="font-medium text-gray-900 text-sm line-clamp-2">
-                                                                #{ticket.id} - {ticket.name}
-                                                            </p>
-                                                            <span className={`shrink-0 px-2 py-0.5 text-xs rounded-full ${status.color}`}>
-                                                                {status.label}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            {new Date(ticket.date).toLocaleDateString('es-CO')}
-                                                        </p>
-                                                    </Link>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-gray-500 text-center py-2">Sin casos relacionados</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-
-                <GLPIFooter />
+                    <FichaSeccion titulo="Casos recientes" contador={tickets.length} icono={<Ticket className="size-5 text-huv-ink" aria-hidden="true" />}>
+                        <CasosRelacionados casos={tickets} href={(id) => `/soporte/casos/${id}`} />
+                    </FichaSeccion>
+                </div>
             </div>
-        </>
+        </Pagina>
     );
 }

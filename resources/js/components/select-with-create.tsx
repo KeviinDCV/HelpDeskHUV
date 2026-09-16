@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { FormField } from '@/components/form-field';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { csrfHeaders } from '@/lib/csrf';
+import { btn, fieldClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
+import { Loader2, Plus } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 
 export interface DropdownOption {
     id: number;
@@ -34,6 +34,11 @@ interface SelectWithCreateProps {
     useCompletename?: boolean;
     /** Mostrar la opción "-- Ninguno --" (value "0") para poder desasignar */
     allowNone?: boolean;
+    /** Error y ayuda del campo (FormField) para el disparador */
+    'aria-describedby'?: string;
+    'aria-invalid'?: boolean | 'true';
+    /** La opción que ya tiene el registro, por si no está en la lista (se muestra y se conserva) */
+    actual?: { value: string; label: string };
 }
 
 /**
@@ -54,24 +59,28 @@ export function SelectWithCreate({
     disabled,
     useCompletename = false,
     allowNone = false,
+    actual,
+    ...aria
 }: SelectWithCreateProps) {
     const [options, setOptions] = useState<DropdownOption[]>(initialOptions);
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const creada = useRef(false);
+    const botonId = `${id ?? dropdownType}-crear`;
 
     const labelOf = (o: DropdownOption) => (useCompletename && o.completename ? o.completename : o.name);
 
     const searchableOptions = useMemo(() => {
         const mapped = options.map((o) => ({ value: o.id.toString(), label: labelOf(o) }));
         const hasZero = options.some((o) => o.id === 0);
-        if (allowNone && !hasZero) {
-            return [{ value: '0', label: '-- Ninguno --' }, ...mapped];
-        }
-        return mapped;
+        const lista = allowNone && !hasZero ? [{ value: '0', label: '-- Ninguno --' }, ...mapped] : mapped;
+        // El valor que ya tiene el registro, aunque no esté en el catálogo: se ve y no se pierde
+        if (actual?.value && actual.value !== '0' && !lista.some((o) => o.value === actual.value)) return [actual, ...lista];
+        return lista;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [options, allowNone, useCompletename]);
+    }, [options, allowNone, useCompletename, actual?.value, actual?.label]);
 
     const create = async () => {
         const trimmed = name.trim();
@@ -96,11 +105,10 @@ export function SelectWithCreate({
             const data = (await res.json()) as { id: number; name: string };
             setOptions((prev) => {
                 if (prev.some((o) => o.id === data.id)) return prev;
-                return [...prev, { id: data.id, name: data.name, completename: data.name }].sort((a, b) =>
-                    labelOf(a).localeCompare(labelOf(b)),
-                );
+                return [...prev, { id: data.id, name: data.name, completename: data.name }].sort((a, b) => labelOf(a).localeCompare(labelOf(b)));
             });
             onValueChange(String(data.id));
+            creada.current = true;
             setOpen(false);
             setName('');
         } catch {
@@ -112,7 +120,7 @@ export function SelectWithCreate({
 
     return (
         <>
-            <div className={cn('flex items-center gap-1', className)}>
+            <div className={cn('flex items-center gap-2', className)}>
                 <SearchableSelect
                     id={id}
                     options={searchableOptions}
@@ -120,63 +128,72 @@ export function SelectWithCreate({
                     onValueChange={onValueChange}
                     placeholder={placeholder}
                     disabled={disabled}
-                    className="flex-1 min-w-0"
+                    className="min-w-0 flex-1"
                     triggerClassName={triggerClassName}
+                    {...aria}
                 />
-                <Button
+                <button
                     type="button"
-                    variant="outline"
-                    size="icon"
+                    id={botonId}
                     aria-label={createLabel}
                     title={createLabel}
                     disabled={disabled}
-                    className="h-8 w-8 shrink-0 text-[#2c4370]"
+                    className={cn(btn.secondary, 'size-10 shrink-0 px-0')}
                     onClick={() => {
                         setName('');
                         setError(null);
                         setOpen(true);
                     }}
                 >
-                    <Plus className="h-4 w-4" />
-                </Button>
+                    <Plus aria-hidden="true" />
+                </button>
             </div>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-                {/* Este diálogo no tiene descripción a propósito: el título ya lo dice todo.
-                    Se declara explícitamente para que Radix no avise, en vez de silenciarlo
-                    para toda la app desde dialog.tsx (que rompía el enlace de los demás). */}
-                <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
-                    <DialogHeader>
-                        <DialogTitle>{createLabel}</DialogTitle>
+            <Dialog open={open} onOpenChange={(a) => !saving && setOpen(a)}>
+                {/* Sin descripción a propósito: el título ya lo dice todo. Se declara para que
+                    Radix no avise, en vez de silenciarlo para toda la app desde dialog.tsx. */}
+                <DialogContent
+                    className="gap-0 rounded-2xl p-0 sm:max-w-sm"
+                    aria-describedby={undefined}
+                    // Al cerrar, el foco vuelve al "+"; si se creó la opción, al selector que ya la muestra
+                    onCloseAutoFocus={(e) => {
+                        e.preventDefault();
+                        document.getElementById(creada.current && id ? id : botonId)?.focus();
+                        creada.current = false;
+                    }}
+                >
+                    <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                        <DialogTitle className="text-lg font-semibold text-gray-900">{createLabel}</DialogTitle>
                     </DialogHeader>
-                    <div className="py-1">
-                        <Input
-                            autoFocus
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    create();
-                                }
-                            }}
-                            placeholder="Nombre"
-                            aria-label="Nombre de la nueva opción"
-                        />
-                        {error && (
-                            <p role="alert" className="text-red-600 text-xs mt-1">
-                                {error}
-                            </p>
-                        )}
+                    <div className="px-6 py-5">
+                        <FormField id={`${botonId}-nombre`} label="Nombre" error={error ?? undefined}>
+                            {(c) => (
+                                <input
+                                    {...c}
+                                    autoFocus
+                                    autoComplete="off"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            create();
+                                        }
+                                    }}
+                                    className={fieldClass}
+                                />
+                            )}
+                        </FormField>
                     </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+                    <div className="flex justify-end gap-2 border-t bg-gray-50 px-6 py-3">
+                        <button type="button" onClick={() => setOpen(false)} disabled={saving} className={btn.secondary}>
                             Cancelar
-                        </Button>
-                        <Button type="button" onClick={create} disabled={saving} className="bg-[#2c4370] hover:bg-[#3d5583] text-white">
-                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Crear'}
-                        </Button>
-                    </DialogFooter>
+                        </button>
+                        <button type="button" onClick={create} disabled={saving} className={btn.primary}>
+                            {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+                            {saving ? 'Creando…' : 'Crear'}
+                        </button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </>

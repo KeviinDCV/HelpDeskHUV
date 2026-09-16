@@ -39,7 +39,8 @@ export function PriorityPill({ priority, name }: { priority: number; name: strin
 
 /** Texto corto ("En curso") con el nombre completo de GLPI ("En curso (asignado)") al pasar el mouse. */
 export function StatusPill({ status, name }: { status: number; name: string }) {
-    const e = ESTADO[status] ?? ESTADO[1];
+    // Un estado fuera de 1–6 se muestra con su nombre (antes decía "Nuevo")
+    const e = ESTADO[status] ?? { corto: name || 'Desconocido', punto: 'bg-gray-300' };
     return (
         <span title={name} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-gray-700">
             <span aria-hidden="true" className={`size-1.5 rounded-full ${e.punto}`} />

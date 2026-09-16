@@ -3,7 +3,7 @@ import { btn, fieldClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import { AlertTriangle, CheckSquare, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /** Fecha y hora local en el formato de <input type="datetime-local"> ("2026-09-15T10:32"). */
 function ahoraLocal(): string {
@@ -44,6 +44,14 @@ function Formulario({ caso, onClose, onServerError }: Props & { caso: CasoAResol
     const [solving, setSolving] = useState(false);
     const [solveError, setSolveError] = useState<string | null>(null);
     const [solutionError, setSolutionError] = useState<string | null>(null);
+    // El botón que abrió el modal: al cerrarlo el foco vuelve ahí (si sigue en la página;
+    // tras resolver, el botón "Resolver" desaparece). Sin esto caía en <body>.
+    const [origen] = useState(() => document.activeElement as HTMLElement | null);
+    useEffect(() => () => {
+        setTimeout(() => {
+            if (origen?.isConnected) origen.focus();
+        }, 0);
+    }, [origen]);
 
     const confirmar = () => {
         if (!solution.trim()) {
@@ -52,7 +60,9 @@ function Formulario({ caso, onClose, onServerError }: Props & { caso: CasoAResol
         }
         setSolutionError(null);
 
-        if (solveDate && caso.date && new Date(solveDate) < new Date(caso.date.replace(' ', 'T'))) {
+        // Al minuto, como el servidor: la hora del campo no lleva segundos y la apertura sí
+        // ("10:32" contra "10:32:45"); resolver en el mismo minuto de la apertura es válido.
+        if (solveDate && caso.date && new Date(solveDate) < new Date(caso.date.replace(' ', 'T').slice(0, 16))) {
             setSolveError('La fecha de solución no puede ser anterior a la fecha de creación del caso.');
             return;
         }
@@ -84,13 +94,13 @@ function Formulario({ caso, onClose, onServerError }: Props & { caso: CasoAResol
 
     return (
         <Dialog open onOpenChange={(abierto) => !abierto && !solving && onClose()}>
-            <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[520px]">
+            <DialogContent className="gap-0 rounded-2xl p-0 sm:max-w-[520px]">
                 <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
                     <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                         <CheckSquare className="size-5 text-green-700" aria-hidden="true" />
                         Resolver caso
                     </DialogTitle>
-                    <DialogDescription className="text-sm text-gray-500">
+                    <DialogDescription className="min-w-0 text-sm text-gray-500 [overflow-wrap:anywhere]">
                         #{caso.id} · {caso.name}
                     </DialogDescription>
                 </DialogHeader>

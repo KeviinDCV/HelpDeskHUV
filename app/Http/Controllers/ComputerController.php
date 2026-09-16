@@ -603,13 +603,18 @@ class ComputerController extends Controller
             ->first();
 
         // === HISTORIAL DE CAMBIOS (detectado por el agente) ===
-        $history = DB::table('inventory_history')
-            ->where('itemtype', 'Computer')
-            ->where('items_id', $id)
-            ->orderBy('changed_at', 'desc')
-            ->orderBy('id', 'desc')
-            ->limit(100)
-            ->get(['id', 'category', 'action', 'field', 'old_value', 'new_value', 'summary', 'changed_at']);
+        // Sin la migración de inventory_history la ficha entera daba error 500
+        try {
+            $history = DB::table('inventory_history')
+                ->where('itemtype', 'Computer')
+                ->where('items_id', $id)
+                ->orderBy('changed_at', 'desc')
+                ->orderBy('id', 'desc')
+                ->limit(100)
+                ->get(['id', 'category', 'action', 'field', 'old_value', 'new_value', 'summary', 'changed_at']);
+        } catch (\Exception $e) {
+            $history = collect();
+        }
 
         return Inertia::render('inventario/ver-computador', [
             'computer' => $computer,
@@ -1034,7 +1039,11 @@ class ComputerController extends Controller
             'comment' => 'nullable|string',
         ]);
 
-        DB::table('glpi_computers')->where('id', $id)->update([
+        // Red y Fuente de actualización: si no llegan (una pestaña abierta antes de esta versión, que
+        // no los tenía), no se tocan. Antes cada guardado los ponía en 0.
+        $noEnviados = array_filter(['networks_id', 'autoupdatesystems_id'], fn ($campo) => !$request->has($campo));
+
+        DB::table('glpi_computers')->where('id', $id)->update(array_diff_key([
             'name' => $validated['name'],
             'serial' => $validated['serial'] ?? null,
             'otherserial' => $validated['otherserial'] ?? null,
@@ -1056,7 +1065,7 @@ class ComputerController extends Controller
             'uuid' => !empty($validated['uuid']) ? $validated['uuid'] : DB::raw('uuid'),
             'comment' => $validated['comment'] ?? null,
             'date_mod' => now(),
-        ]);
+        ], array_flip($noEnviados)));
 
         return redirect("/inventario/computadores/{$id}/editar")->with('success', 'Computador actualizado exitosamente');
     }
@@ -1089,7 +1098,8 @@ class ComputerController extends Controller
             'operatingsystemkernelversions_id' => $validated['operatingsystemkernelversions_id'] ?? 0,
             'operatingsystemeditions_id' => $validated['operatingsystemeditions_id'] ?? 0,
             'license_number' => $validated['license_number'] ?? '',
-            'licenseid' => $validated['licenseid'] ?? '',
+            // La columna es license_id: con 'licenseid' agregar un sistema operativo daba error 500
+            'license_id' => $validated['licenseid'] ?? '',
             'is_deleted' => 0,
             'is_dynamic' => 0,
             'entities_id' => 0,
@@ -1126,7 +1136,7 @@ class ComputerController extends Controller
             'operatingsystemkernelversions_id' => $validated['operatingsystemkernelversions_id'] ?? 0,
             'operatingsystemeditions_id' => $validated['operatingsystemeditions_id'] ?? 0,
             'license_number' => $validated['license_number'] ?? '',
-            'licenseid' => $validated['licenseid'] ?? '',
+            'license_id' => $validated['licenseid'] ?? '',
             'date_mod' => now(),
         ]);
 
@@ -1283,35 +1293,20 @@ class ComputerController extends Controller
             abort(403, 'No autorizado');
         }
 
-        DB::table('glpi_infocoms')->insert([
+        DB::table('glpi_infocoms')->insert(array_merge($this->camposInfocom($request), [
             'items_id' => $id,
             'itemtype' => 'Computer',
             'entities_id' => 0,
-            'buy_date' => $request->input('buy_date') ?: null,
-            'use_date' => $request->input('use_date') ?: null,
-            'warranty_duration' => $request->input('warranty_duration', 0),
-            'warranty_info' => $request->input('warranty_info', ''),
-            'suppliers_id' => $request->input('suppliers_id', 0),
-            'order_number' => $request->input('order_number', ''),
-            'delivery_number' => $request->input('delivery_number', ''),
-            'immo_number' => $request->input('immo_number', ''),
-            'value' => $request->input('value', 0),
-            'warranty_value' => $request->input('warranty_value', 0),
-            'sink_time' => $request->input('sink_time', 0),
-            'sink_type' => $request->input('sink_type', 0),
-            'sink_coeff' => $request->input('sink_coeff', 0),
-            'comment' => $request->input('comment', ''),
-            'bill' => $request->input('bill', ''),
-            'budgets_id' => $request->input('budgets_id', 0),
-            'order_date' => $request->input('order_date') ?: null,
-            'delivery_date' => $request->input('delivery_date') ?: null,
-            'inventory_date' => $request->input('inventory_date') ?: null,
-            'warranty_date' => $request->input('warranty_date') ?: null,
-            'decommission_date' => $request->input('decommission_date') ?: null,
-            'businesscriticities_id' => $request->input('businesscriticities_id', 0),
+            // El formulario no maneja estos: al crear van en 0, como antes
+            'suppliers_id' => $request->input('suppliers_id') ?? 0,
+            'sink_time' => $request->input('sink_time') ?? 0,
+            'sink_type' => $request->input('sink_type') ?? 0,
+            'sink_coeff' => $request->input('sink_coeff') ?? 0,
+            'budgets_id' => $request->input('budgets_id') ?? 0,
+            'businesscriticities_id' => $request->input('businesscriticities_id') ?? 0,
             'date_creation' => now(),
             'date_mod' => now(),
-        ]);
+        ]));
 
         return redirect("/inventario/computadores/{$id}/editar?tab=infocom")->with('success', 'Info financiera creada');
     }
@@ -1322,33 +1317,49 @@ class ComputerController extends Controller
             abort(403, 'No autorizado');
         }
 
-        DB::table('glpi_infocoms')->where('id', $infoId)->update([
-            'buy_date' => $request->input('buy_date') ?: null,
-            'use_date' => $request->input('use_date') ?: null,
-            'warranty_duration' => $request->input('warranty_duration', 0),
+        // Proveedor, presupuesto, amortización y criticidad no están en el formulario: solo se
+        // tocan si llegan. Antes cada guardado los ponía en 0 y borraba lo que venía de GLPI.
+        $otros = [];
+        foreach (['suppliers_id', 'sink_time', 'sink_type', 'sink_coeff', 'budgets_id', 'businesscriticities_id'] as $campo) {
+            if ($request->has($campo)) {
+                $otros[$campo] = $request->input($campo) ?? 0;
+            }
+        }
+
+        DB::table('glpi_infocoms')->where('id', $infoId)->update(array_merge($this->camposInfocom($request), $otros, [
+            'date_mod' => now(),
+        ]));
+
+        return redirect("/inventario/computadores/{$id}/editar?tab=infocom")->with('success', 'Info financiera actualizada');
+    }
+
+    /**
+     * Los 16 campos del formulario de información financiera. Duración, valor y valor de la
+     * garantía vacíos van en 0: son columnas NOT NULL y con null guardar daba error de SQL.
+     */
+    private function camposInfocom(Request $request): array
+    {
+        $numero = fn (string $campo) => $request->input($campo) ?? 0;
+        $fecha = fn (string $campo) => $request->input($campo) ?: null;
+
+        return [
+            'buy_date' => $fecha('buy_date'),
+            'use_date' => $fecha('use_date'),
+            'order_date' => $fecha('order_date'),
+            'delivery_date' => $fecha('delivery_date'),
+            'inventory_date' => $fecha('inventory_date'),
+            'warranty_date' => $fecha('warranty_date'),
+            'decommission_date' => $fecha('decommission_date'),
+            'warranty_duration' => $numero('warranty_duration'),
+            'value' => $numero('value'),
+            'warranty_value' => $numero('warranty_value'),
             'warranty_info' => $request->input('warranty_info', ''),
-            'suppliers_id' => $request->input('suppliers_id', 0),
             'order_number' => $request->input('order_number', ''),
             'delivery_number' => $request->input('delivery_number', ''),
             'immo_number' => $request->input('immo_number', ''),
-            'value' => $request->input('value', 0),
-            'warranty_value' => $request->input('warranty_value', 0),
-            'sink_time' => $request->input('sink_time', 0),
-            'sink_type' => $request->input('sink_type', 0),
-            'sink_coeff' => $request->input('sink_coeff', 0),
             'comment' => $request->input('comment', ''),
             'bill' => $request->input('bill', ''),
-            'budgets_id' => $request->input('budgets_id', 0),
-            'order_date' => $request->input('order_date') ?: null,
-            'delivery_date' => $request->input('delivery_date') ?: null,
-            'inventory_date' => $request->input('inventory_date') ?: null,
-            'warranty_date' => $request->input('warranty_date') ?: null,
-            'decommission_date' => $request->input('decommission_date') ?: null,
-            'businesscriticities_id' => $request->input('businesscriticities_id', 0),
-            'date_mod' => now(),
-        ]);
-
-        return redirect("/inventario/computadores/{$id}/editar?tab=infocom")->with('success', 'Info financiera actualizada');
+        ];
     }
 
     public function destroy($id)

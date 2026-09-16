@@ -64,11 +64,34 @@ class TicketController extends Controller
      *
      * Los adjuntos van al disco `public`, que el servidor web sirve tal cual. Antes solo se
      * validaba el tamaño: un .php subido como adjunto quedaba en /storage/... y Apache lo
-     * ejecutaba (la propia vista del caso mostraba la URL). Con lista blanca, además, la regla
-     * `mimes` de Laravel rechaza cualquier archivo con extensión PHP aunque el contenido
-     * parezca una imagen.
+     * ejecutaba (la propia vista del caso mostraba la URL).
+     *
+     * Se valida con `extensions:` (la extensión del archivo) y no con `mimes:` (el tipo que el
+     * servidor detecta por el contenido): `mimes` rechazaba archivos legítimos —un .log con
+     * líneas JSON, fotos HEIF de Android, .msg de Outlook— con un mensaje que listaba su propia
+     * extensión como permitida. Lo que protege es que el archivo se GUARDA con una extensión de
+     * esta lista (nunca .php) y que storage/app/public/.htaccess sirve todo con nosniff y niega
+     * los tipos ejecutables o renderizables. La regla bloquea además cualquier .php por su
+     * extensión (shouldBlockPhpUpload).
      */
-    private const ADJUNTOS_PERMITIDOS = 'jpg,jpeg,png,gif,webp,bmp,heic,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,rtf,txt,csv,log,zip,rar,7z,msg,eml,mp4,mov,webm';
+    private const ADJUNTOS_PERMITIDOS = 'jpg,jpeg,jpe,jfif,png,gif,webp,bmp,heic,heif,tif,tiff,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,rtf,txt,csv,log,zip,rar,7z,msg,eml,mp4,mov,webm';
+
+    /** Nombres de los campos del caso en los mensajes de validación ("El campo asignado a es obligatorio"). */
+    private const ATRIBUTOS_CASO = [
+        'name' => 'título',
+        'content' => 'descripción',
+        'date' => 'fecha de apertura',
+        'status' => 'estado',
+        'priority' => 'prioridad',
+        'locations_id' => 'localización',
+        'itilcategories_id' => 'categoría',
+        'requester_id' => 'solicitante',
+        'observer_ids' => 'observadores',
+        'assigned_ids' => 'asignado a',
+        'time_to_resolve' => 'tiempo de solución',
+        'internal_time_to_resolve' => 'tiempo interno de solución',
+        'attachments.*' => 'adjunto',
+    ];
 
     /**
      * Guarda un adjunto con un prefijo aleatorio y el nombre original legible
@@ -95,16 +118,144 @@ class TicketController extends Controller
     }
 
     /** Nombre que se muestra de un adjunto guardado en disco (sin el prefijo aleatorio). */
-    private function nombreVisibleAdjunto(string $archivo, int $n): string
+    private function nombreVisibleAdjunto(string $archivo): string
     {
         if (preg_match('/^[A-Za-z0-9]{16}_(.+)$/', $archivo, $m)) {
             return $m[1];
         }
-        // Adjuntos anteriores: solo el hash que generaba store(). Mejor un nombre genérico.
-        if (preg_match('/^[A-Za-z0-9]{40}\.(\w+)$/', $archivo, $m)) {
-            return 'adjunto-' . $n . '.' . strtolower($m[1]);
+        // Adjuntos anteriores: solo el hash que generaba store(). Un nombre genérico pero
+        // estable (sale del propio hash): no cambia cuando se suben otros archivos al caso.
+        if (preg_match('/^([A-Za-z0-9]{40})\.(\w+)$/', $archivo, $m)) {
+            return 'adjunto-' . strtolower(substr($m[1], 0, 6)) . '.' . strtolower($m[2]);
         }
         return $archivo;
+    }
+
+    /**
+     * Personas de un caso por tipo (1 solicitante, 2 asignado, 3 observador), con su nombre.
+     *
+     * El nombre sale de GLPI; si allí está vacío, del usuario de Laravel VINCULADO a ese id de
+     * GLPI (glpi_user_id). Antes el respaldo se buscaba por el id de Laravel, así que un
+     * técnico sin nombre en GLPI aparecía con el nombre de otra persona; y con CONCAT, un solo
+     * campo NULL (sin apellido) descartaba también el otro.
+     */
+    private function personasDelCaso(int|string $ticketId, int $tipo): \Illuminate\Support\Collection
+    {
+        return DB::table('glpi_tickets_users as tu')
+            ->select(
+                'tu.users_id as id',
+                'gu.firstname',
+                'gu.realname',
+                DB::raw("COALESCE(
+                    NULLIF(TRIM(CONCAT_WS(' ', gu.firstname, gu.realname)), ''),
+                    (SELECT lu.name FROM users lu WHERE lu.glpi_user_id = tu.users_id ORDER BY lu.id LIMIT 1),
+                    NULLIF(gu.name, '')
+                ) as fullname")
+            )
+            ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
+            ->where('tu.tickets_id', $ticketId)
+            ->where('tu.type', $tipo)
+            ->get();
+    }
+
+    /**
+     * Aplica al caso los cambios de personas del tipo dado (1 solicitante, 2 asignado,
+     * 3 observador): quita las que se quitaron e inserta las nuevas. Las que siguen no se tocan
+     * y conservan sus datos de GLPI (aviso por correo, correo alternativo).
+     *
+     * $cargados es la lista que el formulario tenía al abrirse: solo se quita lo que el usuario
+     * quitó de ella, y no lo que otra persona agregó mientras tanto. Sin ella, la base manda
+     * (queda exactamente $ids).
+     */
+    private function sincronizarPersonas(int|string $ticketId, int $tipo, array $ids, ?array $cargados = null): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        $actuales = DB::table('glpi_tickets_users')
+            ->where('tickets_id', $ticketId)->where('type', $tipo)
+            ->pluck('users_id')->map(fn ($u) => (int) $u)->all();
+        $base = $cargados === null ? $actuales : array_values(array_unique(array_map('intval', $cargados)));
+
+        $quitar = array_intersect(array_diff($base, $ids), $actuales);
+        if ($quitar) {
+            DB::table('glpi_tickets_users')
+                ->where('tickets_id', $ticketId)->where('type', $tipo)
+                ->whereIn('users_id', $quitar)->delete();
+        }
+        foreach (array_diff($ids, $base, $actuales) as $usuario) {
+            // El frontend envía glpi_user_id directamente
+            DB::table('glpi_tickets_users')->insert([
+                'tickets_id' => $ticketId,
+                'users_id' => $usuario,
+                'type' => $tipo,
+                'use_notification' => 1,
+            ]);
+        }
+    }
+
+    /** Igual que sincronizarPersonas, para los elementos del inventario asociados al caso. */
+    private function sincronizarElementos(int|string $ticketId, array $items, ?array $cargados = null): void
+    {
+        $clave = fn ($tipo, $id) => $tipo . '#' . (int) $id;
+        $nuevos = [];
+        foreach ($items as $item) {
+            $nuevos[$clave($item['type'], $item['id'])] = $item;
+        }
+        $actuales = DB::table('glpi_items_tickets')->where('tickets_id', $ticketId)->get();
+        $base = $cargados === null
+            ? null
+            : collect($cargados)->filter(fn ($i) => is_array($i) && isset($i['type'], $i['id']))->mapWithKeys(fn ($i) => [$clave($i['type'], $i['id']) => true])->all();
+
+        foreach ($actuales as $fila) {
+            $k = $clave($fila->itemtype, $fila->items_id);
+            // Con la lista cargada, solo se quita lo que el usuario quitó (no lo que otro agregó)
+            if (!isset($nuevos[$k]) && ($base === null || isset($base[$k]))) {
+                DB::table('glpi_items_tickets')->where('id', $fila->id)->delete();
+            }
+        }
+        $existentes = $actuales->mapWithKeys(fn ($f) => [$clave($f->itemtype, $f->items_id) => true])->all();
+        foreach ($nuevos as $k => $item) {
+            // Lo que ya estaba al abrir y otro quitó mientras tanto no se vuelve a poner
+            if (!isset($existentes[$k]) && ($base === null || !isset($base[$k]))) {
+                DB::table('glpi_items_tickets')->insert([
+                    'tickets_id' => $ticketId,
+                    'itemtype' => $item['type'],
+                    'items_id' => $item['id'],
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Todos los adjuntos de un caso: los que guardó esta app en disco y los documentos de GLPI
+     * (glpi_documents_items + glpi_documents). Ver y Editar muestran los mismos.
+     */
+    private function adjuntosDelCaso(int|string $id): array
+    {
+        $attachments = $this->adjuntosLocales($id);
+
+        // glpi_documents NO almacena el tamaño del archivo: el tamaño se lee del disco.
+        $glpiDocuments = DB::table('glpi_documents_items as di')
+            ->select('d.id', 'd.name', 'd.filename', 'd.filepath', 'd.mime')
+            ->join('glpi_documents as d', 'di.documents_id', '=', 'd.id')
+            ->where('di.itemtype', 'Ticket')
+            ->where('di.items_id', $id)
+            ->where('d.is_deleted', 0)
+            ->get();
+
+        foreach ($glpiDocuments as $doc) {
+            // GLPI guarda archivos en /var/lib/glpi/files/_documents/
+            // El filepath tiene formato como "PDF/abc123.pdf"
+            $attachments[] = [
+                'name' => $doc->name ?: $doc->filename,
+                'url' => '/glpi-files/' . $doc->filepath,
+                'size' => $this->glpiDocumentSize($doc->filepath),
+                'mime' => $doc->mime,
+                'source' => 'glpi',
+                'glpi_id' => $doc->id,
+            ];
+        }
+
+        return $attachments;
     }
 
     /** Adjuntos que la app guardó en disco para un caso. */
@@ -115,13 +266,12 @@ class TicketController extends Controller
         if (!is_dir($ruta)) {
             return $adjuntos;
         }
-        $n = 0;
-        foreach (scandir($ruta) as $archivo) {
-            if ($archivo === '.' || $archivo === '..' || str_starts_with($archivo, '.')) {
-                continue;
-            }
+        $archivos = array_values(array_filter(scandir($ruta), fn ($a) => !str_starts_with($a, '.')));
+        // En el orden en que se subieron (scandir ordena por el prefijo aleatorio)
+        usort($archivos, fn ($a, $b) => (filemtime($ruta . '/' . $a) <=> filemtime($ruta . '/' . $b)) ?: strcmp($a, $b));
+        foreach ($archivos as $archivo) {
             $adjuntos[] = [
-                'name' => $this->nombreVisibleAdjunto($archivo, ++$n),
+                'name' => $this->nombreVisibleAdjunto($archivo),
                 'url' => asset('storage/ticket-attachments/' . $id . '/' . rawurlencode($archivo)),
                 'size' => filesize($ruta . '/' . $archivo),
                 'source' => 'local',
@@ -1344,26 +1494,11 @@ class TicketController extends Controller
             'assigned_ids' => 'required|array|min:1',
             'assigned_ids.*' => 'integer',
             'attachments' => 'nullable|array',
-            'attachments.*' => 'file|max:102400|mimes:' . self::ADJUNTOS_PERMITIDOS, // 100MB
+            'attachments.*' => 'file|max:102400|extensions:' . self::ADJUNTOS_PERMITIDOS, // 100MB
             'items' => 'nullable|array',
             'items.*.type' => 'string',
             'items.*.id' => 'integer',
-        ], [], [
-            // Nombres que ve el usuario en los mensajes ("El campo asignado a es obligatorio")
-            'name' => 'título',
-            'content' => 'descripción',
-            'date' => 'fecha de apertura',
-            'status' => 'estado',
-            'priority' => 'prioridad',
-            'locations_id' => 'localización',
-            'itilcategories_id' => 'categoría',
-            'requester_id' => 'solicitante',
-            'observer_ids' => 'observadores',
-            'assigned_ids' => 'asignado a',
-            'time_to_resolve' => 'tiempo de solución',
-            'internal_time_to_resolve' => 'tiempo interno de solución',
-            'attachments.*' => 'adjunto',
-        ]);
+        ], [], self::ATRIBUTOS_CASO);
 
         DB::beginTransaction();
         try {
@@ -1550,36 +1685,11 @@ class TicketController extends Controller
             return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
         }
 
-        // Obtener solicitante (buscar en glpi_users y si no, en users de Laravel)
-        $requester = DB::table('glpi_tickets_users as tu')
-            ->select(
-                'tu.users_id as id',
-                'gu.firstname',
-                'gu.realname',
-                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as fullname")
-            )
-            ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
-            ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.id')
-            ->where('tu.tickets_id', $id)
-            ->where('tu.type', 1)
-            ->first();
-
-        // Técnicos asignados y observadores (buscar en glpi_users y si no, en users de Laravel).
-        // Antes solo se traía el primer asignado: con dos técnicos, la vista mostraba uno.
-        $personasDelCaso = fn (int $tipo) => DB::table('glpi_tickets_users as tu')
-            ->select(
-                'tu.users_id as id',
-                'gu.firstname',
-                'gu.realname',
-                DB::raw("COALESCE(NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '), lu.name) as fullname")
-            )
-            ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
-            ->leftJoin('users as lu', 'tu.users_id', '=', 'lu.id')
-            ->where('tu.tickets_id', $id)
-            ->where('tu.type', $tipo)
-            ->get();
-        $technicians = $personasDelCaso(2);
-        $observers = $personasDelCaso(3);
+        // Solicitante, técnicos asignados (antes solo el primero: con dos técnicos la vista
+        // mostraba uno) y observadores
+        $requester = $this->personasDelCaso($id, 1)->first();
+        $technicians = $this->personasDelCaso($id, 2);
+        $observers = $this->personasDelCaso($id, 3);
         $technician = $technicians->first();
 
         // Mismas reglas que DashboardController::solveTicket, que es donde se resuelve: admin o
@@ -1588,7 +1698,7 @@ class TicketController extends Controller
         $glpiUserId = $usuario->glpi_user_id ?? null;
         $asignadoAMi = $glpiUserId && $technicians->contains(fn ($t) => (int) $t->id === (int) $glpiUserId);
         $permissions = [
-            'canEdit' => in_array($usuario->role, ['Administrador', 'Técnico'], true),
+            'canEdit' => $this->puedeEditarCasos(),
             'canResolve' => $glpiUserId
                 && !in_array((int) $ticket->status, [5, 6], true)
                 && ($usuario->role === 'Administrador' || $asignadoAMi),
@@ -1635,32 +1745,7 @@ class TicketController extends Controller
             ->orderBy('glpi_itilsolutions.id', 'desc')
             ->first();
 
-        // Obtener archivos adjuntos
-        // 1. Los que guardó esta app en disco
-        $attachments = $this->adjuntosLocales($id);
-
-        // 2. Buscar documentos en GLPI (glpi_documents_items + glpi_documents)
-        // glpi_documents NO almacena el tamaño del archivo: el tamaño se lee del disco.
-        $glpiDocuments = DB::table('glpi_documents_items as di')
-            ->select('d.id', 'd.name', 'd.filename', 'd.filepath', 'd.mime')
-            ->join('glpi_documents as d', 'di.documents_id', '=', 'd.id')
-            ->where('di.itemtype', 'Ticket')
-            ->where('di.items_id', $id)
-            ->where('d.is_deleted', 0)
-            ->get();
-
-        foreach ($glpiDocuments as $doc) {
-            // GLPI guarda archivos en /var/lib/glpi/files/_documents/
-            // El filepath tiene formato como "PDF/abc123.pdf"
-            $attachments[] = [
-                'name' => $doc->name ?: $doc->filename,
-                'url' => '/glpi-files/' . $doc->filepath,
-                'size' => $this->glpiDocumentSize($doc->filepath),
-                'mime' => $doc->mime,
-                'source' => 'glpi',
-                'glpi_id' => $doc->id,
-            ];
-        }
+        $attachments = $this->adjuntosDelCaso($id);
 
         return Inertia::render('soporte/ver-caso', [
             'ticket' => $ticket,
@@ -1678,16 +1763,35 @@ class TicketController extends Controller
         ]);
     }
 
+    /**
+     * Quién puede editar un caso: administradores y técnicos (lo mismo que ya decía la interfaz
+     * con canEdit). El servidor no lo exigía: un usuario con rol "Usuario" podía cerrar o
+     * reasignar cualquier caso enviando el formulario a mano.
+     */
+    private function puedeEditarCasos(): bool
+    {
+        return in_array(auth()->user()?->role, ['Administrador', 'Técnico'], true);
+    }
+
     public function edit($id)
     {
+        // A quien no puede editar se le muestra el caso: el buscador y las fichas de inventario
+        // enlazaban aquí, y a un usuario lo dejaban en la lista sin ver el caso que buscaba.
+        if (!$this->puedeEditarCasos()) {
+            return redirect()->route('soporte.casos.show', $id)->with('error', 'Solo administradores y técnicos pueden editar casos.');
+        }
+
         $ticket = DB::table('glpi_tickets as t')
             ->select(
                 't.*',
                 'e.name as entity_name',
-                'l.completename as location_name'
+                'l.completename as location_name',
+                // Para mostrar la categoría actual aunque no esté en la lista del formulario
+                'cat.completename as category_name'
             )
             ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
             ->leftJoin('glpi_locations as l', 't.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_itilcategories as cat', 't.itilcategories_id', '=', 'cat.id')
             ->where('t.id', $id)
             ->where('t.is_deleted', 0)
             ->first();
@@ -1696,9 +1800,22 @@ class TicketController extends Controller
             return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
         }
 
-        // Obtener usuarios asignados
-        $ticketUsers = DB::table('glpi_tickets_users')
-            ->where('tickets_id', $id)
+        // Personas del caso (solicitante, asignados, observadores) con su nombre: el formulario
+        // solo lista usuarios activos de la app, y quien no esté ahí (un técnico de GLPI, un
+        // usuario inactivo) se guardaba igual pero no se veía.
+        $ticketUsers = DB::table('glpi_tickets_users as tu')
+            ->select(
+                'tu.*',
+                DB::raw("COALESCE(
+                    NULLIF(TRIM(CONCAT_WS(' ', gu.firstname, gu.realname)), ''),
+                    (SELECT lu.name FROM users lu WHERE lu.glpi_user_id = tu.users_id ORDER BY lu.id LIMIT 1),
+                    NULLIF(gu.name, '')
+                ) as fullname")
+            )
+            ->leftJoin('glpi_users as gu', 'tu.users_id', '=', 'gu.id')
+            ->where('tu.tickets_id', $id)
+            // En el orden en que se agregaron: el primer solicitante es el original
+            ->orderBy('tu.id')
             ->get();
 
         // Obtener elementos asociados con sus nombres
@@ -1707,10 +1824,13 @@ class TicketController extends Controller
             ->get()
             ->map(function($item) {
                 $itemName = null;
+                // null = no se pudo comprobar; así un equipo sin nombre no se muestra como borrado
+                $item->item_exists = null;
                 $tableName = 'glpi_' . strtolower($item->itemtype) . 's';
                 try {
                     $itemData = DB::table($tableName)->where('id', $item->items_id)->first();
                     $itemName = $itemData->name ?? null;
+                    $item->item_exists = $itemData !== null;
                 } catch (\Exception $e) {}
                 $item->item_name = $itemName;
                 return $item;
@@ -1729,18 +1849,16 @@ class TicketController extends Controller
             ->orderBy(DB::raw("SUBSTRING_INDEX(completename, ' > ', -1)"))
             ->get();
 
-        // Obtener categorías de GLPI (agrupadas por name para unificar duplicados)
+        // Categorías de GLPI, igual que en crear(): una por ruta completa. Antes se agrupaban por
+        // nombre con MIN(id) y MIN(completename) por separado, así que una opción podía mostrar
+        // la ruta de una categoría y guardar el id de otra ("Preventivo" existe en varias ramas).
         $categories = DB::table('glpi_itilcategories')
-            ->select(
-                DB::raw('MIN(id) as id'),
-                'name',
-                DB::raw('MIN(completename) as completename')
-            )
+            ->select(DB::raw('MIN(id) as id'), DB::raw('MIN(name) as name'), 'completename')
             ->where('is_incident', 1)
-            ->whereNotNull('name')
-            ->where('name', '!=', '')
-            ->groupBy('name')
-            ->orderBy('name')
+            ->whereNotNull('completename')
+            ->where('completename', '!=', '')
+            ->groupBy('completename')
+            ->orderBy('completename')
             ->get();
 
         // Obtener usuarios de Laravel con glpi_user_id para asignar
@@ -1769,8 +1887,8 @@ class TicketController extends Controller
             ['value' => 'Enclosure', 'label' => 'Gabinete'],
         ];
 
-        // Obtener archivos adjuntos existentes
-        $attachments = $this->adjuntosLocales($id);
+        // Adjuntos existentes, también los de GLPI (antes solo se veían en Ver caso)
+        $attachments = $this->adjuntosDelCaso($id);
 
         // Obtener solución del caso (si existe)
         $solution = DB::table('glpi_itilsolutions')
@@ -1806,6 +1924,10 @@ class TicketController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (!$this->puedeEditarCasos()) {
+            return redirect()->route('soporte.casos')->with('error', 'Solo administradores y técnicos pueden editar casos.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'content' => 'required|string',
@@ -1825,98 +1947,77 @@ class TicketController extends Controller
             'items.*.type' => 'string',
             'items.*.id' => 'integer',
             'attachments' => 'nullable|array',
-            'attachments.*' => 'file|max:102400|mimes:' . self::ADJUNTOS_PERMITIDOS, // 100MB; ver ADJUNTOS_PERMITIDOS
-        ]);
+            'attachments.*' => 'file|max:102400|extensions:' . self::ADJUNTOS_PERMITIDOS, // 100MB; ver ADJUNTOS_PERMITIDOS
+        ], [], self::ATRIBUTOS_CASO);
 
         // Obtener el estado anterior para comparar
-        $oldTicket = DB::table('glpi_tickets')->where('id', $id)->first();
-        $oldStatus = $oldTicket ? $oldTicket->status : null;
+        $oldTicket = DB::table('glpi_tickets')->where('id', $id)->where('is_deleted', 0)->first();
+        if (!$oldTicket) {
+            return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
+        }
+        $oldStatus = $oldTicket->status;
+
+        // Lo que el formulario cargó al abrirse. Se aplica solo lo que el usuario cambió respecto
+        // de eso: si otro técnico tomó, reasignó o resolvió el caso mientras este formulario seguía
+        // abierto, guardar no deshace su cambio. Sin ese dato (una pestaña abierta antes de esta
+        // versión) se compara con la base, como antes.
+        $original = json_decode((string) $request->input('original', ''), true);
+        $original = is_array($original) ? $original : null;
+        $cargado = fn (string $campo) => $original !== null && array_key_exists($campo, $original) ? $original[$campo] : ($oldTicket->{$campo} ?? null);
+
+        // Cómo se compara cada campo. Título y descripción: Laravel recorta los espacios de los
+        // extremos (TrimStrings) y el envío con archivos convierte los saltos de línea a \r\n, así
+        // que guardar sin tocar nada alteraba el texto que venía de GLPI. Los ids: vacío = 0.
+        $texto = fn ($t) => str_replace("\r\n", "\n", trim((string) $t));
+        $numero = fn ($v) => (string) (int) ($v ?? 0);
+        $fecha = fn ($v) => trim((string) ($v ?? ''));
+        $comparar = [
+            'name' => $texto, 'content' => $texto,
+            'date' => $fecha, 'time_to_resolve' => $fecha, 'internal_time_to_resolve' => $fecha,
+            'status' => $numero, 'priority' => $numero, 'locations_id' => $numero, 'itilcategories_id' => $numero,
+        ];
+        $columnas = ['date_mod' => now()];
+        foreach ($comparar as $campo => $norma) {
+            $enviado = $validated[$campo] ?? null;
+            if ($norma($enviado) !== $norma($cargado($campo))) {
+                $columnas[$campo] = in_array($campo, ['locations_id', 'itilcategories_id'], true) ? ($enviado ?? 0) : $enviado;
+            }
+        }
+        $cambiaEstado = array_key_exists('status', $columnas) && (int) $columnas['status'] !== (int) $oldStatus;
 
         DB::beginTransaction();
         try {
-            DB::table('glpi_tickets')
-                ->where('id', $id)
-                ->update([
-                    'name' => $validated['name'],
-                    'content' => $validated['content'],
-                    'date' => $validated['date'],
-                    'date_mod' => now(),
-                    'time_to_resolve' => $validated['time_to_resolve'] ?? null,
-                    'internal_time_to_resolve' => $validated['internal_time_to_resolve'] ?? null,
-                    'status' => $validated['status'],
-                    'priority' => $validated['priority'],
-                    'locations_id' => $validated['locations_id'] ?? 0,
-                    'itilcategories_id' => $validated['itilcategories_id'] ?? 0,
-                ]);
+            DB::table('glpi_tickets')->where('id', $id)->update($columnas);
 
-            // Actualizar solicitante - siempre actualizar
-            DB::table('glpi_tickets_users')
-                ->where('tickets_id', $id)
-                ->where('type', 1)
-                ->delete();
-            
-            if (!empty($validated['requester_id'])) {
-                // El frontend envía glpi_user_id directamente
-                DB::table('glpi_tickets_users')->insert([
-                    'tickets_id' => $id,
-                    'users_id' => $validated['requester_id'], // Ya es glpi_user_id
-                    'type' => 1, // Requester
-                    'use_notification' => 1,
-                ]);
-            }
+            // Personas y elementos: solo se toca lo que cambió. Antes se borraba todo y se volvía a
+            // insertar en cada guardado, y se perdía lo que el formulario no muestra: un segundo
+            // solicitante de GLPI, el correo alternativo o el aviso de cada persona.
+            $lista = fn (string $clave) => $original !== null && is_array($original[$clave] ?? null) ? $original[$clave] : null;
 
-            // Actualizar observadores - siempre actualizar
-            DB::table('glpi_tickets_users')
-                ->where('tickets_id', $id)
-                ->where('type', 3)
-                ->delete();
-            
-            if (!empty($validated['observer_ids'])) {
-                foreach ($validated['observer_ids'] as $observerId) {
-                    // El frontend envía glpi_user_id directamente
-                    DB::table('glpi_tickets_users')->insert([
-                        'tickets_id' => $id,
-                        'users_id' => $observerId, // Ya es glpi_user_id
-                        'type' => 3, // Observer
-                        'use_notification' => 1,
-                    ]);
-                }
+            // El formulario maneja un solo solicitante. Si el que envía es cualquiera de los que
+            // tenía el caso, no se toca nada: así se conservan los casos con varios solicitantes y
+            // los externos que GLPI guarda solo con su correo (users_id 0 + alternative_email).
+            $solicitantesCargados = array_map(
+                fn ($u) => (string) (int) $u,
+                $lista('requester_ids') ?? DB::table('glpi_tickets_users')->where('tickets_id', $id)->where('type', 1)->pluck('users_id')->all()
+            );
+            $solicitanteEnviado = isset($validated['requester_id']) ? (string) (int) $validated['requester_id'] : '';
+            if ($solicitanteEnviado === '') {
+                $solicitanteIgual = $solicitantesCargados === [];
+            } elseif ($lista('requester_ids') !== null) {
+                // El formulario muestra el primero (por orden de alta): elegir a otro de los que ya
+                // tenía el caso también es un cambio, y queda solo el elegido
+                $solicitanteIgual = $solicitanteEnviado === ($solicitantesCargados[0] ?? null);
+            } else {
+                $solicitanteIgual = in_array($solicitanteEnviado, $solicitantesCargados, true);
             }
-
-            // Actualizar asignados - siempre actualizar si el campo viene en la petición
-            // Primero eliminar los asignados existentes
-            DB::table('glpi_tickets_users')
-                ->where('tickets_id', $id)
-                ->where('type', 2)
-                ->delete();
-            
-            // Luego agregar los nuevos asignados si hay
-            if (!empty($validated['assigned_ids'])) {
-                foreach ($validated['assigned_ids'] as $assignedId) {
-                    // El frontend envía glpi_user_id directamente, insertarlo tal cual
-                    DB::table('glpi_tickets_users')->insert([
-                        'tickets_id' => $id,
-                        'users_id' => $assignedId, // Ya es glpi_user_id del frontend
-                        'type' => 2, // Assigned
-                        'use_notification' => 1,
-                    ]);
-                }
+            if (!$solicitanteIgual) {
+                // Si se cambia, el nuevo reemplaza a los que había (o ninguno: "Sin solicitante")
+                $this->sincronizarPersonas($id, 1, $solicitanteEnviado !== '' && $solicitanteEnviado !== '0' ? [$solicitanteEnviado] : [], $solicitantesCargados);
             }
-
-            // Actualizar elementos asociados - siempre actualizar
-            DB::table('glpi_items_tickets')
-                ->where('tickets_id', $id)
-                ->delete();
-            
-            if (!empty($validated['items'])) {
-                foreach ($validated['items'] as $item) {
-                    DB::table('glpi_items_tickets')->insert([
-                        'tickets_id' => $id,
-                        'itemtype' => $item['type'],
-                        'items_id' => $item['id'],
-                    ]);
-                }
-            }
+            $this->sincronizarPersonas($id, 3, $validated['observer_ids'] ?? [], $lista('observer_ids'));
+            $this->sincronizarPersonas($id, 2, $validated['assigned_ids'] ?? [], $lista('assigned_ids'));
+            $this->sincronizarElementos($id, $validated['items'] ?? [], $lista('items'));
 
             // Manejar archivos adjuntos nuevos
             if ($request->hasFile('attachments')) {
@@ -1925,8 +2026,8 @@ class TicketController extends Controller
                 }
             }
 
-            // Notificar cambios de estado
-            if ($oldStatus && $oldStatus != $validated['status']) {
+            // Notificar cambios de estado (solo si este guardado lo cambió)
+            if ($oldStatus && $cambiaEstado) {
                 $statusNames = [
                     1 => 'Nuevo',
                     2 => 'En curso (asignado)',
@@ -1974,7 +2075,9 @@ class TicketController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Error al actualizar el caso: ' . $e->getMessage())->withInput();
+            // El detalle va al log: en pantalla se veía el SQL que falló.
+            \Log::error('Error al actualizar el caso', ['caso' => $id, 'error' => $e->getMessage()]);
+            return redirect()->back()->with('error', 'No se pudieron guardar los cambios. Inténtalo de nuevo; si el error continúa, avisa a Sistemas.')->withInput();
         }
     }
 

@@ -412,6 +412,13 @@ class DashboardController extends Controller
             return redirect()->back()->with('error', 'Ticket no encontrado.');
         }
 
+        // Ya resuelto o cerrado (p. ej. otro técnico lo cerró mientras esta página seguía
+        // abierta): sin esto se duplicaba la solución, se pisaban solvedate/closedate y se
+        // volvía a avisar al solicitante.
+        if (in_array((int) $ticket->status, [5, 6], true)) {
+            return redirect()->back()->with('error', 'El caso ya está resuelto o cerrado.');
+        }
+
         // Usar el campo glpi_user_id del usuario de Laravel
         $glpiUserId = $user->glpi_user_id;
         
@@ -451,7 +458,9 @@ class DashboardController extends Controller
         $ticketDate = \Carbon\Carbon::parse($ticket->date);
         \Log::info('solveTicket: date check', ['resolveDateTime' => $resolveDateTime->toDateTimeString(), 'ticketDate' => $ticketDate->toDateTimeString()]);
         
-        if ($resolveDateTime->lt($ticketDate)) {
+        // Al minuto: el formulario manda la hora sin segundos ("10:32") y la apertura sí los
+        // tiene ("10:32:45"); resolver en el mismo minuto en que se abrió se rechazaba.
+        if ($resolveDateTime->lt($ticketDate->copy()->startOfMinute())) {
             \Log::warning('solveTicket: Date before opening');
             return redirect()->back()->with('error', 'La fecha de solución no puede ser anterior a la fecha de apertura del caso.');
         }
@@ -465,6 +474,22 @@ class DashboardController extends Controller
                 'resolve_date' => $resolveDateTime->toDateTimeString()
             ]);
             
+            // Cambiar estado a "Cerrado" (status = 6), solo si sigue abierto: si dos técnicos
+            // resuelven a la vez, el segundo no actualiza nada y no se inserta otra solución.
+            $actualizados = DB::table('glpi_tickets')
+                ->where('id', $id)
+                ->whereNotIn('status', [5, 6])
+                ->update([
+                    'status' => 6,
+                    'date_mod' => $resolveDateTime,
+                    'solvedate' => $resolveDateTime,
+                    'closedate' => $resolveDateTime,
+                ]);
+            if ($actualizados === 0) {
+                DB::rollBack();
+                return redirect()->back()->with('error', 'El caso ya está resuelto o cerrado.');
+            }
+
             // Insertar la solución en glpi_itilsolutions
             DB::table('glpi_itilsolutions')->insert([
                 'itemtype' => 'Ticket',
@@ -477,16 +502,6 @@ class DashboardController extends Controller
                 'users_id_approval' => 0,
                 'status' => 2, // Aprobado
             ]);
-
-            // Cambiar estado a "Cerrado" (status = 6)
-            DB::table('glpi_tickets')
-                ->where('id', $id)
-                ->update([
-                    'status' => 6,
-                    'date_mod' => $resolveDateTime,
-                    'solvedate' => $resolveDateTime,
-                    'closedate' => $resolveDateTime,
-                ]);
 
             DB::commit();
 

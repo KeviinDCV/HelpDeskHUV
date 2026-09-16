@@ -393,18 +393,20 @@ class MonitorController extends Controller
             abort(404);
         }
 
-        // Obtener computador conectado
-        $computer = DB::table('glpi_computers_items as ci')
-            ->join('glpi_computers as c', function($join) {
-                $join->on('ci.computers_id', '=', 'c.id');
-            })
-            ->select('c.id', 'c.name', 'c.serial')
+        // Computadores conectados. Solo vínculos vigentes: GLPI marca con is_deleted los que se
+        // desconectaron, y sin filtrarlos la ficha decía que el monitor seguía conectado a un
+        // equipo del que ya se había quitado. Pueden ser varios; antes se mostraba uno al azar.
+        $computers = DB::table('glpi_computers_items as ci')
+            ->join('glpi_computers as c', 'ci.computers_id', '=', 'c.id')
             ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
-            ->addSelect('l.completename as location_name')
+            ->select('c.id', 'c.name', 'c.serial', 'l.completename as location_name')
             ->where('ci.items_id', $id)
             ->where('ci.itemtype', 'Monitor')
+            ->where('ci.is_deleted', 0)
             ->where('c.is_deleted', 0)
-            ->first();
+            ->orderBy('c.name')
+            ->get();
+        $computer = $computers->first();
 
         // Obtener tickets relacionados
         $tickets = DB::table('glpi_items_tickets as it')
@@ -420,6 +422,7 @@ class MonitorController extends Controller
         return Inertia::render('inventario/ver-monitor', [
             'monitor' => $monitor,
             'computer' => $computer,
+            'computers' => $computers,
             'tickets' => $tickets,
         ]);
     }

@@ -1,8 +1,9 @@
-import { GLPIHeader } from '@/components/glpi-header';
-import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, Link, router } from '@inertiajs/react';
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pencil, Package, Box } from 'lucide-react';
+import { Dato, Datos, FichaEncabezado, FichaSeccion, fechaFicha, useEsAdministrador } from '@/components/ficha';
+import { Pagina } from '@/components/pagina';
+import { btn } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
+import { Link } from '@inertiajs/react';
+import { AlertTriangle, Box, Package, Pencil } from 'lucide-react';
 
 interface Consumable {
     id: number;
@@ -25,145 +26,79 @@ interface Props {
     stockUsado: number;
 }
 
-export default function VerConsumible({ consumable, stockTotal, stockDisponible, stockUsado }: Props) {
+export default function VerConsumible({ consumable: c, stockTotal, stockDisponible, stockUsado }: Props) {
+    const esAdmin = useEsAdministrador();
+    const umbral = Number(c.alarm_threshold ?? 0);
+    // Alerta solo con un umbral definido (> 0), como antes. Con 0 la página pintaba un "0" suelto.
+    const bajoUmbral = umbral > 0 && stockDisponible <= umbral;
+
+    const existencias = [
+        { etiqueta: 'Total', valor: stockTotal, punto: 'bg-gray-400' },
+        { etiqueta: 'Disponible', valor: stockDisponible, punto: 'bg-green-600' },
+        { etiqueta: 'Usado', valor: stockUsado, punto: 'bg-orange-500' },
+    ];
+
     return (
-        <>
-            <Head title={`${consumable.name} - HelpDesk HUV`} />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/inventario/consumibles" className="text-[#2c4370] hover:underline">Consumibles</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">{consumable.name}</span>
-                    </div>
-                } />
+        <Pagina titulo={c.name} migas={[{ texto: 'Inicio', href: '/dashboard' }, { texto: 'Inventario', href: '/inventario/global' }, { texto: 'Consumibles', href: '/inventario/consumibles' }, { texto: c.name }]}>
+            <FichaEncabezado
+                titulo={c.name}
+                detalle={<span className="tabular-nums">ID: {c.id}</span>}
+                volverHref="/inventario/consumibles"
+                volverTexto="Consumibles"
+                acciones={
+                    esAdmin && (
+                        <Link href={`/inventario/consumibles/${c.id}/editar`} className={btn.primary}>
+                            <Pencil aria-hidden="true" />
+                            Editar
+                        </Link>
+                    )
+                }
+            />
 
-                <main className="flex-1 p-4 sm:p-6">
-                    <div className="max-w-4xl mx-auto">
-                        {/* Header */}
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => router.visit('/inventario/consumibles')}
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-1" />
-                                    Volver
-                                </Button>
-                                <div>
-                                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{consumable.name}</h1>
-                                    <p className="text-sm text-gray-500">ID: {consumable.id}</p>
-                                </div>
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <FichaSeccion titulo="Información general" icono={<Package className="size-5 text-huv-ink" aria-hidden="true" />}>
+                    <Datos>
+                        <Dato etiqueta="Nombre">{c.name}</Dato>
+                        <Dato etiqueta="Entidad">{c.entity_name}</Dato>
+                        <Dato etiqueta="Tipo">{c.type_name}</Dato>
+                        <Dato etiqueta="Fabricante">{c.manufacturer_name}</Dato>
+                        <Dato etiqueta="Referencia" mono>
+                            {c.ref}
+                        </Dato>
+                        <Dato etiqueta="Umbral de alarma">{c.alarm_threshold !== null && c.alarm_threshold !== undefined ? String(c.alarm_threshold) : null}</Dato>
+                        <Dato etiqueta="Localización" ancho>
+                            {c.location_name}
+                        </Dato>
+                        {c.comment && (
+                            <Dato etiqueta="Comentarios" ancho>
+                                <span className="whitespace-pre-wrap">{c.comment}</span>
+                            </Dato>
+                        )}
+                        <Dato etiqueta="Fecha de creación">{fechaFicha(c.date_creation)}</Dato>
+                        <Dato etiqueta="Última modificación">{fechaFicha(c.date_mod)}</Dato>
+                    </Datos>
+                </FichaSeccion>
+
+                <FichaSeccion titulo="Inventario" icono={<Box className="size-5 text-huv-ink" aria-hidden="true" />}>
+                    <dl className="divide-y">
+                        {existencias.map((e) => (
+                            <div key={e.etiqueta} className="flex items-center justify-between py-2.5 text-sm">
+                                <dt className="flex items-center gap-2 text-gray-600">
+                                    <span aria-hidden="true" className={cn('size-2 rounded-full', e.punto)} />
+                                    {e.etiqueta}
+                                </dt>
+                                <dd className="text-xl font-semibold text-gray-900">{e.valor.toLocaleString('es-CO')}</dd>
                             </div>
-                            <Button
-                                onClick={() => router.visit(`/inventario/consumibles/${consumable.id}/editar`)}
-                                className="bg-[#2c4370] hover:bg-[#3d5583]"
-                            >
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Editar
-                            </Button>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Información Principal */}
-                            <div className="lg:col-span-2">
-                                <div className="bg-white rounded-lg shadow-sm border p-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Package className="h-5 w-5 text-[#2c4370]" />
-                                        Información General
-                                    </h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Nombre</label>
-                                            <p className="text-sm font-medium text-gray-900">{consumable.name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Entidad</label>
-                                            <p className="text-sm font-medium text-gray-900">{consumable.entity_name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Tipo</label>
-                                            <p className="text-sm font-medium text-gray-900">{consumable.type_name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Fabricante</label>
-                                            <p className="text-sm font-medium text-gray-900">{consumable.manufacturer_name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Referencia</label>
-                                            <p className="text-sm font-mono font-medium text-gray-900">{consumable.ref || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Umbral de Alarma</label>
-                                            <p className="text-sm font-medium text-gray-900">{consumable.alarm_threshold ?? '-'}</p>
-                                        </div>
-                                        <div className="sm:col-span-2">
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Localización</label>
-                                            <p className="text-sm font-medium text-gray-900">{consumable.location_name || '-'}</p>
-                                        </div>
-                                        {consumable.comment && (
-                                            <div className="sm:col-span-2">
-                                                <label className="text-xs text-gray-500 uppercase tracking-wide">Comentarios</label>
-                                                <p className="text-sm text-gray-900 whitespace-pre-wrap">{consumable.comment}</p>
-                                            </div>
-                                        )}
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Fecha de Creación</label>
-                                            <p className="text-sm text-gray-600">
-                                                {consumable.date_creation 
-                                                    ? new Date(consumable.date_creation).toLocaleString('es-CO') 
-                                                    : '-'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 uppercase tracking-wide">Última Modificación</label>
-                                            <p className="text-sm text-gray-600">
-                                                {consumable.date_mod 
-                                                    ? new Date(consumable.date_mod).toLocaleString('es-CO') 
-                                                    : '-'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Sidebar - Stock */}
-                            <div className="space-y-6">
-                                <div className="bg-white rounded-lg shadow-sm border p-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Box className="h-5 w-5 text-[#2c4370]" />
-                                        Inventario
-                                    </h2>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                            <span className="text-sm text-gray-600">Total</span>
-                                            <span className="text-lg font-bold text-gray-900">{stockTotal}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                            <span className="text-sm text-green-700">Disponible</span>
-                                            <span className="text-lg font-bold text-green-700">{stockDisponible}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                                            <span className="text-sm text-orange-700">Usado</span>
-                                            <span className="text-lg font-bold text-orange-700">{stockUsado}</span>
-                                        </div>
-                                        {consumable.alarm_threshold && stockDisponible <= consumable.alarm_threshold && (
-                                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                                <p className="text-sm text-red-700 font-medium">
-                                                    ⚠️ Stock bajo el umbral de alarma
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-
-                <GLPIFooter />
+                        ))}
+                    </dl>
+                    {bajoUmbral && (
+                        <p role="status" className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-800 ring-1 ring-inset ring-red-600/20">
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                            Stock bajo el umbral de alarma
+                        </p>
+                    )}
+                </FichaSeccion>
             </div>
-        </>
+        </Pagina>
     );
 }

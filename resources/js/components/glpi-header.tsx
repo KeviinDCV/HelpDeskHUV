@@ -101,30 +101,21 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  
-  // Cargar preferencia de tema al iniciar
+  // El tema ya viene aplicado desde app.blade.php (antes de pintar): aquí solo se lee para saber
+  // qué icono mostrar. Antes se calculaba en un efecto y la página parpadeaba en claro.
+  const [darkMode, setDarkMode] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+
   useEffect(() => {
-    const savedTheme = localStorage.getItem('helpdesk_theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
 
   // Toggle modo oscuro
   const toggleDarkMode = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('helpdesk_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('helpdesk_theme', 'light');
-    }
+    try {
+      localStorage.setItem('helpdesk_theme', newMode ? 'dark' : 'light');
+    } catch { /* sin almacenamiento */ }
   };
   
   // Atajo CTRL+K para abrir buscador
@@ -182,7 +173,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
       </a>
       {/* Top Navigation Bar */}
       <div className={`flex items-center justify-between px-3 sm:px-4 py-2 ${mobileMenuOpen ? 'lg:border-b lg:border-[#3d5583]' : 'border-b border-[#3d5583]'}`}>
-        <div className="flex items-center gap-2 sm:gap-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4 min-[1366px]:gap-6">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -201,15 +192,15 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
             onClick={() => router.visit('/dashboard')}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
           >
-            <span className="text-lg sm:text-2xl font-bold whitespace-nowrap">HelpDesk HUV</span>
+            <span className="text-lg sm:text-xl min-[1366px]:text-2xl font-bold whitespace-nowrap">HelpDesk HUV</span>
           </button>
           
           {/* Main Navigation - Hidden on mobile */}
           <NavigationMenu viewport={false} className="hidden lg:flex">
-            <NavigationMenuList className="gap-1">
+            <NavigationMenuList className="gap-0.5 min-[1366px]:gap-1">
               {/* Inventario Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-2 min-[1366px]:px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Inventario
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -229,7 +220,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Soporte Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-2 min-[1366px]:px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Soporte
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -249,7 +240,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Gestión Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-2 min-[1366px]:px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Gestión
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -269,7 +260,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Útiles Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-2 min-[1366px]:px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Útiles
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -289,7 +280,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Administración Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-2 min-[1366px]:px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Administración
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -309,7 +300,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
 
               {/* Configuración Menu */}
               <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
+                <NavigationMenuTrigger className="bg-transparent text-white hover:bg-[#3d5583] hover:text-white data-[state=open]:bg-[#3d5583] h-9 px-2 min-[1366px]:px-3 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0 text-sm">
                   Configuración
                 </NavigationMenuTrigger>
                 <NavigationMenuContent className="!p-0">
@@ -331,7 +322,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
         </div>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-1 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2 min-[1366px]:gap-3">
           {/* Dark Mode Toggle */}
           <button
             onClick={toggleDarkMode}
@@ -350,11 +341,11 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           <button
             onClick={() => setSearchOpen(true)}
             aria-label="Buscar"
-            className="hidden sm:flex items-center gap-2 h-9 px-3 bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white"
+            className="hidden sm:flex items-center gap-2 h-9 px-2 min-[1366px]:px-3 bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white"
           >
             <Search className="h-4 w-4" />
-            <span className="text-sm hidden md:inline">Buscar...</span>
-            <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 border border-white/20 bg-white/10 px-1.5 text-[10px] font-medium">
+            <span className="text-sm hidden min-[1366px]:inline">Buscar...</span>
+            <kbd className="hidden min-[1366px]:inline-flex h-5 items-center gap-0.5 border border-white/20 bg-white/10 px-1.5 text-[10px] font-medium">
               {isMac ? '⌘' : 'Ctrl'} K
             </kbd>
           </button>
@@ -385,13 +376,17 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
                     {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                 )}
-                <span className="hidden md:inline">
+                <span className="hidden min-[1366px]:inline">
                   {user?.name ? (user.name.length > 15 ? user.name.substring(0, 15) + '...' : user.name) : 'Usuario'}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem className="text-xs text-gray-500 cursor-default">{user?.role || 'Usuario'}</DropdownMenuItem>
+              {/* El nombre y el rol también aquí: en pantallas estrechas el botón solo muestra la inicial */}
+              <DropdownMenuItem className="cursor-default flex-col items-start gap-0">
+                <span className="text-sm font-medium text-gray-900">{user?.name || 'Usuario'}</span>
+                <span className="text-xs text-gray-500">{user?.role || 'Usuario'}</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.visit('/settings/profile')}>Perfil</DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout}>Cerrar sesión</DropdownMenuItem>
             </DropdownMenuContent>
@@ -401,7 +396,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="text-white hover:bg-[#3d5583] hidden sm:flex"
+            className="text-white hover:bg-[#3d5583] hidden min-[1366px]:flex"
             onClick={handleLogout}
             title="Cerrar sesión"
           >

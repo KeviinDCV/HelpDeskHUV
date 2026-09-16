@@ -314,6 +314,73 @@ class PeripheralController extends Controller
         return redirect()->route('inventario.dispositivos')->with('success', 'Dispositivo creado exitosamente');
     }
 
+    /**
+     * Ficha de un dispositivo (periférico). No existía: el nombre en el listado y en la búsqueda global
+     * enlazaba a esta URL y respondía 405.
+     */
+    public function show($id)
+    {
+        $peripheral = DB::table('glpi_peripherals as x')
+            ->select(
+                'x.*',
+                's.name as state_name',
+                'm.name as manufacturer_name',
+                'l.completename as location_name',
+                'e.name as entity_name',
+                't.name as type_name',
+                'md.name as model_name',
+                'u_tech.name as tech_user_name',
+                'g_tech.name as tech_group_name',
+                'u.name as user_name',
+                'g.name as group_name'
+            )
+            ->leftJoin('glpi_entities as e', 'x.entities_id', '=', 'e.id')
+            ->leftJoin('glpi_peripheraltypes as t', 'x.peripheraltypes_id', '=', 't.id')
+            ->leftJoin('glpi_peripheralmodels as md', 'x.peripheralmodels_id', '=', 'md.id')
+            ->leftJoin('glpi_states as s', 'x.states_id', '=', 's.id')
+            ->leftJoin('glpi_manufacturers as m', 'x.manufacturers_id', '=', 'm.id')
+            ->leftJoin('glpi_locations as l', 'x.locations_id', '=', 'l.id')
+            ->leftJoin('glpi_users as u_tech', 'x.users_id_tech', '=', 'u_tech.id')
+            ->leftJoin('glpi_groups as g_tech', 'x.groups_id_tech', '=', 'g_tech.id')
+            ->leftJoin('glpi_users as u', 'x.users_id', '=', 'u.id')
+            ->leftJoin('glpi_groups as g', 'x.groups_id', '=', 'g.id')
+            ->where('x.id', $id)
+            ->where('x.is_deleted', 0)
+            ->first();
+
+        if (!$peripheral) {
+            abort(404);
+        }
+
+        // Computadores a los que está conectado (solo vínculos vigentes)
+        $computers = DB::table('glpi_computers_items as ci')
+            ->join('glpi_computers as c', 'ci.computers_id', '=', 'c.id')
+            ->leftJoin('glpi_locations as l', 'c.locations_id', '=', 'l.id')
+            ->select('c.id', 'c.name', 'c.serial', 'l.completename as location_name')
+            ->where('ci.items_id', $id)
+            ->where('ci.itemtype', 'Peripheral')
+            ->where('ci.is_deleted', 0)
+            ->where('c.is_deleted', 0)
+            ->orderBy('c.name')
+            ->get();
+
+        $tickets = DB::table('glpi_items_tickets as it')
+            ->join('glpi_tickets as t', 'it.tickets_id', '=', 't.id')
+            ->select('t.id', 't.name', 't.status', 't.date')
+            ->where('it.items_id', $id)
+            ->where('it.itemtype', 'Peripheral')
+            ->where('t.is_deleted', 0)
+            ->orderBy('t.date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('inventario/ver-dispositivo', [
+            'peripheral' => $peripheral,
+            'computers' => $computers,
+            'tickets' => $tickets,
+        ]);
+    }
+
     public function edit($id)
     {
         if (auth()->user()->role !== 'Administrador') {

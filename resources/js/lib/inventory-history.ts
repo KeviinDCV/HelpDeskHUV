@@ -1,5 +1,6 @@
 // Etiquetas y estilos compartidos para el historial de cambios de inventario.
 // Usados por la pestaña "Historial" del detalle de computador y por la vista global.
+import { parseFecha } from '@/lib/ticket-format';
 
 export interface HistoryEntry {
     id: number;
@@ -43,8 +44,9 @@ export const categoryLabel = (c: string): string => HISTORY_CATEGORY_LABELS[c] ?
 
 export const actionStyle = (a: string) => HISTORY_ACTION_STYLE[a] ?? HISTORY_ACTION_STYLE.modified;
 
+// "2026-09-15 07:12:45" no es ISO: se lee como hora local (Safari daba Invalid Date)
 export const formatHistoryDate = (value: string): string => {
-    const d = new Date(value);
+    const d = parseFecha(value);
     if (isNaN(d.getTime())) return value;
     return d.toLocaleDateString('es-CO') + ' ' + d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 };

@@ -151,7 +151,7 @@ function Dato({ etiqueta, children, vacio = '—', aviso = false }: { etiqueta: 
     return (
         <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 py-2.5 text-sm">
             <dt className="text-gray-500">{etiqueta}</dt>
-            <dd className={cn('min-w-0 break-words', tiene ? 'text-gray-900' : aviso ? 'font-medium text-amber-700' : 'text-gray-400')}>{tiene ? children : vacio}</dd>
+            <dd className={cn('min-w-0 break-words', tiene ? 'text-gray-900' : aviso ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-gray-500')}>{tiene ? children : vacio}</dd>
         </div>
     );
 }
@@ -269,7 +269,7 @@ export default function VerCaso({
                                     {descripcion ? (
                                         <p className="text-[15px] leading-relaxed break-words whitespace-pre-wrap text-gray-800">{descripcion}</p>
                                     ) : (
-                                        <p className="text-sm text-gray-400">Sin descripción.</p>
+                                        <p className="text-sm text-gray-500">Sin descripción.</p>
                                     )}
                                 </Seccion>
 
@@ -369,7 +369,7 @@ export default function VerCaso({
                                                 const contenido = (
                                                     <>
                                                         <span className="min-w-0 flex-1">
-                                                            <span className={cn('block truncate text-sm font-medium', encontrado ? 'text-gray-900' : 'text-gray-400')}>
+                                                            <span className={cn('block truncate text-sm font-medium', encontrado ? 'text-gray-900' : 'text-gray-500')}>
                                                                 {encontrado ? item.name : `#${item.items_id} (ya no existe)`}
                                                             </span>
                                                             <span className="block text-xs text-gray-500">{tipo}</span>

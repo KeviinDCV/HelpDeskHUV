@@ -50,7 +50,7 @@ class SearchController extends Controller
                 'type' => 'ticket',
                 'title' => "#{$ticket->id} - " . (strlen($ticket->name) > 60 ? substr($ticket->name, 0, 60) . '...' : $ticket->name),
                 'subtitle' => $ticket->status_name . ' • ' . date('d/m/Y', strtotime($ticket->date)),
-                'url' => "/soporte/casos/{$ticket->id}/editar",
+                'url' => "/soporte/casos/{$ticket->id}",
             ];
         }
 

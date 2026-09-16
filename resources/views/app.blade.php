@@ -8,18 +8,18 @@
         {{-- App interna: evitar indexación accidental por buscadores --}}
         <meta name="robots" content="noindex, nofollow">
 
-        {{-- Inline script to detect system dark mode preference and apply it immediately --}}
+        {{-- Aplica el tema antes de pintar: primero el que eligió la persona (el botón de la
+             cabecera lo guarda en helpdesk_theme) y, si no eligió, el del sistema. Sin esto, quien
+             tenía el modo oscuro veía la página en claro durante un instante en cada carga. --}}
         <script>
             (function() {
                 const appearance = '{{ $appearance ?? "system" }}';
-
-                if (appearance === 'system') {
-                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-                    if (prefersDark) {
-                        document.documentElement.classList.add('dark');
-                    }
-                }
+                let guardado = null;
+                try { guardado = localStorage.getItem('helpdesk_theme'); } catch (e) { /* sin almacenamiento */ }
+                const oscuro = guardado
+                    ? guardado === 'dark'
+                    : appearance === 'dark' || (appearance === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', oscuro);
             })();
         </script>
 

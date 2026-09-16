@@ -1,50 +1,36 @@
-import { GLPIHeader } from '@/components/glpi-header';
-import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Button } from "@/components/ui/button";
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
-import React from 'react';
-import { Upload, X } from 'lucide-react';
-
-interface User {
-    id: number;
-    username: string;
-    name: string;
-    email: string;
-}
-
-interface Location {
-    id: number;
-    name: string;
-    completename: string;
-    short_name?: string;
-}
-
-interface ItemType {
-    value: string;
-    label: string;
-}
-
-interface Item {
-    id: number;
-    name: string;
-}
-
-interface Category {
-    id: number;
-    name: string;
-    completename: string;
-}
+    AccionesFormulario,
+    CampoAdjuntos,
+    CampoCategoria,
+    ESTADOS_CASO,
+    PRIORIDADES_CASO,
+    ResumenErrores,
+    SelectorElementos,
+    SelectorPersonas,
+    Tarjeta,
+    disparador,
+    erroresPorCampo,
+    formularioClase,
+    type CategoriaCaso,
+    type ElementoCaso,
+    type TipoElementoCaso,
+    type UbicacionCaso,
+    type UsuarioCaso,
+} from '@/components/caso-formulario';
+import { FormField } from '@/components/form-field';
+import { GLPIFooter } from '@/components/glpi-footer';
+import { GLPIHeader } from '@/components/glpi-header';
+import { PageHeader } from '@/components/page-header';
+import { PRIORIDAD } from '@/components/ticket-pills';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { htmlToText, tieneMarcado } from '@/lib/strip-html';
+import { parseFecha } from '@/lib/ticket-format';
+import { btn, fieldClass } from '@/lib/ui-classes';
+import { cn } from '@/lib/utils';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { AlertTriangle, CheckCircle2, Download, Eye, FileText } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 interface Ticket {
     id: number;
@@ -57,6 +43,8 @@ interface Ticket {
     priority: number;
     locations_id: number;
     itilcategories_id: number;
+    location_name?: string | null;
+    category_name?: string | null;
 }
 
 interface TicketUser {
@@ -64,6 +52,8 @@ interface TicketUser {
     tickets_id: number;
     users_id: number;
     type: number;
+    fullname?: string | null;
+    alternative_email?: string | null;
 }
 
 interface TicketItem {
@@ -71,7 +61,9 @@ interface TicketItem {
     tickets_id: number;
     itemtype: string;
     items_id: number;
-    item_name?: string;
+    item_name?: string | null;
+    /** false: el equipo ya no está en la base; null: no se pudo comprobar */
+    item_exists?: boolean | null;
 }
 
 interface Attachment {
@@ -92,560 +84,486 @@ interface EditTicketProps {
     ticket: Ticket;
     ticketUsers: TicketUser[];
     ticketItems: TicketItem[];
-    users: User[];
-    locations: Location[];
-    categories: Category[];
-    itemTypes: ItemType[];
+    users: UsuarioCaso[];
+    locations: UbicacionCaso[];
+    categories: CategoriaCaso[];
+    itemTypes: TipoElementoCaso[];
     attachments: Attachment[];
     solution: Solution | null;
-    auth: {
-        user: User;
-    };
 }
 
-export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, locations, categories, itemTypes, attachments, solution, auth }: EditTicketProps) {
-    // Inicializar con datos existentes
-    const currentRequesterId = ticketUsers.find(tu => tu.type === 1)?.users_id;
-    const currentObserverIds = ticketUsers.filter(tu => tu.type === 3).map(tu => tu.users_id);
-    const currentAssignedIds = ticketUsers.filter(tu => tu.type === 2).map(tu => tu.users_id);
-    
-    const [existingAttachments, setExistingAttachments] = React.useState<Attachment[]>(attachments || []);
-    const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
-    const [observerIds, setObserverIds] = React.useState<number[]>(currentObserverIds);
-    const [assignedIds, setAssignedIds] = React.useState<number[]>(currentAssignedIds);
-    const [selectedItemType, setSelectedItemType] = React.useState<string>('');
-    const [availableItems, setAvailableItems] = React.useState<Item[]>([]);
-    const [selectedItems, setSelectedItems] = React.useState<{type: string, id: number, name: string}[]>(
-        ticketItems.map(ti => ({
-            type: ti.itemtype,
-            id: ti.items_id,
-            name: ti.item_name || `${ti.itemtype}: ${ti.items_id}`
-        }))
+/**
+ * Fecha de la base ("2026-09-15 07:12:45") al formato del campo ("2026-09-15T07:12"), tal cual.
+ * Antes pasaba por toISOString(), que la convierte a UTC: en Colombia el campo mostraba 5 horas
+ * más, y cada guardado corría la apertura y los plazos otras 5 horas.
+ */
+const aCampoFecha = (valor: string | null) => (valor ? valor.replace(' ', 'T').slice(0, 16) : '');
+
+function fechaLegible(valor: string) {
+    const d = parseFecha(valor);
+    return Number.isNaN(d.getTime()) ? valor : d.toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function tamano(bytes: number): string | null {
+    if (!bytes) return null;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+}
+
+export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, locations, categories, itemTypes, attachments = [], solution }: EditTicketProps) {
+    const { flash } = usePage<{ flash?: { error?: string | null } }>().props;
+    const resumenRef = useRef<HTMLDivElement>(null);
+
+    // Personas actuales del caso, y sus nombres aunque no estén entre los usuarios activos.
+    // Un externo que GLPI guarda solo con su correo tiene users_id 0: también cuenta (antes se
+    // tomaba como "sin solicitante" y al guardar se borraba). Los nombres van por tipo: un
+    // solicitante externo y un observador externo tienen el mismo id 0 y correos distintos.
+    const filasDe = (tipo: number) => ticketUsers.filter((tu) => tu.type === tipo);
+    const nombresDe = (tipo: number) => {
+        const nombres: Record<number, string> = {};
+        const sinUsuario = filasDe(tipo).filter((tu) => tu.users_id === 0);
+        const externos = sinUsuario.filter((tu) => tu.alternative_email).map((tu) => tu.alternative_email);
+        for (const tu of filasDe(tipo)) if (tu.fullname) nombres[tu.users_id] = tu.fullname;
+        if (sinUsuario.length > 0) nombres[0] = externos.length > 0 ? `${externos.join(', ')} (externo)` : 'Externo sin correo';
+        return nombres;
+    };
+    const idsDe = (tipo: number) => [...new Set(filasDe(tipo).map((tu) => tu.users_id))];
+    const solicitantes = filasDe(1);
+    const filaSolicitante = solicitantes[0];
+    const nombresSolicitante = nombresDe(1);
+    const nombreSolicitante = (tu: TicketUser) => (tu.users_id === 0 ? (nombresSolicitante[0] ?? 'Externo sin correo') : (tu.fullname ?? `Usuario de GLPI #${tu.users_id}`));
+    const otrosSolicitantes = solicitantes.slice(1).filter((tu) => tu.users_id !== filaSolicitante?.users_id);
+
+    // Lo que el formulario cargó: el servidor aplica solo lo que se cambie respecto de esto, así
+    // no deshace lo que otro técnico haga en el caso mientras esta página sigue abierta.
+    const [original] = useState(() =>
+        JSON.stringify({
+            name: ticket.name,
+            content: ticket.content,
+            date: ticket.date,
+            time_to_resolve: ticket.time_to_resolve,
+            internal_time_to_resolve: ticket.internal_time_to_resolve,
+            status: ticket.status,
+            priority: ticket.priority,
+            locations_id: ticket.locations_id,
+            itilcategories_id: ticket.itilcategories_id,
+            requester_ids: idsDe(1),
+            observer_ids: idsDe(3),
+            assigned_ids: idsDe(2),
+            items: ticketItems.map((ti) => ({ type: ti.itemtype, id: ti.items_id })),
+        }),
     );
-    const [loadingItems, setLoadingItems] = React.useState(false);
 
-    // Formatear fecha para input datetime-local
-    const formatDateForInput = (dateStr: string | null) => {
-        if (!dateStr) return '';
-        const date = new Date(dateStr);
-        return date.toISOString().slice(0, 16);
-    };
+    // Descripción legible; si no se toca, se guarda la original byte a byte (con su HTML)
+    const contenidoHtml = tieneMarcado(ticket.content);
+    const [contenidoInicial] = useState(() => (contenidoHtml ? htmlToText(ticket.content) : ticket.content || ''));
 
-    const { data, setData, processing, errors } = useForm({
+    const form = useForm({
         name: ticket.name || '',
-        content: ticket.content || '',
-        date: formatDateForInput(ticket.date),
-        time_to_resolve: formatDateForInput(ticket.time_to_resolve),
-        internal_time_to_resolve: formatDateForInput(ticket.internal_time_to_resolve),
-        status: ticket.status?.toString() || '1',
-        priority: ticket.priority?.toString() || '3',
-        locations_id: ticket.locations_id?.toString() || '',
-        itilcategories_id: ticket.itilcategories_id?.toString() || '',
-        requester_id: currentRequesterId?.toString() || '',
-        observer_ids: currentObserverIds,
-        assigned_ids: currentAssignedIds,
+        content: contenidoInicial,
+        date: aCampoFecha(ticket.date),
+        time_to_resolve: aCampoFecha(ticket.time_to_resolve),
+        internal_time_to_resolve: aCampoFecha(ticket.internal_time_to_resolve),
+        status: ticket.status ? String(ticket.status) : '1',
+        priority: ticket.priority ? String(ticket.priority) : '3',
+        locations_id: ticket.locations_id ? String(ticket.locations_id) : '',
+        itilcategories_id: ticket.itilcategories_id ? String(ticket.itilcategories_id) : '',
+        requester_id: filaSolicitante ? String(filaSolicitante.users_id) : '',
+        observer_ids: idsDe(3),
+        assigned_ids: idsDe(2),
     });
+    const { data, setData, errors, processing } = form;
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            setSelectedFiles(prev => [...prev, ...files]);
-        }
+    const [archivos, setArchivos] = useState<File[]>([]);
+    const [elementos, setElementos] = useState<ElementoCaso[]>(() =>
+        ticketItems.map((ti) => {
+            const tipo = itemTypes.find((t) => t.value === ti.itemtype)?.label ?? ti.itemtype;
+            // Sin nombre no quiere decir que no exista: el servidor dice si el equipo sigue en la base
+            const sinNombre = ti.item_exists === false ? '(ya no existe)' : '(sin nombre)';
+            return { type: ti.itemtype, id: ti.items_id, name: ti.item_name ? `${tipo}: ${ti.item_name}` : `${tipo} #${ti.items_id} ${sinNombre}` };
+        }),
+    );
+
+    const errores = erroresPorCampo(errors as Record<string, string>);
+    const errorDe = (campo: string) => errores[campo];
+
+    // El foco va al resumen después de que se pinten los errores
+    const [pedirFoco, setPedirFoco] = useState(0);
+    useEffect(() => {
+        if (pedirFoco) resumenRef.current?.focus();
+    }, [pedirFoco]);
+    const enfocarResumen = () => setPedirFoco((n) => n + 1);
+
+    const cambiar = (campo: 'name' | 'content' | 'date', valor: string) => {
+        setData(campo, valor);
+        if (errors[campo]) form.clearErrors(campo);
     };
 
-    const removeFile = (index: number) => {
-        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleItemTypeChange = async (type: string) => {
-        setSelectedItemType(type);
-        setAvailableItems([]);
-        
-        if (type) {
-            setLoadingItems(true);
-            try {
-                const response = await fetch(`/soporte/items/${type}`, {
-                    credentials: 'same-origin',
-                    headers: {
-                        'Accept': 'application/json',
-                    }
-                });
-                const items = await response.json();
-                setAvailableItems(items);
-            } catch (error) {
-                console.error('Error loading items:', error);
-            } finally {
-                setLoadingItems(false);
-            }
-        }
-    };
-
-    const addSelectedItem = (itemId: string) => {
-        const item = availableItems.find(i => i.id === parseInt(itemId));
-        const typeLabel = itemTypes.find(t => t.value === selectedItemType)?.label || selectedItemType;
-        
-        if (item && !selectedItems.some(s => s.type === selectedItemType && s.id === item.id)) {
-            setSelectedItems([...selectedItems, { type: selectedItemType, id: item.id, name: `${typeLabel}: ${item.name}` }]);
-        }
-    };
-
-    const removeSelectedItem = (type: string, id: number) => {
-        setSelectedItems(selectedItems.filter(item => !(item.type === type && item.id === id)));
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
+    const enviar = (e: FormEvent) => {
         e.preventDefault();
-        
-        // Preparar datos para enviar (Inertia maneja automáticamente FormData cuando hay archivos)
-        const submitData = {
-            ...data,
-            requester_id: data.requester_id || null,
-            observer_ids: observerIds.length > 0 ? observerIds : [],
-            assigned_ids: assignedIds.length > 0 ? assignedIds : [],
-            items: selectedItems.map(item => ({ type: item.type, id: item.id })),
-            attachments: selectedFiles,
-            _method: 'PUT', // Necesario para enviar PUT con archivos
-        };
 
-        router.post(`/soporte/casos/${ticket.id}`, submitData, {
+        // Lo mismo que exige el servidor (update): título, descripción y fecha de apertura
+        const faltan: Record<string, string> = {};
+        if (!data.name.trim()) faltan.name = 'Escribe un título.';
+        // Una descripción de GLPI que solo trae imágenes o formato se ve vacía aquí: sin tocarla,
+        // se guarda tal como está (no se exige escribir algo que la reemplazaría)
+        const soloMarcado = contenidoHtml && !!ticket.content?.trim() && data.content === contenidoInicial;
+        if (!data.content.trim() && !soloMarcado) faltan.content = 'Describe el caso.';
+        if (!data.date) faltan.date = 'Indica la fecha de apertura.';
+        form.clearErrors();
+        if (Object.keys(faltan).length > 0) {
+            form.setError(faltan as Record<keyof typeof data, string>);
+            enfocarResumen();
+            return;
+        }
+
+        // Lo que no se tocó viaja tal como está en la base: la fecha con sus segundos y la
+        // descripción con su formato de GLPI. Así guardar no cambia nada que no se haya editado.
+        const fechaSinTocar = (campo: string | null, valor: string) => (valor === aCampoFecha(campo) ? campo || '' : valor);
+        form.transform((d) => ({
+            ...d,
+            date: fechaSinTocar(ticket.date, d.date),
+            time_to_resolve: fechaSinTocar(ticket.time_to_resolve, d.time_to_resolve),
+            internal_time_to_resolve: fechaSinTocar(ticket.internal_time_to_resolve, d.internal_time_to_resolve),
+            content: d.content === contenidoInicial ? ticket.content : d.content,
+            requester_id: d.requester_id || null,
+            items: elementos.map(({ type, id }) => ({ type, id })),
+            attachments: archivos,
+            original,
+            _method: 'PUT', // PUT con archivos: se envía como POST
+        }));
+        form.post(`/soporte/casos/${ticket.id}`, {
             forceFormData: true,
-            onSuccess: () => {
-                // Redirect handled by backend
-            }
+            // Si el servidor rechaza algo, se queda todo lo escrito y se ve el error
+            preserveState: true,
+            onError: enfocarResumen,
         });
     };
 
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-    };
+    // Opciones actuales que podrían no estar en las listas (localización duplicada, persona inactiva)
+    const opcionesLocalizacion = [{ value: '', label: 'Sin localización' }, ...locations.map((l) => ({ value: String(l.id), label: l.completename || l.short_name || l.name || '' }))];
+    if (data.locations_id && !opcionesLocalizacion.some((o) => o.value === data.locations_id)) {
+        opcionesLocalizacion.splice(1, 0, { value: data.locations_id, label: ticket.location_name || `Localización #${data.locations_id}` });
+    }
+    const opcionesSolicitante = [{ value: '', label: 'Sin solicitante' }, ...users.map((u) => ({ value: String(u.id), label: u.name }))];
+    if (data.requester_id && !opcionesSolicitante.some((o) => o.value === data.requester_id)) {
+        opcionesSolicitante.splice(1, 0, { value: data.requester_id, label: nombresSolicitante[Number(data.requester_id)] ?? (data.requester_id === '0' ? 'Solicitante externo' : `Usuario de GLPI #${data.requester_id}`) });
+    }
 
     return (
         <>
-            <Head title={`Editar Caso #${ticket.id} - HelpDesk HUV`} />
-            <div className="min-h-screen flex flex-col bg-gray-50">
-                <GLPIHeader breadcrumb={
-                    <div className="flex items-center gap-2 text-sm">
-                        <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">Inicio</Link>
-                        <span className="text-gray-400">/</span>
-                        <Link href="/soporte/casos" className="text-gray-600 hover:text-[#2c4370] hover:underline">Soporte</Link>
-                        <span className="text-gray-400">/</span>
-                        <Link href="/soporte/casos" className="text-gray-600 hover:text-[#2c4370] hover:underline">Casos</Link>
-                        <span className="text-gray-400">/</span>
-                        <span className="font-medium text-gray-900">Editar #{ticket.id}</span>
-                    </div>
-                } />
+            <Head title={`HelpDesk HUV - Editar caso #${ticket.id}`} />
+            <div className="flex min-h-screen flex-col bg-gray-50">
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="text-gray-600">Soporte</span>
+                            <span className="text-gray-400">/</span>
+                            <Link href="/soporte/casos" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Casos
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">Editar #{ticket.id}</span>
+                        </div>
+                    }
+                />
 
-                <main className="flex-1 px-6 py-6">
-                    <div className="max-w-5xl mx-auto">
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="px-6 py-4 border-b">
-                                <h1 className="text-xl font-semibold text-gray-900">Editar Caso #{ticket.id}</h1>
-                                <p className="text-sm text-gray-600 mt-1">Modifique los datos del caso</p>
+                <main className="flex-1">
+                    <div className="mx-auto w-full max-w-6xl space-y-5 px-4 pt-6 sm:px-6">
+                        <PageHeader
+                            title={`Editar caso #${ticket.id}`}
+                            description="Los campos sin la marca «Opcional» son obligatorios."
+                            actions={
+                                <Link href={`/soporte/casos/${ticket.id}`} className={btn.secondary}>
+                                    <Eye aria-hidden="true" />
+                                    Ver caso
+                                </Link>
+                            }
+                        />
+
+                        {flash?.error && (
+                            <p role="alert" className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/20">
+                                <AlertTriangle className="size-5 shrink-0 text-red-700" aria-hidden="true" />
+                                {flash.error}
+                            </p>
+                        )}
+
+                        <form noValidate onSubmit={enviar} className={formularioClase}>
+                            <ResumenErrores ref={resumenRef} errores={errores} accion="guardar los cambios" />
+
+                            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                                <div className="min-w-0 space-y-5">
+                                    <Tarjeta titulo="Caso">
+                                        <FormField id="name" label="Título" error={errorDe('name')}>
+                                            {(c) => (
+                                                <input
+                                                    {...c}
+                                                    name="name"
+                                                    autoComplete="off"
+                                                    maxLength={255}
+                                                    value={data.name}
+                                                    onChange={(e) => cambiar('name', e.target.value)}
+                                                    className={fieldClass}
+                                                />
+                                            )}
+                                        </FormField>
+
+                                        <FormField
+                                            id="content"
+                                            label="Descripción"
+                                            error={errorDe('content')}
+                                            hint={
+                                                !contenidoHtml
+                                                    ? undefined
+                                                    : contenidoInicial.trim()
+                                                      ? 'Viene de GLPI con formato. Si no la cambias, se guarda tal como está; si la editas, se guarda como texto sin formato (sin enlaces ni imágenes).'
+                                                      : 'La descripción de GLPI solo tiene imágenes o formato y aquí no se puede mostrar (sí en Ver caso). Si no escribes nada, se conserva tal como está.'
+                                            }
+                                        >
+                                            {(c) => (
+                                                <textarea
+                                                    {...c}
+                                                    name="content"
+                                                    autoComplete="off"
+                                                    value={data.content}
+                                                    onChange={(e) => cambiar('content', e.target.value)}
+                                                    rows={8}
+                                                    className={cn(fieldClass, 'h-auto min-h-[180px] resize-y py-2')}
+                                                />
+                                            )}
+                                        </FormField>
+
+                                        {attachments.length > 0 && (
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-700">Adjuntos del caso ({attachments.length})</p>
+                                                <ul className="mt-1.5 divide-y rounded-xl ring-1 ring-inset ring-gray-200 dark:ring-white/10">
+                                                    {attachments.map((a, i) => (
+                                                        <li key={`${a.url}-${i}`}>
+                                                            <a
+                                                                href={a.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="focus-ring flex items-center gap-3 px-3 py-2 text-gray-800 transition-colors hover:bg-gray-50"
+                                                            >
+                                                                <FileText className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                                                                <span className="min-w-0 flex-1 truncate text-sm" title={a.name}>
+                                                                    {a.name}
+                                                                </span>
+                                                                {tamano(a.size) && <span className="shrink-0 text-xs tabular-nums text-gray-500">{tamano(a.size)}</span>}
+                                                                <Download className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                                                                <span className="sr-only">(se abre en una pestaña nueva)</span>
+                                                            </a>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        <FormField id="attachments" label="Agregar adjuntos" optional error={errorDe('attachments')}>
+                                            {(c) => <CampoAdjuntos control={c} archivos={archivos} onChange={setArchivos} />}
+                                        </FormField>
+                                    </Tarjeta>
+
+                                    {/* La solución no se edita aquí: se muestra para tener el contexto */}
+                                    {solution && (
+                                        <section aria-labelledby="solucion-titulo" className="surface-card min-w-0 p-5 sm:p-6">
+                                            <h2 id="solucion-titulo" className="flex items-center gap-2 text-base font-semibold text-gray-900">
+                                                <CheckCircle2 className="size-5 text-green-700" aria-hidden="true" />
+                                                Solución del caso
+                                            </h2>
+                                            <p className="mt-3 text-sm leading-relaxed break-words whitespace-pre-wrap text-gray-800">{htmlToText(solution.content)}</p>
+                                            <p className="mt-4 flex flex-wrap gap-x-2 gap-y-1 border-t pt-3 text-sm text-gray-500">
+                                                <span>
+                                                    Resuelto por <span className="font-medium text-gray-900">{solution.solved_by || 'Usuario del sistema'}</span>
+                                                </span>
+                                                {solution.date_creation && (
+                                                    <>
+                                                        <span aria-hidden="true">·</span>
+                                                        <span>{fechaLegible(solution.date_creation)}</span>
+                                                    </>
+                                                )}
+                                            </p>
+                                        </section>
+                                    )}
+
+                                    <Tarjeta titulo="Elementos asociados">
+                                        <p className="-mt-3 text-sm text-gray-500">Equipos del inventario relacionados con el caso. Opcional.</p>
+                                        <SelectorElementos itemTypes={itemTypes} elementos={elementos} onChange={setElementos} />
+                                    </Tarjeta>
+
+                                    <Tarjeta titulo="Fechas">
+                                        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                                            <FormField id="date" label="Apertura" error={errorDe('date')}>
+                                                {(c) => <input {...c} type="datetime-local" name="date" value={data.date} onChange={(e) => cambiar('date', e.target.value)} className={fieldClass} />}
+                                            </FormField>
+                                            <FormField id="time_to_resolve" label="Tiempo de solución" optional error={errorDe('time_to_resolve')} hint="Límite para resolverlo.">
+                                                {(c) => (
+                                                    <input
+                                                        {...c}
+                                                        type="datetime-local"
+                                                        name="time_to_resolve"
+                                                        value={data.time_to_resolve}
+                                                        onChange={(e) => setData('time_to_resolve', e.target.value)}
+                                                        className={fieldClass}
+                                                    />
+                                                )}
+                                            </FormField>
+                                            <FormField id="internal_time_to_resolve" label="Tiempo interno" optional error={errorDe('internal_time_to_resolve')} hint="Límite interno de Sistemas.">
+                                                {(c) => (
+                                                    <input
+                                                        {...c}
+                                                        type="datetime-local"
+                                                        name="internal_time_to_resolve"
+                                                        value={data.internal_time_to_resolve}
+                                                        onChange={(e) => setData('internal_time_to_resolve', e.target.value)}
+                                                        className={fieldClass}
+                                                    />
+                                                )}
+                                            </FormField>
+                                        </div>
+                                    </Tarjeta>
+                                </div>
+
+                                <div className="min-w-0 space-y-5">
+                                    <Tarjeta titulo="Clasificación">
+                                        <FormField id="status" label="Estado" error={errorDe('status')}>
+                                            {(c) => (
+                                                <Select value={data.status} onValueChange={(v) => setData('status', v)}>
+                                                    <SelectTrigger {...c} className={disparador}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {ESTADOS_CASO.map(([v, l]) => (
+                                                            <SelectItem key={v} value={v}>
+                                                                {l}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        </FormField>
+
+                                        <FormField id="priority" label="Prioridad" error={errorDe('priority')}>
+                                            {(c) => (
+                                                <Select value={data.priority} onValueChange={(v) => setData('priority', v)}>
+                                                    <SelectTrigger {...c} className={disparador}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {PRIORIDADES_CASO.map(([v, l]) => (
+                                                            <SelectItem key={v} value={v}>
+                                                                <span className="flex items-center gap-2">
+                                                                    <span aria-hidden="true" className={cn('size-2 rounded-full', PRIORIDAD[Number(v)].punto)} />
+                                                                    {l}
+                                                                </span>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        </FormField>
+
+                                        {/* En la edición no se exige (el servidor tampoco): hay casos antiguos sin categoría */}
+                                        <FormField id="itilcategories_id" label="Categoría" optional error={errorDe('itilcategories_id')}>
+                                            {(c) => (
+                                                <CampoCategoria
+                                                    control={c}
+                                                    categorias={categories}
+                                                    value={data.itilcategories_id}
+                                                    onChange={(v) => setData('itilcategories_id', v)}
+                                                    actual={
+                                                        ticket.itilcategories_id
+                                                            ? { value: String(ticket.itilcategories_id), label: ticket.category_name || `Categoría #${ticket.itilcategories_id}` }
+                                                            : undefined
+                                                    }
+                                                />
+                                            )}
+                                        </FormField>
+
+                                        <FormField id="locations_id" label="Localización" optional error={errorDe('locations_id')}>
+                                            {(c) => (
+                                                <SearchableSelect
+                                                    {...c}
+                                                    options={opcionesLocalizacion}
+                                                    value={data.locations_id}
+                                                    onValueChange={(v) => setData('locations_id', v)}
+                                                    placeholder="Sin localización"
+                                                    searchPlaceholder="Buscar localización…"
+                                                    triggerClassName={disparador}
+                                                />
+                                            )}
+                                        </FormField>
+                                    </Tarjeta>
+
+                                    <Tarjeta titulo="Personas">
+                                        <FormField
+                                            id="assigned_ids"
+                                            label="Asignado a"
+                                            optional
+                                            error={errorDe('assigned_ids')}
+                                            hint={data.assigned_ids.length === 0 ? 'Sin asignados, el caso queda «Sin asignar».' : undefined}
+                                        >
+                                            {(c) => (
+                                                <SelectorPersonas
+                                                    id={c.id}
+                                                    control={{ 'aria-describedby': c['aria-describedby'], 'aria-invalid': c['aria-invalid'] }}
+                                                    personas={users}
+                                                    seleccion={data.assigned_ids}
+                                                    onChange={(ids) => setData('assigned_ids', ids)}
+                                                    placeholder="Agregar técnico…"
+                                                    nombresConocidos={nombresDe(2)}
+                                                />
+                                            )}
+                                        </FormField>
+
+                                        <FormField
+                                            id="requester_id"
+                                            label="Solicitante"
+                                            optional
+                                            error={errorDe('requester_id')}
+                                            hint={
+                                                otrosSolicitantes.length > 0
+                                                    ? `El caso tiene además a ${otrosSolicitantes.map(nombreSolicitante).join(', ')}: se conservan si no cambias el solicitante.`
+                                                    : 'Sin solicitante, el caso aparece como reporte público.'
+                                            }
+                                        >
+                                            {(c) => (
+                                                <SearchableSelect
+                                                    {...c}
+                                                    options={opcionesSolicitante}
+                                                    value={data.requester_id}
+                                                    onValueChange={(v) => setData('requester_id', v)}
+                                                    placeholder="Sin solicitante"
+                                                    searchPlaceholder="Buscar persona…"
+                                                    triggerClassName={disparador}
+                                                />
+                                            )}
+                                        </FormField>
+
+                                        <FormField id="observer_ids" label="Observadores" optional error={errorDe('observer_ids')}>
+                                            {(c) => (
+                                                <SelectorPersonas
+                                                    id={c.id}
+                                                    control={{ 'aria-describedby': c['aria-describedby'], 'aria-invalid': c['aria-invalid'] }}
+                                                    personas={users}
+                                                    seleccion={data.observer_ids}
+                                                    onChange={(ids) => setData('observer_ids', ids)}
+                                                    placeholder="Agregar observador…"
+                                                    nombresConocidos={nombresDe(3)}
+                                                />
+                                            )}
+                                        </FormField>
+                                    </Tarjeta>
+                                </div>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-4">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    {/* Título - Fila 1 (Full width) */}
-                                    <div className="md:col-span-4">
-                                        <Label htmlFor="name" className="text-xs">Título *</Label>
-                                        <Input
-                                            id="name"
-                                            name="name"
-                                            autoComplete="off"
-                                            value={data.name}
-                                            onChange={(e) => setData('name', e.target.value)}
-                                            placeholder="Título del caso"
-                                            required
-                                            className="mt-1 h-8 text-sm"
-                                        />
-                                        {errors.name && <p className="text-red-600 text-xs mt-0.5">{errors.name}</p>}
-                                    </div>
-
-                                    {/* Fila 2: Fecha, Estado, Prioridad, Localización */}
-                                    <div>
-                                        <Label htmlFor="date" className="text-xs">Fecha Apertura *</Label>
-                                        <Input
-                                            id="date"
-                                            name="date"
-                                            autoComplete="off"
-                                            type="datetime-local"
-                                            value={data.date}
-                                            onChange={(e) => setData('date', e.target.value)}
-                                            required
-                                            className="mt-1 h-8 text-xs"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="status" className="text-xs">Estado *</Label>
-                                        <Select value={data.status} onValueChange={(value) => setData('status', value)} name="status">
-                                            <SelectTrigger id="status" className="mt-1 h-8 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="1">Nuevo</SelectItem>
-                                                <SelectItem value="2">En curso (asignado)</SelectItem>
-                                                <SelectItem value="3">En curso (planificado)</SelectItem>
-                                                <SelectItem value="4">En espera</SelectItem>
-                                                <SelectItem value="5">Resuelto</SelectItem>
-                                                <SelectItem value="6">Cerrado</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="priority" className="text-xs">Prioridad *</Label>
-                                        <Select value={data.priority} onValueChange={(value) => setData('priority', value)} name="priority">
-                                            <SelectTrigger id="priority" className="mt-1 h-8 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="1">Muy baja</SelectItem>
-                                                <SelectItem value="2">Baja</SelectItem>
-                                                <SelectItem value="3">Media</SelectItem>
-                                                <SelectItem value="4">Alta</SelectItem>
-                                                <SelectItem value="5">Muy alta</SelectItem>
-                                                <SelectItem value="6">Urgente</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="locations_id" className="text-xs">Localización</Label>
-                                        <SearchableSelect
-                                            options={locations.map(loc => ({ value: loc.id.toString(), label: loc.completename || loc.short_name || loc.name }))}
-                                            value={data.locations_id}
-                                            onValueChange={(value) => setData('locations_id', value)}
-                                            placeholder="Seleccione..."
-                                            searchPlaceholder="Buscar ubicación..."
-                                            className="mt-1"
-                                        />
-                                    </div>
-
-                                    {/* Fila 2.5: Categoría */}
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="itilcategories_id" className="text-xs">Categoría *</Label>
-                                        <SearchableSelect
-                                            options={categories.map(cat => ({ value: cat.id.toString(), label: cat.completename }))}
-                                            value={data.itilcategories_id}
-                                            onValueChange={(value) => setData('itilcategories_id', value)}
-                                            placeholder="Seleccione categoría..."
-                                            searchPlaceholder="Buscar categoría..."
-                                            className="mt-1"
-                                        />
-                                    </div>
-
-                                    {/* Fila 3: Personas (Solicitante, Observador, Asignado) */}
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="requester_id" className="text-xs">Solicitante</Label>
-                                        <Select value={data.requester_id} onValueChange={(value) => setData('requester_id', value)} name="requester_id">
-                                            <SelectTrigger id="requester_id" className="mt-1 h-8 text-xs">
-                                                <SelectValue placeholder="Buscar solicitante..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {users.map((user: User) => (
-                                                    <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="observer" className="text-xs">Observador</Label>
-                                        <Select onValueChange={(value) => {
-                                            const id = parseInt(value);
-                                            if (!observerIds.includes(id)) {
-                                                setObserverIds([...observerIds, id]);
-                                                setData('observer_ids', [...observerIds, id]);
-                                            }
-                                        }} name="observer">
-                                            <SelectTrigger id="observer" className="mt-1 h-8 text-xs">
-                                                <SelectValue placeholder="Agregar..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {users.filter((u: User) => !observerIds.includes(u.id)).map((user: User) => (
-                                                    <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {observerIds.length > 0 && (
-                                            <div className="mt-1 flex flex-wrap gap-1">
-                                                {observerIds.map(id => {
-                                                    const user = users.find((u: User) => u.id === id);
-                                                    return user ? (
-                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100">
-                                                            {user.name}
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e: React.MouseEvent) => {
-                                                                    e.preventDefault();
-                                                                    const newIds = observerIds.filter(i => i !== id);
-                                                                    setObserverIds(newIds);
-                                                                    setData('observer_ids', newIds);
-                                                                }}
-                                                                className="hover:text-blue-900"
-                                                            >
-                                                                <X className="h-2.5 w-2.5" />
-                                                            </button>
-                                                        </span>
-                                                    ) : null;
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="assigned" className="text-xs">Asignado a *</Label>
-                                        <Select onValueChange={(value) => {
-                                            const id = parseInt(value);
-                                            if (!assignedIds.includes(id)) {
-                                                setAssignedIds([...assignedIds, id]);
-                                                setData('assigned_ids', [...assignedIds, id]);
-                                            }
-                                        }} name="assigned">
-                                            <SelectTrigger id="assigned" className="mt-1 h-8 text-xs">
-                                                <SelectValue placeholder="Asignar..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {users.filter((u: User) => !assignedIds.includes(u.id)).map((user: User) => (
-                                                    <SelectItem key={user.id} value={user.id.toString()}>
-                                                        {user.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {assignedIds.length > 0 && (
-                                            <div className="mt-1 flex flex-wrap gap-1">
-                                                {assignedIds.map(id => {
-                                                    const user = users.find((u: User) => u.id === id);
-                                                    return user ? (
-                                                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100">
-                                                            {user.name}
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e: React.MouseEvent) => {
-                                                                    e.preventDefault();
-                                                                    const newIds = assignedIds.filter(i => i !== id);
-                                                                    setAssignedIds(newIds);
-                                                                    setData('assigned_ids', newIds);
-                                                                }}
-                                                                className="hover:text-green-900"
-                                                            >
-                                                                <X className="h-2.5 w-2.5" />
-                                                            </button>
-                                                        </span>
-                                                    ) : null;
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Fila 4: Elementos Asociados */}
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="item_type" className="text-xs">Elementos Asociados</Label>
-                                        <Select value={selectedItemType} onValueChange={handleItemTypeChange} name="item_type">
-                                            <SelectTrigger id="item_type" className="mt-1 h-8 text-xs">
-                                                <SelectValue placeholder="Tipo de elemento..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {itemTypes.map(type => (
-                                                    <SelectItem key={type.value} value={type.value}>
-                                                        {type.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="item_id" className="text-xs text-gray-500">Seleccionar elemento</Label>
-                                        <SearchableSelect
-                                            options={availableItems.map(item => ({ value: item.id.toString(), label: item.name }))}
-                                            onValueChange={addSelectedItem}
-                                            placeholder="Buscar elemento..."
-                                            searchPlaceholder="Escriba para buscar..."
-                                            disabled={!selectedItemType}
-                                            loading={loadingItems}
-                                            className="mt-1"
-                                        />
-                                    </div>
-
-                                    {/* Lista de elementos seleccionados */}
-                                    {selectedItems.length > 0 && (
-                                        <div className="md:col-span-4 flex flex-wrap gap-1">
-                                            {selectedItems.map((item, idx) => (
-                                                <span key={`${item.type}-${item.id}-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[10px] rounded border border-purple-100">
-                                                    {item.name}
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e: React.MouseEvent) => {
-                                                            e.preventDefault();
-                                                            removeSelectedItem(item.type, item.id);
-                                                        }}
-                                                        className="hover:text-purple-900"
-                                                    >
-                                                        <X className="h-2.5 w-2.5" />
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Fila 5: Tiempos (Opcionales) */}
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="time_to_resolve" className="text-xs text-gray-500">Tiempo Solución (Opcional)</Label>
-                                        <Input
-                                            id="time_to_resolve"
-                                            name="time_to_resolve"
-                                            autoComplete="off"
-                                            type="datetime-local"
-                                            value={data.time_to_resolve}
-                                            onChange={(e) => setData('time_to_resolve', e.target.value)}
-                                            className="mt-1 h-8 text-xs"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor="internal_time_to_resolve" className="text-xs text-gray-500">Tiempo Interno (Opcional)</Label>
-                                        <Input
-                                            id="internal_time_to_resolve"
-                                            name="internal_time_to_resolve"
-                                            autoComplete="off"
-                                            type="datetime-local"
-                                            value={data.internal_time_to_resolve}
-                                            onChange={(e) => setData('internal_time_to_resolve', e.target.value)}
-                                            className="mt-1 h-8 text-xs"
-                                        />
-                                    </div>
-
-                                    {/* Solución existente (solo lectura) */}
-                                    {solution && (
-                                        <div className="md:col-span-4">
-                                            <Label className="text-xs flex items-center gap-1 text-green-700">Solución del Caso</Label>
-                                            <div className="mt-1 p-3 bg-green-50 rounded border border-green-200">
-                                                <div className="text-sm whitespace-pre-wrap text-gray-700">{solution.content}</div>
-                                                <div className="mt-2 pt-2 border-t border-green-200 flex items-center justify-between text-xs text-green-700">
-                                                    <span>Resuelto por: <strong>{solution.solved_by || 'Usuario del sistema'}</strong></span>
-                                                    <span>{solution.date_creation ? new Date(solution.date_creation).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Descripción y Adjuntos en paralelo */}
-                                    <div className="md:col-span-3">
-                                        <Label htmlFor="content" className="text-xs">Descripción *</Label>
-                                        <Textarea
-                                            id="content"
-                                            name="content"
-                                            autoComplete="off"
-                                            value={data.content}
-                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('content', e.target.value)}
-                                            placeholder="Detalle el caso..."
-                                            required
-                                            rows={4}
-                                            className="mt-1 text-sm resize-none"
-                                        />
-                                    </div>
-
-                                    <div className="md:col-span-1 flex flex-col">
-                                        <Label className="text-xs mb-1">Adjuntos</Label>
-                                        <div className="flex-1 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center p-2 hover:border-gray-400 transition-colors bg-gray-50/50">
-                                            <Upload className="h-6 w-6 text-gray-400 mb-1" />
-                                            <label htmlFor="file-upload" className="cursor-pointer text-center">
-                                                <span className="text-xs font-medium text-[#2c4370] hover:underline block">
-                                                    Subir archivos
-                                                </span>
-                                                <span className="text-[10px] text-gray-400 block leading-tight">
-                                                    Máx 100MB
-                                                </span>
-                                                <input
-                                                    id="file-upload"
-                                                    type="file"
-                                                    multiple
-                                                    onChange={handleFileChange}
-                                                    className="sr-only"
-                                                />
-                                            </label>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Archivos existentes */}
-                                    {existingAttachments.length > 0 && (
-                                        <div className="md:col-span-4">
-                                            <Label className="text-xs mb-1 block">Archivos existentes</Label>
-                                            <div className="flex flex-wrap gap-2">
-                                                {existingAttachments.map((attachment, index) => (
-                                                    <a 
-                                                        key={index} 
-                                                        href={attachment.url} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors"
-                                                    >
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[10px] font-medium text-blue-700 truncate max-w-[150px]">{attachment.name}</span>
-                                                            <span className="text-[9px] text-blue-500">{formatFileSize(attachment.size)}</span>
-                                                        </div>
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Lista de archivos nuevos (Full width) */}
-                                    {selectedFiles.length > 0 && (
-                                        <div className="md:col-span-4">
-                                            <Label className="text-xs mb-1 block">Archivos nuevos</Label>
-                                            <div className="flex flex-wrap gap-2">
-                                                {selectedFiles.map((file, index) => (
-                                                    <div key={index} className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded border border-gray-200">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[10px] font-medium text-gray-700 truncate max-w-[150px]">{file.name}</span>
-                                                            <span className="text-[9px] text-gray-500">{formatFileSize(file.size)}</span>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeFile(index)}
-                                                            className="text-gray-400 hover:text-red-600"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="mt-4 flex items-center justify-end gap-2 pt-2 border-t">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => router.visit('/soporte/casos')}
-                                        className="h-8 text-xs"
-                                    >
-                                        Cancelar
-                                    </Button>
-                                    <Button
-                                        type="submit"
-                                        disabled={processing}
-                                        size="sm"
-                                        className="bg-[#2c4370] hover:bg-[#3d5583] text-white h-8 text-xs px-6"
-                                    >
-                                        {processing ? 'Guardando...' : 'Guardar Cambios'}
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
+                            <AccionesFormulario cancelarHref="/soporte/casos" enviando={processing} texto="Guardar cambios" textoEnviando="Guardando…" />
+                        </form>
                     </div>
                 </main>
 

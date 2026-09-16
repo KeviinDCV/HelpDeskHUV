@@ -1,71 +1,65 @@
-import { GLPIHeader } from '@/components/glpi-header';
 import { GLPIFooter } from '@/components/glpi-footer';
-import { Head, router } from '@inertiajs/react';
-import { Construction, ArrowLeft, Home } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { GLPIHeader } from '@/components/glpi-header';
+import { btn } from '@/lib/ui-classes';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowLeft, Construction, Home } from 'lucide-react';
 
 interface EnDesarrolloProps {
     moduleName?: string;
 }
 
+/** Módulos del menú que todavía no existen (Gestión, Útiles y algunos de Inventario, Administración y Configuración). */
 export default function EnDesarrollo({ moduleName = 'Esta página' }: EnDesarrolloProps) {
+    // Si se llegó por un enlace directo no hay a dónde volver: se va al inicio
+    const volver = () => (window.history.length > 1 ? window.history.back() : router.visit('/dashboard'));
+
     return (
         <>
-            <Head title="En Desarrollo - HelpDesk HUV" />
-            <div className="min-h-screen flex flex-col">
-                <GLPIHeader />
-                <main className="flex-1 bg-gray-50 flex items-center justify-center p-4">
-                    <div className="max-w-md w-full bg-white shadow-lg border border-gray-200 p-8 text-center">
-                        {/* Ícono de construcción */}
-                        <div className="flex justify-center mb-6">
-                            <div className="relative">
-                                <Construction className="w-20 h-20 text-[#2c4370]" />
-                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
-                                    <span className="text-xs font-bold">!</span>
-                                </div>
-                            </div>
+            <Head title={`HelpDesk HUV - ${moduleName}`} />
+            <div className="flex min-h-screen flex-col bg-gray-50">
+                <GLPIHeader
+                    breadcrumb={
+                        <div className="flex items-center gap-2 text-sm">
+                            <Link href="/dashboard" className="text-gray-600 hover:text-[#2c4370] hover:underline">
+                                Inicio
+                            </Link>
+                            <span className="text-gray-400">/</span>
+                            <span className="font-medium text-gray-900">{moduleName}</span>
                         </div>
+                    }
+                />
 
-                        {/* Título */}
-                        <h1 className="text-2xl font-bold text-gray-900 mb-3">
-                            Página en Desarrollo
+                <main className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6">
+                    <section aria-labelledby="en-desarrollo-titulo" className="surface-card w-full max-w-md px-6 py-10 text-center sm:px-10">
+                        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-huv-soft">
+                            <Construction className="size-7 text-huv-ink" aria-hidden="true" />
+                        </span>
+
+                        <h1 id="en-desarrollo-titulo" className="mt-5 text-xl font-semibold tracking-tight text-gray-900">
+                            Página en desarrollo
                         </h1>
-
-                        {/* Mensaje */}
-                        <p className="text-gray-600 mb-2">
-                            <strong>{moduleName}</strong> está actualmente en desarrollo.
+                        <p className="mt-2 text-sm text-gray-600">
+                            <strong className="font-semibold text-gray-900">{moduleName}</strong> está actualmente en desarrollo.
                         </p>
-                        <p className="text-sm text-gray-500 mb-6">
-                            Nuestro equipo está trabajando para traerte esta funcionalidad pronto.
-                        </p>
+                        <p className="mt-1 text-sm text-gray-500">Nuestro equipo está trabajando para traerte esta funcionalidad pronto.</p>
 
-                        {/* Acciones */}
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <Button
-                                onClick={() => router.visit('/dashboard')}
-                                className="bg-[#2c4370] hover:bg-[#3d5583] text-white"
-                            >
-                                <Home className="w-4 h-4 mr-2" />
-                                Ir al Dashboard
-                            </Button>
-                            <Button
-                                onClick={() => window.history.back()}
-                                variant="outline"
-                            >
-                                <ArrowLeft className="w-4 h-4 mr-2" />
+                        <div className="mt-7 flex flex-col-reverse justify-center gap-2 sm:flex-row">
+                            <button type="button" onClick={volver} className={btn.secondary}>
+                                <ArrowLeft aria-hidden="true" />
                                 Volver
-                            </Button>
+                            </button>
+                            <Link href="/dashboard" className={btn.primary}>
+                                <Home aria-hidden="true" />
+                                Ir al inicio
+                            </Link>
                         </div>
 
-                        {/* Información adicional */}
-                        <div className="mt-8 pt-6 border-t border-gray-200">
-                            <p className="text-xs text-gray-400">
-                                Si necesitas acceso urgente a esta funcionalidad,<br />
-                                contacta al equipo de soporte técnico.
-                            </p>
-                        </div>
-                    </div>
+                        <p className="mt-8 border-t pt-5 text-xs text-gray-500">
+                            Si necesitas acceso urgente a esta funcionalidad, contacta al equipo de soporte técnico.
+                        </p>
+                    </section>
                 </main>
+
                 <GLPIFooter />
             </div>
         </>

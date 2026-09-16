@@ -550,33 +550,45 @@ class PrinterController extends Controller
             'date_mod' => now(),
         ]);
 
-        // Actualizar direcciones IP
-        // Primero eliminar las existentes
-        DB::table('glpi_ipaddresses')
-            ->where('mainitemtype', 'Printer')
-            ->where('mainitems_id', $id)
-            ->delete();
+        // Direcciones IP: solo cambian las que se quitaron o se agregaron. Antes se borraban todas
+        // y se volvían a crear sueltas, así que las que nadie tocó perdían su vínculo con la red.
+        if (is_array($request->input('ip_addresses'))) {
+            $enviadas = collect($request->input('ip_addresses'))
+                ->filter(fn ($ip) => is_string($ip) && !empty(trim($ip)))
+                ->map(fn ($ip) => trim($ip))
+                // Estricto: unique() compara con == y juntaba textos que PHP lee como el mismo número
+                ->uniqueStrict()
+                ->values();
 
-        // Agregar las nuevas
-        if ($request->has('ip_addresses') && is_array($request->ip_addresses)) {
-            foreach ($request->ip_addresses as $ip) {
-                if (!empty(trim($ip))) {
-                    DB::table('glpi_ipaddresses')->insert([
-                        'entities_id' => 0,
-                        'items_id' => 0,
-                        'itemtype' => 'NetworkName',
-                        'version' => 4,
-                        'name' => trim($ip),
-                        'binary_0' => 0,
-                        'binary_1' => 0,
-                        'binary_2' => 65535,
-                        'binary_3' => ip2long(trim($ip)) ?: 0,
-                        'is_deleted' => 0,
-                        'is_dynamic' => 0,
-                        'mainitems_id' => $id,
-                        'mainitemtype' => 'Printer',
-                    ]);
-                }
+            $actuales = DB::table('glpi_ipaddresses')
+                ->where('mainitemtype', 'Printer')
+                ->where('mainitems_id', $id)
+                ->where('is_deleted', 0)
+                ->get(['id', 'name']);
+
+            $quitar = $actuales->reject(fn ($fila) => $enviadas->containsStrict(trim((string) $fila->name)))->pluck('id');
+            if ($quitar->isNotEmpty()) {
+                DB::table('glpi_ipaddresses_ipnetworks')->whereIn('ipaddresses_id', $quitar)->delete();
+                DB::table('glpi_ipaddresses')->whereIn('id', $quitar)->delete();
+            }
+
+            $yaEstan = $actuales->map(fn ($fila) => trim((string) $fila->name))->all();
+            foreach ($enviadas->diff($yaEstan) as $ip) {
+                DB::table('glpi_ipaddresses')->insert([
+                    'entities_id' => 0,
+                    'items_id' => 0,
+                    'itemtype' => 'NetworkName',
+                    'version' => 4,
+                    'name' => $ip,
+                    'binary_0' => 0,
+                    'binary_1' => 0,
+                    'binary_2' => 65535,
+                    'binary_3' => ip2long($ip) ?: 0,
+                    'is_deleted' => 0,
+                    'is_dynamic' => 0,
+                    'mainitems_id' => $id,
+                    'mainitemtype' => 'Printer',
+                ]);
             }
         }
 
