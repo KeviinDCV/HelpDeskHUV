@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+/**
+ * Tema claro / oscuro de la aplicación, en un solo lugar.
+ *
+ * La elección se guarda en localStorage con la clave `helpdesk_theme` —la misma que usa el botón
+ * de la cabecera— y también en la cookie `appearance`, para que el servidor (app.blade.php) pueda
+ * pintar la primera pantalla con el tema correcto y no haya parpadeo. Valores: 'light', 'dark' o
+ * 'system' (seguir al sistema operativo). Sin elección, la aplicación abre en claro.
+ *
+ * Antes este archivo forzaba el tema claro en cada carga (`initializeTheme` escribía
+ * appearance='light' y quitaba la clase `dark`): quien elegía el modo oscuro lo perdía al recargar.
+ */
+import { useCallback, useState } from 'react';
 
 export type Appearance = 'light' | 'dark' | 'system';
 
-const prefersDark = () => {
-    if (typeof window === 'undefined') {
-        return false;
-    }
+const CLAVE = 'helpdesk_theme';
 
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
+const consultaSistema = () => (typeof window === 'undefined' ? null : window.matchMedia('(prefers-color-scheme: dark)'));
+
+const prefiereOscuro = () => consultaSistema()?.matches ?? false;
 
 const setCookie = (name: string, value: string, days = 365) => {
     if (typeof document === 'undefined') {
@@ -19,61 +28,67 @@ const setCookie = (name: string, value: string, days = 365) => {
     document.cookie = `${name}=${value};path=/;max-age=${maxAge};SameSite=Lax`;
 };
 
-const applyTheme = (appearance: Appearance) => {
-    // SIEMPRE usar tema claro - tema oscuro deshabilitado
-    const isDark = false;
+/** La elección guardada, o null si nunca se eligió. */
+export function temaGuardado(): Appearance | null {
+    try {
+        const valor = localStorage.getItem(CLAVE);
+        return valor === 'dark' || valor === 'light' || valor === 'system' ? valor : null;
+    } catch {
+        return null; // navegación privada o almacenamiento bloqueado
+    }
+}
 
-    document.documentElement.classList.toggle('dark', isDark);
-    document.documentElement.style.colorScheme = 'light';
-};
-
-const mediaQuery = () => {
-    if (typeof window === 'undefined') {
-        return null;
+/** ¿Toca modo oscuro ahora mismo? Sin elección, claro. */
+export function temaOscuro(): boolean {
+    const elegido = temaGuardado();
+    if (elegido) {
+        return elegido === 'dark' || (elegido === 'system' && prefiereOscuro());
     }
 
-    return window.matchMedia('(prefers-color-scheme: dark)');
-};
+    // Sin elección legible (navegación privada, almacenamiento bloqueado): manda lo que ya pintó
+    // el servidor con la cookie `appearance`; si no hay nada, la clase no está y queda en claro.
+    return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
 
-const handleSystemThemeChange = () => {
-    const currentAppearance = localStorage.getItem('appearance') as Appearance;
-    applyTheme(currentAppearance || 'system');
-};
+/** Pinta el tema: la clase `dark` para los estilos y color-scheme para los controles del navegador. */
+export function aplicarTema(oscuro: boolean) {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    document.documentElement.classList.toggle('dark', oscuro);
+    document.documentElement.style.colorScheme = oscuro ? 'dark' : 'light';
+}
+
+/** Guarda la elección (para las próximas cargas) y la aplica. */
+export function guardarTema(modo: Appearance) {
+    try {
+        localStorage.setItem(CLAVE, modo);
+    } catch {
+        /* sin almacenamiento: al menos queda aplicado en esta pantalla */
+    }
+    setCookie('appearance', modo);
+    aplicarTema(modo === 'dark' || (modo === 'system' && prefiereOscuro()));
+}
 
 export function initializeTheme() {
-    // SIEMPRE forzar tema claro
-    localStorage.setItem('appearance', 'light');
-    applyTheme('light');
+    aplicarTema(temaOscuro());
 
-    // No escuchar cambios del sistema - siempre tema claro
-    // mediaQuery()?.addEventListener('change', handleSystemThemeChange);
+    // Solo con "seguir al sistema" el tema cambia cuando cambia el del equipo
+    consultaSistema()?.addEventListener('change', () => {
+        if (temaGuardado() === 'system') {
+            aplicarTema(prefiereOscuro());
+        }
+    });
 }
 
 export function useAppearance() {
-    const [appearance, setAppearance] = useState<Appearance>('light');
+    const [appearance, setAppearance] = useState<Appearance>(() => temaGuardado() ?? 'light');
 
-    const updateAppearance = useCallback((mode: Appearance) => {
-        // SIEMPRE forzar tema claro, ignorar cualquier intento de cambiar a dark
-        setAppearance('light');
-
-        // Store in localStorage for client-side persistence...
-        localStorage.setItem('appearance', 'light');
-
-        // Store in cookie for SSR...
-        setCookie('appearance', 'light');
-
-        applyTheme('light');
+    const updateAppearance = useCallback((modo: Appearance) => {
+        setAppearance(modo);
+        guardarTema(modo);
     }, []);
-
-    useEffect(() => {
-        // SIEMPRE aplicar tema claro
-        updateAppearance('light');
-
-        // No escuchar cambios del sistema
-        return () => {
-            // No cleanup necesario
-        };
-    }, [updateAppearance]);
 
     return { appearance, updateAppearance } as const;
 }

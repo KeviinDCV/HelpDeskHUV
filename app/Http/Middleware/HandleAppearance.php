@@ -16,7 +16,9 @@ class HandleAppearance
      */
     public function handle(Request $request, Closure $next): Response
     {
-        View::share('appearance', $request->cookie('appearance') ?? 'system');
+        // Sin cookie, la aplicación abre en claro; el modo oscuro es una elección de cada persona
+        // (el botón de la cabecera guarda 'light', 'dark' o 'system' aquí y en localStorage).
+        View::share('appearance', $request->cookie('appearance') ?? 'light');
 
         return $next($request);
     }

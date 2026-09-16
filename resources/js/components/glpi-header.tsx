@@ -17,6 +17,7 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
+import { guardarTema, temaOscuro } from '@/hooks/use-appearance'
 
 const inventarioItems = [
   { name: 'Computadores', href: '/inventario/computadores' },
@@ -103,19 +104,13 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   // El tema ya viene aplicado desde app.blade.php (antes de pintar): aquí solo se lee para saber
   // qué icono mostrar. Antes se calculaba en un efecto y la página parpadeaba en claro.
-  const [darkMode, setDarkMode] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+  const [darkMode, setDarkMode] = useState(() => (typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : temaOscuro()));
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode]);
-
-  // Toggle modo oscuro
+  // Toggle modo oscuro (se guarda para las próximas cargas; ver hooks/use-appearance)
   const toggleDarkMode = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
-    try {
-      localStorage.setItem('helpdesk_theme', newMode ? 'dark' : 'light');
-    } catch { /* sin almacenamiento */ }
+    guardarTema(newMode ? 'dark' : 'light');
   };
   
   // Atajo CTRL+K para abrir buscador

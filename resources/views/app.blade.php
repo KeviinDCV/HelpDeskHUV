@@ -13,13 +13,14 @@
              tenía el modo oscuro veía la página en claro durante un instante en cada carga. --}}
         <script>
             (function() {
-                const appearance = '{{ $appearance ?? "system" }}';
-                let guardado = null;
-                try { guardado = localStorage.getItem('helpdesk_theme'); } catch (e) { /* sin almacenamiento */ }
-                const oscuro = guardado
-                    ? guardado === 'dark'
-                    : appearance === 'dark' || (appearance === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                let elegido = null;
+                try { elegido = localStorage.getItem('helpdesk_theme'); } catch (e) { /* sin almacenamiento */ }
+                if (elegido !== 'dark' && elegido !== 'light' && elegido !== 'system') {
+                    elegido = '{{ $appearance ?? "light" }}'; // la cookie, por si el almacenamiento está bloqueado
+                }
+                const oscuro = elegido === 'dark' || (elegido === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 document.documentElement.classList.toggle('dark', oscuro);
+                document.documentElement.style.colorScheme = oscuro ? 'dark' : 'light';
             })();
         </script>
 
