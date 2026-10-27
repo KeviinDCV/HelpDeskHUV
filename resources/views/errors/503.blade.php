@@ -73,7 +73,10 @@
             <p class="code">503</p>
             <h2>Servicio no disponible</h2>
             <p>El sistema se encuentra en mantenimiento. Volveremos en breve. Gracias por su paciencia.</p>
-            <a href="/" class="btn-back">Reintentar</a>
+            {{-- En las páginas públicas (reportar un problema) el botón vuelve al formulario: «/» lleva a
+     la mesa de ayuda si en el equipo quedó abierta la sesión de un técnico. --}}
+            @php($publica = request()->is('reportar', 'reportar/*', 'chatbot', 'chatbot-puter'))
+            <a href="{{ $publica ? '/reportar' : '/' }}" class="btn-back">Reintentar</a>
         </div>
 
         <p class="footer">&copy; {{ date('Y') }} HelpDesk HUV — Todos los derechos reservados</p>

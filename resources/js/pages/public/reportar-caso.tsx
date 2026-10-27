@@ -20,6 +20,7 @@ import {
     type Campo,
     type Datos,
     type Envio,
+    type Fallo,
     type Mensaje,
     type Modo,
     type Paso,
@@ -28,7 +29,7 @@ import { Resumen, ResumenPlegable } from '@/components/reportar/resumen';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ClipboardList, MessageSquareText } from 'lucide-react';
+import { AlertTriangle, ClipboardList, MessageSquareText } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 type Props = SharedData & {
@@ -50,6 +51,14 @@ export default function ReportarCaso() {
 
 const saludo = (): Mensaje => ({ id: 1, autor: 'bot', texto: SALUDO });
 
+/** Lo que pasó cuando el envío no llegó: los datos siguen en la página. */
+const TEXTO_FALLO_ENVIO: Record<Fallo, string> = {
+    limite: 'Se enviaron varios reportes seguidos desde este equipo. Espera un minuto y vuelve a intentarlo; tus datos siguen aquí.',
+    servidor:
+        'Hubo un problema en el sistema. Tus datos siguen aquí: vuelve a intentarlo en unos minutos y, si sigue fallando, llama a Sistemas.',
+    red: 'No hubo conexión con el servidor. Revisa tu red y vuelve a intentarlo; tus datos siguen aquí.',
+};
+
 function Reporte() {
     // Si la página se recargó a mitad del reporte, se retoma donde iba
     const [inicial] = useState(leerBorrador);
@@ -68,10 +77,12 @@ function Reporte() {
     const [errores, setErrores] = useState<Record<string, string>>({});
     const [recientes, setRecientes] = useState<Campo[]>([]);
     const [reiniciar, setReiniciar] = useState(false);
+    const [falloEnvio, setFalloEnvio] = useState<Fallo | null>(null);
 
     const ultimoId = useRef(Math.max(0, ...mensajes.map((m) => m.id)));
     const nuevoId = () => ++ultimoId.current;
     const resumenErrores = useRef<HTMLDivElement>(null);
+    const avisoEnvio = useRef<HTMLDivElement>(null);
     const enfocarDespues = useRef<string | null>(null);
 
     const paso = siguientePaso(datos, omitidos);
@@ -85,6 +96,12 @@ function Reporte() {
     useEffect(() => {
         guardarBorrador({ datos, omitidos, mensajes, modo, sinIA, preguntado });
     }, [datos, omitidos, mensajes, modo, sinIA, preguntado]);
+
+    // El aviso de envío fallido recibe el foco: el lector de pantalla lo lee y el botón para
+    // reintentar queda a mano. En un efecto, porque el aviso aún no existe cuando llega el fallo.
+    useEffect(() => {
+        if (falloEnvio) avisoEnvio.current?.focus();
+    }, [falloEnvio]);
 
     // El resaltado de los datos recién llenados dura lo que su animación
     useEffect(() => {
@@ -251,14 +268,36 @@ function Reporte() {
         }
         if (reporte.name !== datos.name) setDatos(reporte);
 
+        // Si el servidor no responde con la página (límite de envíos, error 500, sin red),
+        // Inertia mostraría la página de error en un recuadro, y su «Volver al inicio» lleva a «/»:
+        // con una sesión de técnico abierta en el equipo, eso abre la mesa de ayuda. Mientras se
+        // envía, esas respuestas se atienden aquí y la persona se queda con sus datos.
+        const quitarInvalido = router.on('invalid', (evento) => {
+            evento.preventDefault();
+            setFalloEnvio(
+                evento.detail.response.status === 429 ? 'limite' : 'servidor',
+            );
+        });
+        const quitarExcepcion = router.on('exception', (evento) => {
+            evento.preventDefault();
+            setFalloEnvio('red');
+        });
+
         router.post(
             '/reportar',
             { ...reporte },
             {
                 preserveScroll: true,
-                onStart: () => setEnviando(true),
+                onStart: () => {
+                    setEnviando(true);
+                    setFalloEnvio(null);
+                },
                 onError: (errs) => mostrarErrores(erroresPorCampo(errs)),
-                onFinish: () => setEnviando(false),
+                onFinish: () => {
+                    setEnviando(false);
+                    quitarInvalido();
+                    quitarExcepcion();
+                },
             },
         );
     };
@@ -358,6 +397,36 @@ function Reporte() {
                                     );
                                 })}
                             </div>
+
+                            {falloEnvio && (
+                                <div
+                                    ref={avisoEnvio}
+                                    role="alert"
+                                    tabIndex={-1}
+                                    className="mt-4 flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-600/20 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:bg-red-500/10 dark:text-red-200"
+                                >
+                                    <AlertTriangle
+                                        className="mt-0.5 size-4 shrink-0"
+                                        aria-hidden="true"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold">
+                                            No se pudo enviar el reporte.
+                                        </p>
+                                        <p className="mt-0.5">
+                                            {TEXTO_FALLO_ENVIO[falloEnvio]}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={enviarReporte}
+                                            disabled={enviando}
+                                            className="mt-2 rounded font-medium text-red-800 underline underline-offset-2 focus-ring hover:no-underline disabled:opacity-60 dark:text-red-200"
+                                        >
+                                            Intentar de nuevo
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Los dos paneles quedan montados (uno oculto): lo que se esté escribiendo
                                 en uno no se pierde al cambiar de pestaña. */}

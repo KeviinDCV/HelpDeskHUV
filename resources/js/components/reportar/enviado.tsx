@@ -21,17 +21,23 @@ export interface Exito {
  * pasar y lo que se envió. El foco va al título y el lector de pantalla dicta el número.
  */
 export function Enviado({ exito }: { exito: Exito }) {
-    const ticketId = exito.ticket_id;
     // Lo enviado llega con la confirmación; el borrador del navegador queda de respaldo (por si
-    // el servidor es de una versión anterior) y se borra aquí: ya no hace falta.
-    const [borrador] = useState(() => leerBorrador()?.datos ?? null);
-    const enviado = {
-        titulo: exito.titulo ?? borrador?.name ?? '',
-        nombre: exito.reporter_name ?? borrador?.reporter_name ?? '',
-        servicio: exito.reporter_service ?? borrador?.reporter_service ?? '',
-        extension:
-            exito.reporter_extension ?? borrador?.reporter_extension ?? '',
-    };
+    // el servidor es de una versión anterior) y se borra abajo: ya no hace falta. Se guarda una
+    // sola vez porque, al montar, se quita de la página (ver el efecto).
+    const [enviado] = useState(() => {
+        const borrador = leerBorrador()?.datos;
+        return {
+            ticketId: exito.ticket_id,
+            message: exito.message,
+            titulo: exito.titulo ?? borrador?.name ?? '',
+            nombre: exito.reporter_name ?? borrador?.reporter_name ?? '',
+            servicio:
+                exito.reporter_service ?? borrador?.reporter_service ?? '',
+            extension:
+                exito.reporter_extension ?? borrador?.reporter_extension ?? '',
+        };
+    });
+    const ticketId = enviado.ticketId;
     const [copiado, setCopiado] = useState(false);
     const titulo = useRef<HTMLHeadingElement>(null);
     const puedeCopiar =
@@ -40,7 +46,24 @@ export function Enviado({ exito }: { exito: Exito }) {
     useEffect(() => {
         borrarBorrador();
         titulo.current?.focus();
-    }, []);
+        // Inertia guarda las props de cada página en el historial del navegador, sin cifrar.
+        // En un equipo compartido, «Atrás»/«Adelante» le mostraría al siguiente el nombre, el
+        // servicio y la extensión de quien reportó antes: en el historial queda solo el número.
+        router.replace({
+            props: (props) => ({
+                ...props,
+                flash: {
+                    ...(props.flash as Record<string, unknown>),
+                    success: {
+                        message: enviado.message,
+                        ticket_id: enviado.ticketId,
+                    },
+                },
+            }),
+            preserveState: true,
+            preserveScroll: true,
+        });
+    }, [enviado]);
 
     useEffect(() => {
         if (!copiado) return;
@@ -185,10 +208,13 @@ export function Enviado({ exito }: { exito: Exito }) {
                         <div className="mt-8 flex flex-col gap-2 sm:flex-row">
                             <button
                                 type="button"
+                                // replace: el siguiente reporte ocupa el lugar de esta
+                                // confirmación en el historial, en vez de quedar detrás de ella
                                 onClick={() =>
                                     router.visit(
                                         window.location.pathname +
                                             window.location.search,
+                                        { replace: true },
                                     )
                                 }
                                 className={cn(btn.primary, 'h-10')}

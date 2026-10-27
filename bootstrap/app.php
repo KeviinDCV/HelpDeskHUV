@@ -6,6 +6,8 @@ use App\Http\Middleware\OptimizeResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -43,5 +45,31 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Errores de base de datos en las páginas públicas (reportar un problema y su asistente):
+        // el mensaje de Laravel trae el SQL con los valores puestos, y al crear el caso esos
+        // valores son el nombre, el cargo, el servicio, la extensión y la descripción de quien
+        // reporta. Aquí se registra el error sin ellos. En el resto de la app, el registro normal.
+        $exceptions->report(function (QueryException $e) {
+            if (! request()->is('reportar', 'reportar/*', 'chatbot', 'chatbot-puter')) {
+                return null;
+            }
+
+            // El mensaje del motor puede citar un valor («Duplicate entry 'Ana Ruiz'…»): se
+            // conservan los nombres de columna o tabla citados y se tapan los textos con espacios.
+            $motor = preg_replace_callback(
+                "/'([^']*)'/u",
+                fn ($m) => (mb_strlen($m[1]) > 40 || preg_match('/\s/u', $m[1])) ? "'…'" : $m[0],
+                $e->getPrevious()?->getMessage() ?? ''
+            );
+            $origen = collect($e->getTrace())->first(fn ($f) => str_starts_with($f['file'] ?? '', app_path()));
+
+            Log::error('Error de base de datos en /'.request()->path(), [
+                'error' => $motor,
+                'sql' => $e->getSql(), // con «?» en lugar de los valores
+                'conexion' => $e->getConnectionName(),
+                'origen' => $origen ? str_replace(base_path().DIRECTORY_SEPARATOR, '', $origen['file']).':'.$origen['line'] : null,
+            ]);
+
+            return false;
+        });
     })->create();

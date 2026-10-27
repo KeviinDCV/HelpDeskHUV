@@ -94,7 +94,10 @@
                 <div class="timer-fill"></div>
             </div>
             <p class="hint">La barra indica el tiempo aproximado de espera</p>
-            <a href="/" class="btn-back">Volver al inicio</a>
+            {{-- En las páginas públicas (reportar un problema) el botón vuelve al formulario: «/» lleva a
+     la mesa de ayuda si en el equipo quedó abierta la sesión de un técnico. --}}
+            @php($publica = request()->is('reportar', 'reportar/*', 'chatbot', 'chatbot-puter'))
+            <a href="{{ $publica ? '/reportar' : '/' }}" class="btn-back">{{ $publica ? 'Volver al reporte' : 'Volver al inicio' }}</a>
         </div>
 
         <p class="footer">&copy; {{ date('Y') }} HelpDesk HUV — Todos los derechos reservados</p>

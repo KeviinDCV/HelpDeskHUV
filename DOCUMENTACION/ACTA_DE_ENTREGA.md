@@ -433,7 +433,6 @@ Esta arquitectura fue seleccionada por las siguientes razones:
 | **Frontend - Icons** | Lucide React | 0.475+ | Librería de iconos SVG |
 | **Frontend - UI Kit** | Radix UI (11 paquetes) | Varios | Componentes headless accesibles (shadcn/ui) |
 | **Frontend - Animation** | GSAP | 3.13+ | Librería de animaciones profesionales |
-| **Frontend - Touring** | Driver.js | 1.4+ | Sistema de tours y guías interactivas |
 | **Frontend - OTP** | input-otp | 1.4+ | Componente de entrada OTP para 2FA |
 | **Frontend - AI** | Puter.js | 2.2+ | Integración con API de Puter para chatbot |
 | **Base de Datos** | MySQL / MariaDB | 8.0+ / 10.6+ | Motor de base de datos relacional |
