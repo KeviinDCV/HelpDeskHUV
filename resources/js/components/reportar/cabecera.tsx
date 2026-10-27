@@ -16,7 +16,7 @@ export function Cabecera({ autenticado }: { autenticado: boolean }) {
                     width={566}
                     height={160}
                     fetchPriority="high"
-                    className="h-9 w-auto sm:h-10 dark:brightness-0 dark:invert"
+                    className="h-10 w-auto sm:h-12 dark:brightness-0 dark:invert"
                 />
                 <span
                     aria-hidden="true"

@@ -52,15 +52,16 @@ function respuestasRapidas(paso: Paso | null): Envio[] {
     }
 }
 
+// Cortas: en el celular el campo mide unos 30 caracteres y la pista no debe partirse
 const PISTAS: Record<Paso | 'listo', string> = {
     reporter_name: 'Escribe tu nombre completo',
     reporter_position: 'Elige tu cargo o escríbelo',
-    reporter_service: 'Por ejemplo: Urgencias, UCI adultos, Farmacia',
+    reporter_service: 'Por ejemplo: Urgencias',
     reporter_extension: 'Escribe la extensión',
-    content: 'Describe el problema con tus palabras',
+    content: 'Describe el problema',
     device_type: 'Elige el equipo o escríbelo',
     equipment_ecom: 'Por ejemplo: ECOM02708',
-    listo: 'Si quieres agregar algún detalle, escríbelo aquí',
+    listo: 'Agrega un detalle si hace falta',
 };
 
 const reducirMovimiento = () =>
@@ -155,7 +156,7 @@ export function Conversacion({
     return (
         <section
             aria-labelledby="titulo-asistente"
-            className="flex h-[78dvh] max-h-[46rem] min-h-[28rem] flex-col overflow-hidden surface-card lg:h-[calc(100dvh-14.5rem)] lg:max-h-[52rem] lg:min-h-[34rem]"
+            className="flex h-[calc(100dvh-22rem)] max-h-[46rem] min-h-[25rem] flex-col overflow-hidden surface-card lg:h-[calc(100dvh-14.5rem)] lg:max-h-[52rem] lg:min-h-[34rem]"
         >
             {/* Cabecera del asistente */}
             <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
@@ -227,7 +228,7 @@ export function Conversacion({
                 tabIndex={0}
                 role="log"
                 aria-label="Conversación"
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 focus-ring [scrollbar-width:thin] sm:px-5"
+                className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 focus-ring [scrollbar-width:thin] sm:px-5"
             >
                 <ol className="space-y-3">
                     {mensajes.map((m) => (
