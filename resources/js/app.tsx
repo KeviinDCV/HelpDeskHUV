@@ -2,11 +2,15 @@ import '../css/app.css';
 
 import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+// Los avisos (toasts) llegan en su propio archivo, después de la página: Sileo y su motor de
+// animación pesan ~50 KB comprimidos y no hacen falta para pintar la primera pantalla.
+const Avisos = lazy(() => import('./components/avisos').then((m) => ({ default: m.Avisos })));
 
 // Manejar errores 419 (CSRF token expirado) - recargar página para obtener nuevo token
 router.on('invalid', (event) => {
@@ -29,6 +33,10 @@ createInertiaApp({
         root.render(
             <StrictMode>
                 <App {...props} />
+                {/* Avisos de éxito (toasts) de toda la aplicación */}
+                <Suspense fallback={null}>
+                    <Avisos paginaInicial={props.initialPage} />
+                </Suspense>
             </StrictMode>,
         );
     },

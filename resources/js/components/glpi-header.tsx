@@ -149,7 +149,7 @@ export function GLPIHeader({ breadcrumb }: GLPIHeaderProps) {
   };
 
   return (
-    <header className="bg-[#2c4370] text-white sticky top-0 z-50">
+    <header data-cabecera-app className="bg-[#2c4370] text-white sticky top-0 z-50">
       {/* Skip link: primer elemento enfocable para saltar la navegación con teclado */}
       <a
         href="#main-content"

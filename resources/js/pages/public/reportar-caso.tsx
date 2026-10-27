@@ -1,782 +1,434 @@
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import { erroresPorCampo } from '@/components/formulario';
+import { Cabecera } from '@/components/reportar/cabecera';
+import { Conversacion } from '@/components/reportar/conversacion';
+import { Enviado } from '@/components/reportar/enviado';
+import { FormularioReporte } from '@/components/reportar/formulario-reporte';
+import {
+    DATOS_VACIOS,
+    ErrorAsistente,
+    LISTO,
+    PREGUNTAS,
+    SALUDO,
+    borrarBorrador,
+    faltantes,
+    guardarBorrador,
+    leerBorrador,
+    preguntarAlAsistente,
+    siguientePaso,
+    tituloDesde,
+    type Campo,
+    type Datos,
+    type Envio,
+    type Mensaje,
+    type Modo,
+    type Paso,
+} from '@/components/reportar/reporte';
+import { Resumen, ResumenPlegable } from '@/components/reportar/resumen';
+import { cn } from '@/lib/utils';
+import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Button } from "@/components/ui/button";
-import { CheckCircle, Send, Bot, FileText, Monitor, Cpu, HelpCircle } from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
-import gsap from 'gsap';
-import { driver } from 'driver.js';
-import 'driver.js/dist/driver.css';
-import { AccessibilityMenu } from '@/components/accessibility-menu';
-import { csrfHeaders } from '@/lib/csrf';
+import { ClipboardList, MessageSquareText } from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
-interface Message {
-    role: 'user' | 'assistant';
-    content: string;
-}
-
-interface FormData {
-    reporter_name: string;
-    reporter_position: string;
-    reporter_service: string;
-    reporter_extension: string;
-    reporter_email: string;
-    name: string;
-    content: string;
-    priority: string;
-    device_type: string;
-    equipment_ecom: string;
-    itilcategories_id: string;
-}
-
-const priorityLabels: Record<string, string> = {
-    '1': 'Muy baja', '2': 'Baja', '3': 'Media', '4': 'Alta', '5': 'Muy alta', '6': 'Urgente',
-};
-
-const deviceLabels: Record<string, string> = {
-    'computer': 'Computador', 'monitor': 'Monitor', 'printer': 'Impresora',
-    'phone': 'Teléfono', 'network': 'Red / Internet', 'software': 'Programa / Sistema', 'other': 'Otro',
+type Props = SharedData & {
+    flash?: {
+        success?: { message: string; ticket_id: number } | string | null;
+    };
 };
 
 export default function ReportarCaso() {
-    const { props } = usePage<{ flash?: { success?: { message: string; ticket_id: number } } }>();
-    const flash = props.flash;
+    const { auth, flash } = usePage<Props>().props;
+    const autenticado = !!auth?.user;
+    const exito =
+        flash?.success && typeof flash.success === 'object'
+            ? flash.success
+            : null;
 
-    const [processing, setProcessing] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot, tu asistente para reportar problemas técnicos en el Hospital. Vamos a crear tu reporte juntos.\n\n¿Me podrías decir tu nombre completo?' },
-    ]);
-    const [input, setInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [filledFields, setFilledFields] = useState<string[]>([]);
+    if (exito) {
+        return <Enviado ticketId={exito.ticket_id} autenticado={autenticado} />;
+    }
+    return <Reporte autenticado={autenticado} />;
+}
 
-    const [formData, setFormData] = useState<FormData>({
-        reporter_name: '', reporter_position: '', reporter_service: '', reporter_extension: '',
-        reporter_email: '', name: '', content: '', priority: '3', device_type: '', equipment_ecom: '', itilcategories_id: '',
-    });
+const saludo = (): Mensaje => ({ id: 1, autor: 'bot', texto: SALUDO });
 
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const sendButtonRef = useRef<HTMLButtonElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+function Reporte({ autenticado }: { autenticado: boolean }) {
+    // Si la página se recargó a mitad del reporte, se retoma donde iba
+    const [inicial] = useState(leerBorrador);
+    const [datos, setDatos] = useState<Datos>(inicial?.datos ?? DATOS_VACIOS);
+    const [omitidos, setOmitidos] = useState<Paso[]>(inicial?.omitidos ?? []);
+    const [mensajes, setMensajes] = useState<Mensaje[]>(
+        inicial?.mensajes.length ? inicial.mensajes : [saludo()],
+    );
+    const [modo, setModo] = useState<Modo>(inicial?.modo ?? 'asistente');
+    const [sinIA, setSinIA] = useState(inicial?.sinIA ?? false);
+    const [preguntado, setPreguntado] = useState<Paso | null>(
+        inicial ? inicial.preguntado : 'reporter_name',
+    );
+    const [cargando, setCargando] = useState(false);
+    const [enviando, setEnviando] = useState(false);
+    const [errores, setErrores] = useState<Record<string, string>>({});
+    const [recientes, setRecientes] = useState<Campo[]>([]);
+    const [reiniciar, setReiniciar] = useState(false);
+
+    const ultimoId = useRef(Math.max(0, ...mensajes.map((m) => m.id)));
+    const nuevoId = () => ++ultimoId.current;
+    const resumenErrores = useRef<HTMLDivElement>(null);
+    const enfocarDespues = useRef<string | null>(null);
+
+    const paso = siguientePaso(datos, omitidos);
+    const faltan = faltantes(datos);
+    const hayProgreso =
+        mensajes.length > 1 ||
+        Object.entries(datos).some(
+            ([campo, valor]) => campo !== 'priority' && valor.trim() !== '',
+        );
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        guardarBorrador({ datos, omitidos, mensajes, modo, sinIA, preguntado });
+    }, [datos, omitidos, mensajes, modo, sinIA, preguntado]);
 
-    // Tour para usuarios nuevos
-    const startTour = () => {
-        const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const driverObj = driver({
-            showProgress: false,
-            animate: !prefersReducedMotion,
-            allowClose: true,
-            overlayColor: 'rgba(0, 0, 0, 0.7)',
-            stagePadding: 8,
-            nextBtnText: 'Siguiente',
-            prevBtnText: 'Anterior',
-            doneBtnText: 'Entendido',
-            steps: [
-                {
-                    element: '#chat-header',
-                    popover: {
-                        title: 'Bienvenido a Evarisbot',
-                        description: 'Soy tu asistente virtual para reportar problemas técnicos en el Hospital. Te guiaré paso a paso para crear tu reporte de manera fácil y rápida.',
-                        side: 'bottom',
-                        align: 'center'
-                    }
-                },
-                {
-                    element: '#chat-messages',
-                    popover: {
-                        title: 'Área de Conversación',
-                        description: 'Aquí verás nuestra conversación. Te haré preguntas sobre tu problema y tú solo responde de forma natural, como si hablaras con un compañero.',
-                        side: 'right',
-                        align: 'center'
-                    }
-                },
-                {
-                    element: '#chat-input',
-                    popover: {
-                        title: 'Escribe tu mensaje',
-                        description: 'Escribe aquí tus respuestas. Puedes contarme:\n• Tu nombre y cargo\n• Qué problema tienes\n• En qué equipo o sistema\n\nPresiona Enter o el botón azul para enviar.',
-                        side: 'top',
-                        align: 'center'
-                    }
-                },
-                {
-                    element: '#summary-panel',
-                    popover: {
-                        title: 'Resumen en Tiempo Real',
-                        description: 'Mientras conversamos, iré completando este resumen automáticamente. Así podrás ver qué información ya tenemos y qué falta.',
-                        side: 'left',
-                        align: 'center'
-                    }
-                },
-                {
-                    element: '#submit-button',
-                    popover: {
-                        title: 'Enviar tu Reporte',
-                        description: 'Cuando el formulario esté completo, este botón se activará. Haz clic para enviar tu reporte y recibirás un número de caso para dar seguimiento.',
-                        side: 'top',
-                        align: 'center'
-                    }
-                },
-                {
-                    element: '#help-button',
-                    popover: {
-                        title: '¿Necesitas ayuda?',
-                        description: 'Si en cualquier momento necesitas ver este tutorial de nuevo, solo haz clic en este botón. ¡Estoy aquí para ayudarte!',
-                        side: 'left',
-                        align: 'center'
-                    }
-                },
-                {
-                    element: '#accessibility-button',
-                    popover: {
-                        title: 'Opciones de Accesibilidad',
-                        description: 'Aquí puedes ajustar la visualización según tus necesidades:\n• Aumentar o reducir el tamaño del texto\n• Activar alto contraste\n• Espaciado de texto para mejor lectura\n• Cursor grande\n• Guía de lectura',
-                        side: 'right',
-                        align: 'center'
-                    }
-                }
-            ],
-            onDestroyed: () => {
-                // Marcar que el usuario ya vio el tour
-                localStorage.setItem('helpdesk_tour_completed', 'true');
-            }
-        });
-        driverObj.drive();
-    };
-
-    // Verificar si es primera visita
+    // El resaltado de los datos recién llenados dura lo que su animación
     useEffect(() => {
-        const tourCompleted = localStorage.getItem('helpdesk_tour_completed');
-        if (!tourCompleted) {
-            // Pequeño delay para que los elementos estén renderizados
-            const timer = setTimeout(() => {
-                startTour();
-            }, 1000);
-            return () => clearTimeout(timer);
+        if (recientes.length === 0) return;
+        const reloj = setTimeout(() => setRecientes([]), 2600);
+        return () => clearTimeout(reloj);
+    }, [recientes]);
+
+    // Al pasar al formulario desde «Editar» o desde un error, el foco va al campo
+    useEffect(() => {
+        if (enfocarDespues.current) {
+            document.getElementById(enfocarDespues.current)?.focus();
+            enfocarDespues.current = null;
         }
-    }, []);
+    }, [modo, errores]);
 
-    const handleChange = (field: string, value: string) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-    };
+    /* ── Conversación ── */
 
-    const isFormComplete = () => {
-        return formData.reporter_name && formData.reporter_position &&
-            formData.reporter_service && formData.name && formData.content;
-    };
+    const conversar = async (envio: Envio, repetir = false) => {
+        if (cargando) return;
 
-    const handleSubmit = () => {
-        if (!isFormComplete()) return;
-        setProcessing(true);
+        // Sin avisos de error viejos: si se reintenta, el mensaje de la persona ya está en el hilo
+        const hilo = mensajes.filter((m) => m.autor !== 'aviso');
+        const conMensaje: Mensaje[] = repetir
+            ? hilo
+            : [
+                  ...hilo,
+                  { id: nuevoId(), autor: 'persona', texto: envio.texto },
+              ];
+        setMensajes(conMensaje);
 
-        // Mostrar mensaje de feedback inmediato
-        setMessages(prev => [...prev, { role: 'assistant', content: '📤 Enviando tu reporte... Por favor espera un momento.' }]);
-
-        router.post('/reportar', { ...formData }, {
-            onSuccess: () => {
-                setFormData({
-                    reporter_name: '', reporter_position: '', reporter_service: '', reporter_extension: '',
-                    reporter_email: '', name: '', content: '', priority: '3', device_type: '', equipment_ecom: '', itilcategories_id: '',
-                });
-                setFilledFields([]);
-                setMessages([{ role: 'assistant', content: '¡Hola! 👋 Soy Evarisbot. ¿Me podrías decir tu nombre completo?' }]);
-                setProcessing(false);
-            },
-            onError: () => {
-                setProcessing(false);
-                setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema al enviar. Por favor, intenta de nuevo.' }]);
-            }
-        });
-    };
-
-    const sendMessage = async () => {
-        if (!input.trim() || isLoading) return;
-
-        const userMessage = input.trim();
-        setInput('');
-
-        // Agregar mensaje inmediatamente
-        setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-        setIsLoading(true);
-
-        // Animar el botón
-        animateSendButton();
+        const omitir =
+            envio.omitir && !omitidos.includes(envio.omitir)
+                ? [...omitidos, envio.omitir]
+                : omitidos;
+        setOmitidos(omitir);
+        setCargando(true);
 
         try {
-            const response = await fetch('/chatbot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders() },
-                credentials: 'include',
-                body: JSON.stringify({
-                    message: userMessage,
-                    context: messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
-                    currentFormData: formData,
-                    filledFields: filledFields,
-                }),
+            const esRapida = !!(envio.campos || envio.omitir);
+            const respuesta = await preguntarAlAsistente({
+                ...(esRapida
+                    ? { campos: envio.campos ?? {} }
+                    : { message: envio.texto }),
+                omitidos: omitir,
+                currentFormData: datos,
+                // Lo anterior al mensaje actual: el servidor lo agrega al final por su cuenta
+                context: conMensaje
+                    .slice(0, -1)
+                    .slice(-6)
+                    .map((m) => ({
+                        role: m.autor === 'persona' ? 'user' : 'assistant',
+                        content: m.texto,
+                    })),
             });
 
-            const data = await response.json();
-
-            // Debug: ver qué devuelve la IA
-            console.log('Chatbot response:', data);
-
-            if (data.success) {
-                if (data.fields && typeof data.fields === 'object' && Object.keys(data.fields).length > 0) {
-                    console.log('Fields received:', data.fields);
-                    
-                    const newFilledFields: string[] = [...filledFields];
-                    const invalidValues = ['valor', 'valor1', 'valor2', 'dato_del_usuario', 'valor que dijo el usuario', 'titulo del problema', 'descripcion detallada', 'pendiente', ''];
-
-                    // Procesar campos - crear objeto con los nuevos valores
-                    const fieldsToProcess = { ...data.fields };
-
-                    // Detectar si hay ECOM en extensión y corregirlo
-                    if (fieldsToProcess.reporter_extension &&
-                        typeof fieldsToProcess.reporter_extension === 'string' &&
-                        fieldsToProcess.reporter_extension.toLowerCase().includes('ecom')) {
-                        if (!fieldsToProcess.equipment_ecom) {
-                            fieldsToProcess.equipment_ecom = fieldsToProcess.reporter_extension.toLowerCase();
-                        }
-                        fieldsToProcess.reporter_extension = '';
-                    }
-
-                    // Si device_type es 'software', convertir a 'computer' (software corre en PC)
-                    if (fieldsToProcess.device_type === 'software') {
-                        fieldsToProcess.device_type = 'computer';
-                    }
-
-                    // Construir el nuevo formData directamente
-                    const newFormData = { ...formData };
-
-                    Object.entries(fieldsToProcess).forEach(([field, value]) => {
-                        if (value && typeof value === 'string') {
-                            const trimmedValue = value.trim().toLowerCase();
-                            if (trimmedValue && !invalidValues.includes(trimmedValue)) {
-                                const currentValue = formData[field as keyof FormData] || '';
-                                if (!currentValue || value.trim().length > currentValue.length) {
-                                    newFormData[field as keyof FormData] = value.trim();
-                                    if (!newFilledFields.includes(field)) newFilledFields.push(field);
-                                }
-                            }
-                        }
-                    });
-
-                    // Actualizar estado de una sola vez
-                    setFormData(newFormData);
-                    setFilledFields(newFilledFields);
-
-                    // Verificar si el formulario está completo usando newFormData
-                    const basicFieldsComplete = newFormData.reporter_name &&
-                        newFormData.reporter_position &&
-                        newFormData.reporter_service &&
-                        newFormData.name &&
-                        newFormData.content;
-
-                    // computer, monitor, software y network requieren ECOM
-                    // Solo printer y phone NO requieren ECOM
-                    const needsEcomDevice = ['computer', 'monitor', 'software', 'network'].includes(newFormData.device_type || '');
-                    const needsEcom = needsEcomDevice && !newFormData.equipment_ecom;
-                    const formIsComplete = basicFieldsComplete && !needsEcom;
-
-                    if (formIsComplete) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: '✅ ¡Listo! Tu reporte está completo. Revisa los datos y haz clic en "Enviar Reporte".' }]);
-                    } else if (data.message && data.message.trim()) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-                    }
-                } else if (data.message && data.message.trim()) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-                }
-            } else {
-                setMessages(prev => [...prev, { role: 'assistant', content: 'Lo siento, tuve un problema. ¿Puedes intentar de nuevo?' }]);
-            }
-        } catch {
-            setMessages(prev => [...prev, { role: 'assistant', content: 'Error de conexión. Verifica tu internet.' }]);
+            setDatos((d) => ({ ...d, ...respuesta.campos }));
+            setRecientes(Object.keys(respuesta.campos) as Campo[]);
+            setSinIA(respuesta.sinIA);
+            setMensajes((m) => [
+                ...m,
+                { id: nuevoId(), autor: 'bot', texto: respuesta.mensaje },
+            ]);
+            setPreguntado(
+                siguientePaso({ ...datos, ...respuesta.campos }, omitir),
+            );
+        } catch (e) {
+            const fallo = e instanceof ErrorAsistente ? e.tipo : 'servidor';
+            setMensajes((m) => [
+                ...m,
+                { id: nuevoId(), autor: 'aviso', texto: '', fallo, envio },
+            ]);
         } finally {
-            setIsLoading(false);
-            // Restaurar foco después de que termine la carga
-            requestAnimationFrame(() => inputRef.current?.focus());
+            setCargando(false);
         }
     };
 
-    // Animación del botón enviar
-    const animateSendButton = () => {
-        const button = sendButtonRef.current;
-        if (!button) return;
+    const cambiarModo = (nuevo: Modo) => {
+        if (nuevo === modo) return;
+        // Volviendo del formulario con datos cambiados: la última pregunta del asistente puede no
+        // ser ya la que toca. Se retoma con la que corresponde.
+        if (nuevo === 'asistente' && paso !== preguntado) {
+            setMensajes((m) => [
+                ...m.filter((x) => x.autor !== 'aviso'),
+                {
+                    id: nuevoId(),
+                    autor: 'bot',
+                    texto:
+                        paso === null
+                            ? `Tomé los cambios del formulario. ${LISTO}`
+                            : `Tomé los cambios del formulario. ${PREGUNTAS[paso]}`,
+                },
+            ]);
+            setPreguntado(paso);
+        }
+        setModo(nuevo);
+    };
 
-        // Pulso del botón
-        gsap.to(button, {
-            scale: 0.85,
-            duration: 0.1,
-            ease: 'power2.in',
-            onComplete: () => {
-                gsap.to(button, {
-                    scale: 1,
-                    duration: 0.3,
-                    ease: 'elastic.out(1, 0.5)'
-                });
-            }
+    const editar = (campo: Campo) => {
+        enfocarDespues.current = campo;
+        if (modo === 'formulario') {
+            document.getElementById(campo)?.focus();
+            enfocarDespues.current = null;
+        } else {
+            setModo('formulario');
+        }
+    };
+
+    const cambiarDatos = (cambios: Partial<Datos>) => {
+        setDatos((d) => ({ ...d, ...cambios }));
+        // Si la persona escribe la extensión o el ECOM en el formulario, deja de estar «omitido»
+        setOmitidos((o) => o.filter((p) => !(p in cambios)));
+        setErrores((e) => {
+            const quedan = { ...e };
+            for (const campo of Object.keys(cambios)) delete quedan[campo];
+            return quedan;
         });
     };
 
-
-    // onKeyDown, no onKeyPress: onKeyPress está obsoleto y no dispara para todas las teclas.
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            sendMessage();
-            // Mantener foco inmediatamente
-            inputRef.current?.focus();
-        }
+    const empezarDeNuevo = () => {
+        borrarBorrador();
+        setDatos(DATOS_VACIOS);
+        setOmitidos([]);
+        setMensajes([saludo()]);
+        ultimoId.current = 1;
+        setSinIA(false);
+        setPreguntado('reporter_name');
+        setErrores({});
+        setRecientes([]);
+        setReiniciar(false);
+        setModo('asistente');
+        requestAnimationFrame(() =>
+            document.getElementById('mensaje-asistente')?.focus(),
+        );
     };
 
-    // Si hay éxito, mostrar pantalla de confirmación
-    if (flash?.success) {
-        return <PantallaEnviado ticketId={flash.success.ticket_id} />;
-    }
+    /* ── Envío ── */
 
-    return (
-        <>
-            <Head title="Reportar Problema - HelpDesk HUV" />
-            {/* h-dvh + overflow-y-auto (antes h-screen + overflow-hidden): la altura fija sigue
-                acotando el chat para que el hilo conserve su scroll interno, pero ahora lo que se
-                desborda es ALCANZABLE. Con overflow-hidden, al ampliar el texto (el propio menú de
-                accesibilidad llega al 150%, o el zoom de solo-texto de Firefox) el bloque inferior
-                del aside —con el botón de enviar— quedaba recortado y sin forma de llegar a él.
-                WCAG 1.4.4 (Redimensionar texto) y 1.4.10 (Reflujo). dvh además evita que la barra
-                dinámica del navegador móvil recorte el final. */}
-            <div className="h-dvh bg-gray-50 flex flex-col items-center p-3 sm:p-4 lg:p-6 overflow-y-auto">
-                {/* Header */}
-                <header className="w-full max-w-6xl mb-2 sm:mb-3 lg:mb-4 flex flex-col items-center shrink-0">
-                    <img
-                        src="/images/huv-h-160.webp"
-                        alt="Hospital Universitario del Valle"
-                        width={566}
-                        height={160}
-                        fetchPriority="high"
-                        className="h-12 sm:h-16 lg:h-20 w-auto object-contain mb-1 sm:mb-2"
-                    />
-                    <div className="text-center">
-                        <h1 className="text-base sm:text-lg lg:text-xl font-bold text-[#2d3e5e] tracking-tight leading-none">Reporte Sistemas HUV</h1>
-                        <p className="text-slate-500 text-[10px] sm:text-xs font-medium mt-0.5 sm:mt-1 hidden sm:block">Chatbot de Soporte Técnico</p>
-                    </div>
-                </header>
+    const mostrarErrores = (lista: Record<string, string>) => {
+        setErrores(lista);
+        setModo('formulario');
+        // El resumen de errores recibe el foco: lee qué falta y cada error lleva a su campo
+        requestAnimationFrame(() => resumenErrores.current?.focus());
+    };
 
-                {/* Main Content */}
-                {/* Sin overflow-hidden: era el segundo recorte. Con el texto ampliado el contenido
-                    excede la altura de <main>, y clipar aquí hacía inalcanzable el botón de enviar.
-                    Dejándolo desbordar, el scroll del contenedor de arriba sí llega hasta él.
-                    El recorte visual de las esquinas redondeadas no se pierde: la <section> del chat
-                    y el panel del aside ya tienen su propio rounded-xl + overflow-hidden. */}
-                <main className="w-full max-w-6xl flex flex-col lg:grid lg:grid-cols-12 gap-3 sm:gap-4 flex-1 min-h-0">
-                    {/* Chat Section */}
-                    {/* min-h-64 en vez de min-h-0: con min-h-0 el hilo se aplastaba sin límite al
-                        ampliar el texto — a 28px de raíz en móvil quedaba en 42px de alto, una línea
-                        escasa, y el usuario perdía la conversación que acababa de ampliar para poder
-                        leer. El suelo va en rem, así que escala con el texto: cuando ya no cabe,
-                        el contenido desborda y el contenedor de arriba lo hace desplazable en vez de
-                        comprimirlo. A tamaño normal no llega a aplicarse (el hilo mide bastante más),
-                        así que el layout no cambia. */}
-                    <section className="flex-1 lg:flex-none lg:col-span-8 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col overflow-hidden border border-slate-100 min-h-64">
-                        {/* Chat Header */}
-                        <div id="chat-header" className="bg-[#2d3e5e] p-4 flex items-center justify-between z-10">
-                            <div className="flex items-center space-x-3">
-                                <div className="relative">
-                                    <div className="w-10 h-10 bg-white/20 rounded-full overflow-hidden">
-                                        <img src="/images/evaris-avatar.webp" alt="" width={40} height={40} className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#2d3e5e] rounded-full"></div>
-                                </div>
-                                <div>
-                                    <h2 className="text-white font-semibold text-sm">Evarisbot</h2>
-                                    <p className="text-white/70 text-[10px] uppercase tracking-wider font-medium">En línea</p>
-                                </div>
-                            </div>
-                            <button
-                                id="help-button"
-                                onClick={startTour}
-                                aria-label="Ver tutorial"
-                                className="text-white/70 hover:text-white transition-colors rounded-full p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                                title="Ver tutorial"
-                            >
-                                <HelpCircle className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* Chat Messages */}
-                        {/* tabIndex={0}: la conversación se autodesplaza al final, así que sin ratón
-                            no había forma de volver a leer lo que Evarisbot preguntó antes. Al ser
-                            enfocable, el teclado puede entrar y desplazarla con las flechas. */}
-                        <div id="chat-messages" ref={messagesContainerRef} tabIndex={0} role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false" aria-label="Conversación con Evarisbot" className="flex-1 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 sm:space-y-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2d3e5e]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
-                            {/* Timestamp */}
-                            <div className="flex justify-center">
-                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-wider">
-                                    {new Date().toLocaleDateString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            </div>
-
-                            {messages.map((msg, index) => (
-                                <AnimatedMessage
-                                    key={index}
-                                    message={msg}
-                                    isNew={index === messages.length - 1}
-                                />
-                            ))}
-                            {isLoading && (
-                                <div className="flex items-start space-x-3 max-w-[90%]">
-                                    <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden">
-                                        <img src="/images/evaris-avatar.webp" alt="" width={32} height={32} className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="bg-slate-50 px-4 py-3 rounded-2xl rounded-tl-none">
-                                        <span className="sr-only">Evarisbot está escribiendo…</span>
-                                        <span aria-hidden="true" className="flex items-center gap-1.5">
-                                            <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                            <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                            <span className="w-2 h-2 bg-[#2d3e5e] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        {/* Chat Input */}
-                        <div id="chat-input" className="p-3 sm:p-4 bg-white border-t border-slate-100 shrink-0">
-                            <form className="relative flex items-center" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
-                                <input
-                                    ref={inputRef}
-                                    type="text"
-                                    aria-label="Escribe tu mensaje"
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder="Escribe tu mensaje..."
-                                    className="w-full bg-slate-50 text-slate-700 text-sm rounded-full py-3.5 pl-5 pr-14 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus:bg-white transition-all border border-slate-200 placeholder-slate-500"
-                                    autoFocus
-                                />
-                                <div className="absolute right-2 flex items-center">
-                                    <button
-                                        ref={sendButtonRef}
-                                        type="submit"
-                                        aria-label="Enviar mensaje"
-                                        onClick={() => { sendMessage(); inputRef.current?.focus(); }}
-                                        disabled={!input.trim() || isLoading}
-                                        className="text-[#2d3e5e] hover:bg-blue-50 p-2 rounded-full transition-colors flex items-center justify-center disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e]"
-                                    >
-                                        <Send className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </form>
-                            <p className="text-[10px] text-slate-500 text-center mt-1.5 sm:mt-2 hidden sm:block">Presiona Enter para enviar</p>
-                        </div>
-                    </section>
-
-                    {/* Summary Panel */}
-                    {/* aria-label: sin nombre, este landmark se anunciaba sólo como "complementario",
-                        indistinguible de cualquier otro al navegar por regiones. */}
-                    <aside id="summary-panel" aria-label="Resumen del reporte" className="lg:order-none shrink-0 lg:flex-1 lg:col-span-4 flex flex-col lg:h-full">
-                        <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] flex flex-col h-full border border-slate-100 overflow-hidden">
-                            {/* Summary Header */}
-                            <div className="p-3 sm:p-4 lg:p-5 bg-[#2d3e5e] shrink-0">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2">
-                                        <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white/80" />
-                                        <h3 className="text-white font-bold text-xs sm:text-sm uppercase tracking-wide">Resumen</h3>
-                                    </div>
-                                    {/* Mobile: Show compact status */}
-                                    <div className="flex items-center gap-2 lg:hidden">
-                                        <span className={`w-2 h-2 rounded-full ${formData.reporter_name ? 'bg-green-400' : 'bg-orange-400'}`}></span>
-                                        <span className="text-[10px] text-white/70">
-                                            {isFormComplete() ? 'Completo' : 'En progreso'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Summary Content */}
-                            {/* aria-live="polite": Evarisbot rellena estos campos conforme avanza la
-                                conversación, pero el cambio ocurre lejos del foco (que está en el
-                                input del chat), así que no se anunciaba nada: quien usa lector de
-                                pantalla no sabía que su nombre ya se había registrado.
-                                Va aquí, en el contenedor de los VALORES, y no en el <aside>: si
-                                envolviera también la cabecera "Resumen", cada cambio rehaciría el
-                                anuncio del panel entero. aria-atomic="false" para que sólo se lea el
-                                campo que cambió, no los cuatro cada vez.
-                                tabIndex={0}: es un contenedor desplazable; sin ser enfocable no había
-                                forma de recorrerlo con el teclado (WCAG 2.1.1). role="group" para que
-                                el aria-label se exponga (un div genérico no lo anuncia). */}
-                            <div
-                                role="group"
-                                aria-label="Campos del reporte"
-                                aria-live="polite"
-                                aria-atomic="false"
-                                tabIndex={0}
-                                className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2d3e5e]"
-                                style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}
-                            >
-                                {/* Mobile: Compact horizontal layout */}
-                                <div className="lg:hidden flex flex-wrap gap-2 text-xs">
-                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_name ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                        {formData.reporter_name || 'Nombre'}
-                                    </div>
-                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_position ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                        {formData.reporter_position || 'Cargo'}
-                                    </div>
-                                    <div className={`px-2 py-1 rounded-full border ${formData.reporter_service ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                        {formData.reporter_service || 'Servicio'}
-                                    </div>
-                                    {formData.name && (
-                                        <div className="px-2 py-1 rounded-full border bg-blue-50 border-blue-200 text-blue-700 truncate max-w-[150px]">
-                                            {formData.name}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Desktop: Full timeline layout */}
-                                <div className="hidden lg:block space-y-8">
-                                {/* Quien Reporta */}
-                                <div>
-                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Quien Reporta</h4>
-                                    <ul className="space-y-5 border-l border-slate-100 ml-1.5 pl-5 relative">
-                                        <TimelineItem 
-                                            label="Nombre" 
-                                            value={formData.reporter_name} 
-                                            placeholder="Pendiente..." 
-                                            isActive={!formData.reporter_name}
-                                        />
-                                        <TimelineItem 
-                                            label="Cargo" 
-                                            value={formData.reporter_position} 
-                                            placeholder="..." 
-                                            isActive={!!formData.reporter_name && !formData.reporter_position}
-                                        />
-                                        <TimelineItem 
-                                            label="Servicio" 
-                                            value={formData.reporter_service} 
-                                            placeholder="..." 
-                                            isActive={!!formData.reporter_position && !formData.reporter_service}
-                                        />
-                                        {formData.reporter_extension && (
-                                            <TimelineItem label="Extensión" value={formData.reporter_extension} />
-                                        )}
-                                    </ul>
-                                </div>
-
-                                {/* El Problema */}
-                                <div>
-                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">El Problema</h4>
-                                    <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                        <FileText className="w-4 h-4 text-slate-500 mt-0.5" />
-                                        <div className="flex-1">
-                                            <span className="block text-xs text-slate-500 mb-1">Descripción</span>
-                                            {formData.name ? (
-                                                <span className="block text-sm text-slate-800 font-medium">{formData.name}</span>
-                                            ) : (
-                                                <span className="block text-sm text-slate-500 italic">Título pendiente...</span>
-                                            )}
-                                            {formData.content && (
-                                                <p className="text-xs text-slate-500 mt-2 leading-relaxed">{formData.content}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {formData.device_type && (
-                                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                                            <Monitor className="w-3.5 h-3.5" />
-                                            <span>{deviceLabels[formData.device_type] || formData.device_type}</span>
-                                        </div>
-                                    )}
-                                    {formData.equipment_ecom && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                                            <Cpu className="w-3.5 h-3.5" />
-                                            <span>ECOM: {formData.equipment_ecom}</span>
-                                        </div>
-                                    )}
-                                </div>
-                                </div>
-                            </div>
-
-                            {/* Submit Button */}
-                            <div id="submit-button" className="p-3 sm:p-4 lg:p-5 bg-slate-50 border-t border-slate-100 shrink-0">
-                                <Button
-                                    onClick={handleSubmit}
-                                    disabled={!isFormComplete() || processing}
-                                    className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all ${
-                                        isFormComplete() && !processing
-                                            ? 'bg-[#2d3e5e] hover:bg-[#3d5583] text-white shadow-sm hover:shadow-md'
-                                            : 'bg-white border border-slate-200 text-slate-500 cursor-not-allowed opacity-80'
-                                    }`}
-                                >
-                                    {processing ? 'Enviando...' : isFormComplete() ? '✓ Enviar Reporte' : 'Completa la conversación'}
-                                </Button>
-                                <p className="text-center text-[10px] text-slate-500 mt-2 lg:mt-3 px-2 lg:px-4 leading-relaxed hidden sm:block">
-                                    {isFormComplete() 
-                                        ? 'Revisa los datos y envía tu reporte.'
-                                        : 'Interactúa con el asistente para habilitar el envío del reporte.'
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                    </aside>
-                </main>
-
-                {/* Menú de Accesibilidad */}
-                <AccessibilityMenu />
-            </div>
-        </>
-    );
-}
-
-// Componente de mensaje con animación - Nuevo estilo chatbot
-function AnimatedMessage({ message, isNew }: { message: Message; isNew: boolean }) {
-    const messageRef = useRef<HTMLDivElement>(null);
-    const hasAnimated = useRef(false);
-
-    useEffect(() => {
-        if (messageRef.current && isNew && !hasAnimated.current) {
-            hasAnimated.current = true;
-            // Respetar la preferencia del sistema de reducir movimiento (WCAG 2.3.3)
-            if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                return;
-            }
-            const el = messageRef.current;
-            const isUser = message.role === 'user';
-
-            gsap.fromTo(el,
-                {
-                    opacity: 0,
-                    y: 20,
-                    scale: 0.97,
-                    transformOrigin: isUser ? 'bottom right' : 'bottom left'
-                },
-                {
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                    duration: 0.35,
-                    ease: 'power2.out',
-                    clearProps: 'transform'
-                }
+    const enviarReporte = () => {
+        if (enviando) return;
+        const reporte: Datos = {
+            ...datos,
+            name: datos.name.trim() || tituloDesde(datos.content),
+            priority: datos.priority || '3',
+        };
+        const pendientes = faltantes(reporte);
+        if (pendientes.length > 0) {
+            mostrarErrores(
+                Object.fromEntries(
+                    pendientes.map((campo) => [
+                        campo,
+                        'Este dato es obligatorio.',
+                    ]),
+                ),
             );
+            return;
         }
-    }, [isNew, message.role]);
+        if (reporte.name !== datos.name) setDatos(reporte);
 
-    // Quién habla se transmite solo por posición y color (derecha/navy = tú, izquierda/gris = el
-    // bot). Un lector de pantalla no percibe ninguna de las dos cosas: sin esta etiqueta oculta
-    // oye las preguntas y sus propias respuestas seguidas, sin saber cuál es cuál.
-    if (message.role === 'user') {
-        return (
-            <div ref={messageRef} className="flex justify-end">
-                <div className="max-w-[80%] bg-[#2d3e5e] text-white px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-line">
-                    <span className="sr-only">Tú dijiste: </span>
-                    {message.content}
-                </div>
-            </div>
+        router.post(
+            '/reportar',
+            { ...reporte },
+            {
+                preserveScroll: true,
+                onStart: () => setEnviando(true),
+                onError: (errs) => mostrarErrores(erroresPorCampo(errs)),
+                onFinish: () => setEnviando(false),
+            },
         );
-    }
+    };
 
-    return (
-        <div ref={messageRef} className="flex items-start space-x-3 max-w-[90%]">
-            <div className="w-8 h-8 rounded-full bg-slate-50 flex-shrink-0 overflow-hidden mt-1">
-                <img src="/images/evaris-avatar.webp" alt="" width={32} height={32} className="w-full h-full object-cover" />
-            </div>
-            <div className="flex flex-col space-y-2">
-                <div className="bg-slate-50 p-3.5 rounded-2xl rounded-tl-none text-slate-600 text-sm leading-relaxed whitespace-pre-line">
-                    <span className="sr-only">Evarisbot dice: </span>
-                    {message.content}
-                </div>
-            </div>
-        </div>
-    );
-}
+    /* ── Pestañas ── */
 
-/**
- * Pantalla de confirmación tras enviar el reporte.
- *
- * Va en su propio componente porque necesita hooks y el padre la devuelve desde un `return`
- * temprano. Resuelve dos fallos reales: al enviar, el foco volvía al inicio del documento y no
- * se anunciaba nada, así que quien usa lector de pantalla no sabía si el reporte se había
- * enviado ni recibía su número de seguimiento — y el número es la única forma de hacer
- * seguimiento del caso.
- */
-function PantallaEnviado({ ticketId }: { ticketId: number | string }) {
-    const headingRef = useRef<HTMLHeadingElement>(null);
+    const MODOS: {
+        valor: Modo;
+        etiqueta: string;
+        Icono: typeof MessageSquareText;
+    }[] = [
+        {
+            valor: 'asistente',
+            etiqueta: 'Con el asistente',
+            Icono: MessageSquareText,
+        },
+        {
+            valor: 'formulario',
+            etiqueta: 'Llenar formulario',
+            Icono: ClipboardList,
+        },
+    ];
 
-    useEffect(() => {
-        headingRef.current?.focus();
-    }, []);
+    const teclasPestanas = (e: KeyboardEvent<HTMLDivElement>) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+        e.preventDefault();
+        const otro: Modo = modo === 'asistente' ? 'formulario' : 'asistente';
+        const destino: Modo =
+            e.key === 'Home'
+                ? 'asistente'
+                : e.key === 'End'
+                  ? 'formulario'
+                  : otro;
+        cambiarModo(destino);
+        requestAnimationFrame(() =>
+            document.getElementById(`pestana-${destino}`)?.focus(),
+        );
+    };
+
+    const propsResumen = {
+        datos,
+        recientes,
+        enviando,
+        onEnviar: enviarReporte,
+        onEditar: editar,
+    };
 
     return (
         <>
-            <Head title="Reporte Enviado - HelpDesk HUV" />
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-                <div
-                    role="status"
-                    className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] border border-slate-100 p-8 max-w-md w-full text-center"
-                >
-                    <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
-                        <CheckCircle className="w-8 h-8 text-green-600" aria-hidden="true" />
+            <Head title="Reportar un problema" />
+            <div className="min-h-dvh bg-gray-50">
+                <Cabecera autenticado={autenticado} />
+
+                <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-12 sm:px-6 lg:pt-8">
+                    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_23rem]">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-[1.75rem]">
+                                Reportar un problema técnico
+                            </h1>
+                            <p className="mt-1.5 max-w-2xl text-sm text-gray-600">
+                                Cuéntanos qué pasa y el equipo de Sistemas lo
+                                atenderá. Al enviarlo recibes un número de caso
+                                para hacerle seguimiento.
+                            </p>
+
+                            <div
+                                role="tablist"
+                                aria-label="Cómo quieres reportar"
+                                onKeyDown={teclasPestanas}
+                                className="mt-5 inline-flex rounded-xl bg-gray-900/[0.05] p-1 dark:bg-white/[0.06]"
+                            >
+                                {MODOS.map(({ valor, etiqueta, Icono }) => {
+                                    const activa = modo === valor;
+                                    return (
+                                        <button
+                                            key={valor}
+                                            type="button"
+                                            role="tab"
+                                            id={`pestana-${valor}`}
+                                            aria-selected={activa}
+                                            aria-controls={`panel-${valor}`}
+                                            tabIndex={activa ? 0 : -1}
+                                            onClick={() => cambiarModo(valor)}
+                                            className={cn(
+                                                'inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium focus-ring transition-colors sm:px-4',
+                                                activa
+                                                    ? 'bg-[#fff] text-gray-900 elev-1 dark:bg-white/10'
+                                                    : 'text-gray-600 hover:text-gray-900',
+                                            )}
+                                        >
+                                            <Icono
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                            {etiqueta}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Los dos paneles quedan montados (uno oculto): lo que se esté escribiendo
+                                en uno no se pierde al cambiar de pestaña. */}
+                            <div
+                                role="tabpanel"
+                                id="panel-asistente"
+                                aria-labelledby="pestana-asistente"
+                                hidden={modo !== 'asistente'}
+                                className="mt-4 space-y-4"
+                            >
+                                <div className="lg:hidden">
+                                    <ResumenPlegable {...propsResumen} />
+                                </div>
+                                <Conversacion
+                                    mensajes={mensajes}
+                                    paso={paso}
+                                    cargando={cargando}
+                                    sinIA={sinIA}
+                                    hayProgreso={hayProgreso}
+                                    puedeEnviar={faltan.length === 0}
+                                    enviando={enviando}
+                                    onEnviar={(envio) => conversar(envio)}
+                                    onReintentar={(m) =>
+                                        m.envio && conversar(m.envio, true)
+                                    }
+                                    onEmpezarDeNuevo={() => setReiniciar(true)}
+                                    onEnviarReporte={enviarReporte}
+                                    onIrAlFormulario={() =>
+                                        cambiarModo('formulario')
+                                    }
+                                />
+                            </div>
+                            <div
+                                role="tabpanel"
+                                id="panel-formulario"
+                                aria-labelledby="pestana-formulario"
+                                hidden={modo !== 'formulario'}
+                                className="mt-4"
+                            >
+                                <FormularioReporte
+                                    datos={datos}
+                                    errores={errores}
+                                    enviando={enviando}
+                                    resumenErroresRef={resumenErrores}
+                                    onCambiar={cambiarDatos}
+                                    onEnviar={enviarReporte}
+                                />
+                            </div>
+                        </div>
+
+                        <aside
+                            aria-label="Resumen del reporte"
+                            className="hidden lg:sticky lg:top-24 lg:block"
+                        >
+                            <Resumen {...propsResumen} />
+                        </aside>
                     </div>
-                    {/* tabIndex={-1} lo hace enfocable por código sin meterlo en el orden de tabulación */}
-                    <h1
-                        ref={headingRef}
-                        tabIndex={-1}
-                        className="text-xl font-bold text-[#2d3e5e] mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus-visible:ring-offset-2 rounded"
-                    >
-                        ¡Reporte Enviado!
-                    </h1>
-                    <p className="text-slate-500 text-sm mb-6">Tu reporte ha sido recibido y será atendido por nuestro equipo técnico.</p>
-
-                    <div className="bg-[#2d3e5e] text-white rounded-lg p-5 mb-6">
-                        <p className="text-xs text-white/70 uppercase tracking-wider mb-1" aria-hidden="true">Número de caso</p>
-                        {/* El "#" y los dígitos sueltos no se leen bien: se dicta el número aparte. */}
-                        <p className="text-3xl font-bold" aria-hidden="true">#{ticketId}</p>
-                        <span className="sr-only">Tu número de caso es {String(ticketId).split('').join(' ')}.</span>
-                    </div>
-
-                    <p className="text-xs text-slate-500 mb-6">
-                        Guarda este número para hacer seguimiento de tu caso.
-                    </p>
-
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="w-full bg-[#2d3e5e] text-white py-3 px-6 rounded-lg font-semibold hover:bg-[#3d5583] transition-colors text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d3e5e] focus-visible:ring-offset-2"
-                    >
-                        Crear Nuevo Reporte
-                    </button>
-                </div>
+                </main>
             </div>
+
+            <ConfirmDialog
+                open={reiniciar}
+                onOpenChange={setReiniciar}
+                title="¿Empezar de nuevo?"
+                description="Se borran la conversación y los datos que llevas de este reporte."
+                confirmLabel="Empezar de nuevo"
+                onConfirm={empezarDeNuevo}
+            />
         </>
-    );
-}
-
-// Componente Timeline para el resumen
-function TimelineItem({ label, value, placeholder, isActive }: { label: string; value?: string; placeholder?: string; isActive?: boolean }) {
-    const filled = !!value;
-    // El punto de color es la ÚNICA señal de estado (verde=listo, naranja=en curso, gris=pendiente).
-    // El color no llega a quien no lo ve, así que el estado se dice también con palabras.
-    const estado = filled ? 'completado' : isActive ? 'respondiendo ahora' : 'pendiente';
-    return (
-        <li className="relative">
-            <span
-                aria-hidden="true"
-                className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
-                    filled ? 'bg-green-500' : isActive ? 'bg-orange-400' : 'bg-slate-200'
-                }`}
-            ></span>
-            <div className="flex flex-col">
-                <span className="text-xs text-slate-500 font-medium mb-1">
-                    {label}
-                    <span className="sr-only"> — {estado}</span>
-                </span>
-                <span className={`text-sm font-medium ${
-                    filled ? 'text-slate-800' : 'text-slate-500 italic'
-                }`}>
-                    {value || placeholder}
-                </span>
-            </div>
-        </li>
     );
 }

@@ -19,6 +19,7 @@ import {
     type UbicacionCaso,
     type UsuarioCaso,
 } from '@/components/caso-formulario';
+import { avisarExito } from '@/components/avisos';
 import { FormField } from '@/components/form-field';
 import { GLPIFooter } from '@/components/glpi-footer';
 import { GLPIHeader } from '@/components/glpi-header';
@@ -31,8 +32,8 @@ import { TextareaWithHistory } from '@/components/ui/textarea-with-history';
 import { useFieldHistory } from '@/hooks/use-field-history';
 import { fieldClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, UserPlus, X } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { AlertTriangle, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 
 interface CreateTicketProps {
@@ -44,7 +45,7 @@ interface CreateTicketProps {
     auth: { user: { id: number; name: string; glpi_user_id?: number | null } };
 }
 
-export default function CrearCaso({ users, locations, categories, itemTypes, createdTicketId, auth }: CreateTicketProps) {
+export default function CrearCaso({ users, locations, categories, itemTypes, auth }: CreateTicketProps) {
     const { flash } = usePage<{ flash?: { success?: string | null; error?: string | null } }>().props;
     const titleHistory = useFieldHistory('crear_caso_titulo');
     const descHistory = useFieldHistory('crear_caso_descripcion');
@@ -70,9 +71,6 @@ export default function CrearCaso({ users, locations, categories, itemTypes, cre
     const [elementos, setElementos] = useState<ElementoCaso[]>([]);
     // Se incrementa con cada caso creado: vuelve a montar adjuntos y elementos (limpia su estado)
     const [envios, setEnvios] = useState(0);
-
-    const [avisoCerrado, setAvisoCerrado] = useState<number | null>(null);
-    const verAvisoCreado = !!createdTicketId && avisoCerrado !== createdTicketId;
 
     const yo = users.find((u) => (auth.user.glpi_user_id ? u.id === auth.user.glpi_user_id : u.laravel_id === auth.user.id));
 
@@ -123,7 +121,13 @@ export default function CrearCaso({ users, locations, categories, itemTypes, cre
             onSuccess: (page) => {
                 // Un fallo del servidor también vuelve como redirect (con flash.error): solo se
                 // limpia si de verdad se creó el caso.
-                if (!(page.props as { createdTicketId?: number | null }).createdTicketId) return;
+                const creado = (page.props as { createdTicketId?: number | null }).createdTicketId;
+                if (!creado) return;
+                const mensaje = (page.props as { flash?: { success?: string | null } }).flash?.success;
+                avisarExito(mensaje || `Caso #${creado} creado.`, {
+                    descripcion: 'Se conservaron la clasificación y las personas para registrar el siguiente.',
+                    boton: { texto: 'Ver el caso', accion: () => router.visit(`/soporte/casos/${creado}`) },
+                });
                 titleHistory.save(data.name);
                 descHistory.save(data.content);
                 // La columna lateral (clasificación y personas) se conserva para registrar el
@@ -161,37 +165,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, cre
                     <div className="mx-auto w-full max-w-6xl space-y-5 px-4 pt-6 sm:px-6">
                         <PageHeader title="Crear caso" description="Los campos sin la marca «Opcional» son obligatorios." />
 
-                        {verAvisoCreado && (
-                            <div role="status" className="flex items-start gap-3 rounded-xl bg-green-50 px-4 py-3 ring-1 ring-inset ring-green-600/20">
-                                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-700" aria-hidden="true" />
-                                <div className="min-w-0 flex-1 text-sm text-green-800">
-                                    <p>
-                                        <strong className="font-semibold">{flash?.success || `Caso #${createdTicketId} creado.`}</strong>{' '}
-                                        <Link href={`/soporte/casos/${createdTicketId}`} className="font-semibold text-green-800 underline underline-offset-2 hover:no-underline">
-                                            Ver el caso
-                                        </Link>
-                                    </p>
-                                    <p className="mt-0.5 text-green-700">Se conservaron la clasificación y las personas para registrar el siguiente.</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setAvisoCerrado(createdTicketId ?? null);
-                                        enfocar('name');
-                                    }}
-                                    aria-label="Cerrar aviso"
-                                    className="focus-ring shrink-0 rounded text-green-800 hover:text-green-900"
-                                >
-                                    <X className="size-4" aria-hidden="true" />
-                                </button>
-                            </div>
-                        )}
-                        {!createdTicketId && flash?.success && (
-                            <p role="status" className="flex items-center gap-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800 ring-1 ring-inset ring-green-600/20">
-                                <CheckCircle2 className="size-5 shrink-0 text-green-700" aria-hidden="true" />
-                                {flash.success}
-                            </p>
-                        )}
+                        {/* El éxito sale como toast, con «Ver el caso» (ver onSuccess); los errores, aquí */}
                         {flash?.error && (
                             <p role="alert" className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/20">
                                 <AlertTriangle className="size-5 shrink-0 text-red-700" aria-hidden="true" />

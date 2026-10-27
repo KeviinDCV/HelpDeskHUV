@@ -873,3 +873,33 @@ html.dark {
         outline-offset: 2px;
     }
 }
+
+/* Toasts (Sileo, components/avisos.tsx). Sileo inyecta su CSS en tiempo de ejecución, después
+   de este archivo: por eso estas reglas llevan más especificidad (el viewport o :root delante).
+   - El título va en minúscula inicial como el resto de la app; la librería lo pone en Mayúscula
+     Cada Palabra («Monitor Creado Exitosamente»).
+   - En modo oscuro Sileo usa una píldora clara (#f2f2f2) y su verde brillante quedaba a ~2:1 de
+     contraste: ahí va un verde oscuro (título ≈6:1, botón ≈5:1). Sobre la píldora negra del modo
+     claro se queda el suyo (≈7,7:1).
+   - La descripción venía al 50 % de opacidad (≈3,9:1 sobre la píldora clara): más firme.
+   - El botón del toast es un <a>, y la regla heredada `.dark a:not([class*="text-"])` (azul,
+     !important) le ganaba al color de Sileo. */
+[data-sileo-viewport] [data-sileo-title] {
+    text-transform: none;
+}
+
+[data-sileo-viewport][data-theme='dark'] {
+    --sileo-state-success: oklch(0.45 0.13 150.069);
+}
+
+:root [data-sileo-viewport][data-theme='light'] [data-sileo-description] {
+    color: rgb(255 255 255 / 0.72);
+}
+
+:root [data-sileo-viewport][data-theme='dark'] [data-sileo-description] {
+    color: rgb(0 0 0 / 0.68);
+}
+
+.dark [data-sileo-viewport] [data-sileo-button] {
+    color: var(--sileo-btn-color) !important;
+}

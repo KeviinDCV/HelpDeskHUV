@@ -4,8 +4,8 @@ import { GLPIHeader } from '@/components/glpi-header';
 import { btn, fieldClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Camera, Check, CheckCircle2, Circle, Eye, EyeOff, Loader2 } from 'lucide-react';
-import React, { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Camera, Check, Circle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import React, { useRef, useState, type ReactNode } from 'react';
 
 interface AuthUser {
     id: number;
@@ -16,8 +16,6 @@ interface AuthUser {
     avatar: string | null;
     role: string;
 }
-
-type Formulario = 'perfil' | 'password';
 
 // Los mismos límites que valida ProfileUpdateRequest (mimes:jpg,jpeg,png,gif · max:2048 KB).
 // Revisarlos aquí evita subir la foto para enterarse después, en el error del servidor.
@@ -42,21 +40,9 @@ function Seccion({ id, titulo, descripcion, children }: { id: string; titulo: st
     );
 }
 
-/** Pie de tarjeta con el botón de guardar y la confirmación, que se anuncia al lector de pantalla. */
-function PieFormulario({ aviso, children }: { aviso: string | null; children: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t bg-gray-50 px-5 py-3 sm:px-6">
-            <p role="status" className="flex items-center gap-1.5 text-sm text-green-700">
-                {aviso && (
-                    <>
-                        <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-                        {aviso}
-                    </>
-                )}
-            </p>
-            {children}
-        </div>
-    );
+/** Pie de tarjeta con el botón de guardar. La confirmación sale como toast (components/avisos.tsx). */
+function PieFormulario({ children }: { children: ReactNode }) {
+    return <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t bg-gray-50 px-5 py-3 sm:px-6">{children}</div>;
 }
 
 function Requisito({ cumplido, children }: { cumplido: boolean; children: ReactNode }) {
@@ -96,14 +82,6 @@ export default function Profile() {
     const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
     const [visibles, setVisibles] = useState<Record<string, boolean>>({});
 
-    // Confirmación junto al formulario que se guardó (antes el aviso de contraseña salía
-    // también en la tarjeta del perfil, porque ambos leían el mismo flash).
-    const [aviso, setAviso] = useState<{ form: Formulario; texto: string } | null>(null);
-    useEffect(() => {
-        if (!aviso) return;
-        const t = setTimeout(() => setAviso(null), 6000);
-        return () => clearTimeout(t);
-    }, [aviso]);
 
     const hayCambios =
         formData.name !== (user.name || '') ||
@@ -153,11 +131,10 @@ export default function Profile() {
         router.post('/settings/profile', data, {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: (page) => {
+            // La confirmación («Perfil actualizado correctamente») la muestra el toast global
+            onSuccess: () => {
                 setProcessing(false);
                 setAvatarFile(null);
-                const flash = (page.props as { flash?: { success?: string } }).flash;
-                setAviso({ form: 'perfil', texto: flash?.success ?? 'Cambios guardados.' });
             },
             onError: (errs) => {
                 setErrors(errs as Record<string, string>);
@@ -173,7 +150,7 @@ export default function Profile() {
 
         router.put('/settings/profile/password', passwordData, {
             preserveScroll: true,
-            onSuccess: (page) => {
+            onSuccess: () => {
                 setPasswordProcessing(false);
                 setPasswordData({
                     current_password: '',
@@ -181,8 +158,6 @@ export default function Profile() {
                     password_confirmation: '',
                 });
                 setVisibles({});
-                const flash = (page.props as { flash?: { success?: string } }).flash;
-                setAviso({ form: 'password', texto: flash?.success ?? 'Contraseña actualizada.' });
             },
             onError: (errs) => {
                 setPasswordErrors(errs as Record<string, string>);
@@ -335,7 +310,7 @@ export default function Profile() {
                                     </div>
                                 </div>
 
-                                <PieFormulario aviso={aviso?.form === 'perfil' ? aviso.texto : null}>
+                                <PieFormulario>
                                     <button type="submit" disabled={processing || !hayCambios} className={btn.primary}>
                                         {processing && <Loader2 className="animate-spin" aria-hidden="true" />}
                                         {processing ? 'Guardando…' : 'Guardar cambios'}
@@ -361,7 +336,7 @@ export default function Profile() {
                                     </div>
                                 </div>
 
-                                <PieFormulario aviso={aviso?.form === 'password' ? aviso.texto : null}>
+                                <PieFormulario>
                                     <button type="submit" disabled={passwordProcessing} className={btn.primary}>
                                         {passwordProcessing && <Loader2 className="animate-spin" aria-hidden="true" />}
                                         {passwordProcessing ? 'Actualizando…' : 'Cambiar contraseña'}

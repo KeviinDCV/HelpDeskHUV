@@ -76,6 +76,18 @@ return [
     ],
 
     /*
+    | Modelos que se prueban en orden (App\Services\ClienteIA): "proveedor:modelo" separados por
+    | comas. Los proveedores retiran modelos sin aviso: en octubre de 2026 los tres que había
+    | escritos en el código dejaron de existir y Evarisbot solo decía «Todos los servicios están
+    | ocupados». Si vuelve a pasar, el log dice cuál falló (busca «IA:»); se cambia aquí con
+    | IA_MODELOS en el .env, sin tocar código. Modelos disponibles: console.groq.com/docs/models
+    | y openrouter.ai/models. Después de cambiar el .env: `php artisan config:cache`.
+    */
+    'ia' => [
+        'modelos' => env('IA_MODELOS', 'groq:qwen/qwen3.8-27b,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,openrouter:openrouter/free'),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | GLPI
     |--------------------------------------------------------------------------

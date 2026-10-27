@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import gsap from 'gsap';
-import { AlertTriangle, CheckCircle, CheckSquare, ChevronRight, Clock, Loader2, MapPin, RefreshCw, Tag, User, UserPlus, Users } from 'lucide-react';
+import { AlertTriangle, CheckSquare, ChevronRight, Clock, Loader2, MapPin, RefreshCw, Tag, User, UserPlus, Users } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 interface Solution {
@@ -262,13 +262,7 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                 <GLPIHeader />
                 <main className="flex-1 bg-gray-50">
                     <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8">
-                        {/* Flash Messages */}
-                        {props.flash?.success && (
-                            <div role="status" className="flex items-center gap-3 rounded-xl bg-green-50 px-4 py-3 ring-1 ring-inset ring-green-600/20">
-                                <CheckCircle className="size-5 shrink-0 text-green-700" aria-hidden="true" />
-                                <span className="text-sm text-green-800">{props.flash.success}</span>
-                            </div>
-                        )}
+                        {/* Los éxitos («Caso tomado…») salen como toast (components/avisos.tsx); los errores, aquí */}
                         {props.flash?.error && (
                             <div role="alert" className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 ring-1 ring-inset ring-red-600/20">
                                 <AlertTriangle className="size-5 shrink-0 text-red-700" aria-hidden="true" />
