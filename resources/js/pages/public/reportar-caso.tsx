@@ -2,7 +2,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { erroresPorCampo } from '@/components/formulario';
 import { Cabecera } from '@/components/reportar/cabecera';
 import { Conversacion } from '@/components/reportar/conversacion';
-import { Enviado } from '@/components/reportar/enviado';
+import { Enviado, type Exito } from '@/components/reportar/enviado';
 import { FormularioReporte } from '@/components/reportar/formulario-reporte';
 import {
     DATOS_VACIOS,
@@ -32,28 +32,25 @@ import { ClipboardList, MessageSquareText } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 type Props = SharedData & {
-    flash?: {
-        success?: { message: string; ticket_id: number } | string | null;
-    };
+    flash?: { success?: Exito | string | null };
 };
 
 export default function ReportarCaso() {
-    const { auth, flash } = usePage<Props>().props;
-    const autenticado = !!auth?.user;
+    const { flash } = usePage<Props>().props;
     const exito =
         flash?.success && typeof flash.success === 'object'
             ? flash.success
             : null;
 
     if (exito) {
-        return <Enviado ticketId={exito.ticket_id} autenticado={autenticado} />;
+        return <Enviado exito={exito} />;
     }
-    return <Reporte autenticado={autenticado} />;
+    return <Reporte />;
 }
 
 const saludo = (): Mensaje => ({ id: 1, autor: 'bot', texto: SALUDO });
 
-function Reporte({ autenticado }: { autenticado: boolean }) {
+function Reporte() {
     // Si la página se recargó a mitad del reporte, se retoma donde iba
     const [inicial] = useState(leerBorrador);
     const [datos, setDatos] = useState<Datos>(inicial?.datos ?? DATOS_VACIOS);
@@ -313,7 +310,7 @@ function Reporte({ autenticado }: { autenticado: boolean }) {
         <>
             <Head title="Reportar un problema" />
             <div className="min-h-dvh bg-gray-50">
-                <Cabecera autenticado={autenticado} />
+                <Cabecera />
 
                 <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-12 sm:px-6 lg:pt-8">
                     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_23rem]">

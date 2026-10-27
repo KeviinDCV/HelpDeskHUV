@@ -26,9 +26,8 @@ class PublicTicketController extends Controller
      */
     public function store(Request $request)
     {
-        // Log para debug
-        \Log::info('PublicTicket Store - Input', $request->all());
-        
+        // Sin registrar en el log lo que llega: trae nombre, cargo, extensión y la descripción
+        // del problema de quien reporta (datos personales que no deben quedar en texto plano).
         $validated = $request->validate([
             'reporter_name' => 'required|string|max:255',
             'reporter_position' => 'required|string|max:255',
@@ -128,9 +127,16 @@ class PublicTicketController extends Controller
             $this->linkEquipmentToTicket($ticketId, $validated['equipment_ecom'], $validated['device_type'] ?? 'computer');
         }
 
+        // Lo enviado viaja con la confirmación: la página lo leía del borrador del navegador
+        // (sessionStorage), que no siempre sobrevive al redireccionamiento en producción, y la
+        // pantalla salía sin resumen. Son los datos de quien reporta, devueltos a su propia sesión.
         return redirect()->route('reportar')->with('success', [
             'message' => '¡Reporte enviado exitosamente!',
             'ticket_id' => $ticketId,
+            'titulo' => $improved['name'],
+            'reporter_name' => $validated['reporter_name'],
+            'reporter_service' => $validated['reporter_service'],
+            'reporter_extension' => $validated['reporter_extension'] ?? null,
         ]);
     }
 

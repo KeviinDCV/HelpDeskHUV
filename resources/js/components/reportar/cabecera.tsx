@@ -1,11 +1,11 @@
 import { AccessibilityMenu } from '@/components/accessibility-menu';
-import { btn } from '@/lib/ui-classes';
-import { cn } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
 
-/** Barra superior de la página pública: logo, accesibilidad y, con sesión, la vuelta al tablero. */
-export function Cabecera({ autenticado }: { autenticado: boolean }) {
+/**
+ * Barra superior de la página pública: logo y accesibilidad. Sin enlaces a la mesa de ayuda:
+ * quien reporta no tiene usuario, y en un computador compartido donde un técnico dejó la sesión
+ * abierta, un «Volver al tablero» le abría el sistema interno a cualquiera.
+ */
+export function Cabecera() {
     return (
         <header className="sticky top-0 z-30 bg-[#fff]/90 backdrop-blur-md dark:bg-[#0c0c0e]/90">
             <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:px-6">
@@ -32,18 +32,6 @@ export function Cabecera({ autenticado }: { autenticado: boolean }) {
                 </p>
                 <div className="ml-auto flex items-center gap-1.5">
                     <AccessibilityMenu />
-                    {autenticado && (
-                        <Link
-                            href="/dashboard"
-                            className={cn(btn.secondary, 'px-3')}
-                        >
-                            <ArrowLeft aria-hidden="true" />
-                            <span className="hidden sm:inline">
-                                Volver al tablero
-                            </span>
-                            <span className="sm:hidden">Tablero</span>
-                        </Link>
-                    )}
                 </div>
             </div>
             <div
