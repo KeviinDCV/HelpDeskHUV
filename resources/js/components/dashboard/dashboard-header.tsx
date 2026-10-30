@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowUpRight, MessageSquare, Plus } from 'lucide-react';
+import { ArrowUpRight, MessageSquare, Plus, UserCheck } from 'lucide-react';
 
 export interface DashboardStats {
     publicUnassigned: number;
@@ -11,6 +11,8 @@ export interface DashboardStats {
 interface Props {
     stats: DashboardStats;
 }
+
+const MIS_CASOS = '/soporte/casos?filter=my_cases';
 
 /**
  * Título de la página, acciones principales y el tablero de cifras. Deliberadamente sobrio:
@@ -28,7 +30,7 @@ export function DashboardHeader({ stats }: Props) {
             // Naranja solo si hay algo esperando: es la cifra que pide acción.
             punto: stats.publicUnassigned > 0 ? 'bg-orange-500' : 'bg-gray-300',
         },
-        { etiqueta: 'Mis casos', valor: stats.myTickets, detalle: 'asignados a ti, sin cerrar', href: '/soporte/casos?filter=my_cases', punto: 'bg-huv' },
+        { etiqueta: 'Mis casos', valor: stats.myTickets, detalle: 'todos: abiertos y resueltos', href: MIS_CASOS, punto: 'bg-huv' },
         { etiqueta: 'Sin resolver', valor: stats.myPending, detalle: 'tuyos, todavía abiertos', href: '/soporte/casos?filter=my_pending', punto: 'bg-yellow-500' },
         { etiqueta: 'Resueltos', valor: stats.myResolved, detalle: 'solucionados por ti', href: '/soporte/casos?filter=my_resolved', punto: 'bg-green-600' },
     ];
@@ -53,6 +55,13 @@ export function DashboardHeader({ stats }: Props) {
                         <ArrowUpRight className="size-3.5 text-gray-400" aria-hidden="true" />
                         <span className="sr-only">(se abre en una pestaña nueva)</span>
                     </a>
+                    <Link
+                        href={MIS_CASOS}
+                        className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#fff] px-3.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 transition-colors hover:bg-gray-50 dark:bg-transparent dark:ring-white/15"
+                    >
+                        <UserCheck className="size-4 text-gray-500" aria-hidden="true" />
+                        Mis casos
+                    </Link>
                     <Link
                         href="/soporte/crear-caso"
                         className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-huv px-3.5 text-sm font-medium text-white transition-colors hover:bg-huv-hover"

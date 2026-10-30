@@ -124,6 +124,10 @@ const FILTRO_ESPECIAL: Record<string, string> = {
     my_resolved: 'Resueltos',
 };
 
+const DESCRIPCION_FILTRO: Record<string, string> = {
+    my_cases: 'Todos los casos asignados a ti o resueltos por ti, abiertos y cerrados.',
+};
+
 export default function Casos({ tickets, categories, technicians, filters, auth }: TicketsProps) {
     // Aviso de exportación rechazada por tamaño. Llega como flash tras el redirect del
     // servidor: sin este banner el usuario pulsaba "Exportar" y no pasaba absolutamente nada.
@@ -368,7 +372,11 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                     <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6">
                         <PageHeader
                             title={filtroEspecial ?? 'Casos'}
-                            description={filtroEspecial ? 'Vista filtrada desde las cifras del panel principal.' : 'Todos los casos de la mesa de ayuda, con sus filtros y exportaciones.'}
+                            description={
+                                filtroEspecial
+                                    ? (DESCRIPCION_FILTRO[filters.filter] ?? 'Vista filtrada desde las cifras del panel principal.')
+                                    : 'Todos los casos de la mesa de ayuda, con sus filtros y exportaciones.'
+                            }
                             actions={
                                 <>
                                     <button type="button" onClick={handleExport} className={btn.secondary}>

@@ -376,6 +376,16 @@ export default function Dashboard({ publicTickets: initialPublicTickets, myTicke
                                         </ul>
                                     )}
                                 </div>
+                                {/* La lista trae hasta 50 casos; la pestaña dice cuántos son en total */}
+                                {!vistaPublica && stats.myPending > myTickets.length && (
+                                    <Link
+                                        href="/soporte/casos?filter=my_pending"
+                                        className="focus-ring flex items-center justify-center gap-1 border-t px-4 py-3 text-sm font-medium text-huv-ink transition-colors hover:bg-gray-50"
+                                    >
+                                        Se muestran {myTickets.length} de {stats.myPending.toLocaleString('es-CO')}. Ver todos
+                                        <ChevronRight className="size-4" aria-hidden="true" />
+                                    </Link>
+                                )}
                             </section>
 
                             <aside aria-label="Resumen y accesos" className="lg:sticky lg:top-28">

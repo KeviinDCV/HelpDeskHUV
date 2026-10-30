@@ -22,12 +22,7 @@ class DashboardController extends Controller
         $myTickets = $this->getMyTickets($user);
 
         // Estadísticas rápidas
-        $stats = [
-            'publicUnassigned' => $publicTickets->count(),
-            'myTickets' => $this->getMyTicketsCount($user), // Todos mis casos
-            'myPending' => $myTickets->count(), // Mis casos sin resolver
-            'myResolved' => $this->getMyResolvedCount($user), // Mis casos resueltos
-        ];
+        $stats = $this->getStats($user, $publicTickets);
 
         // Obtener técnicos/admins para asignar (solo admins pueden asignar)
         // Filtrar solo usuarios activos de la tabla users de Laravel (donde se marca Activo/Inactivo)
@@ -62,12 +57,7 @@ class DashboardController extends Controller
         $publicTickets = $this->getPublicUnassignedTickets();
         $myTickets = $this->getMyTickets($user);
 
-        $stats = [
-            'publicUnassigned' => $publicTickets->count(),
-            'myTickets' => $this->getMyTicketsCount($user), // Todos mis casos
-            'myPending' => $myTickets->count(), // Mis casos sin resolver
-            'myResolved' => $this->getMyResolvedCount($user), // Mis casos resueltos
-        ];
+        $stats = $this->getStats($user, $publicTickets);
 
         return response()->json([
             'publicTickets' => $publicTickets,
@@ -537,22 +527,44 @@ class DashboardController extends Controller
     }
 
     /**
-     * Contar todos los tickets asignados al usuario (incluyendo resueltos)
+     * Las cifras del panel. «Mis casos» es la suma de las otras dos, y cada una da lo mismo que
+     * su lista en Casos (TicketController: filter=my_cases, my_pending, my_resolved).
      */
-    private function getMyTicketsCount($user): int
+    private function getStats($user, $publicTickets): array
+    {
+        $myPending = $this->getMyPendingCount($user);
+        $myResolved = $this->getMyResolvedCount($user);
+
+        return [
+            'publicUnassigned' => $publicTickets->count(),
+            'myTickets' => $myPending + $myResolved, // Todos mis casos
+            'myPending' => $myPending, // Mis casos sin resolver
+            'myResolved' => $myResolved, // Mis casos resueltos
+        ];
+    }
+
+    /**
+     * Contar los tickets asignados al usuario sin resolver. Se cuentan aparte de getMyTickets():
+     * esa lista llega hasta 50 filas, y la cifra se quedaba en 50 aunque hubiera más.
+     */
+    private function getMyPendingCount($user): int
     {
         $glpiUserId = $user->glpi_user_id;
-        
+
         if (!$glpiUserId) {
             return 0;
         }
-        
+
         return DB::table('glpi_tickets as t')
-            ->join('glpi_tickets_users as tu', 't.id', '=', 'tu.tickets_id')
-            ->where('tu.type', 2) // Técnico asignado
-            ->where('tu.users_id', $glpiUserId)
             ->where('t.is_deleted', 0)
-            ->where('t.status', '!=', 6) // Excluir cerrados
+            ->whereNotIn('t.status', [5, 6]) // No resueltos ni cerrados
+            ->whereExists(function ($sub) use ($glpiUserId) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_tickets_users')
+                    ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                    ->where('glpi_tickets_users.type', 2) // Técnico asignado
+                    ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })
             ->count();
     }
 

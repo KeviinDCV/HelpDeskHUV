@@ -280,6 +280,39 @@ class TicketController extends Controller
         return $adjuntos;
     }
 
+    /**
+     * «Mis casos»: todos los del técnico, en cualquier estado. Los asignados a él y los que ya
+     * están resueltos o cerrados con una solución suya. Da la misma cifra del panel principal:
+     * Sin resolver + Resueltos.
+     */
+    private function filtrarMisCasos($query, $glpiUserId): void
+    {
+        // Si no tiene glpi_user_id, no mostrar nada
+        if (!$glpiUserId) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $query->where(function ($q) use ($glpiUserId) {
+            $q->whereExists(function ($sub) use ($glpiUserId) {
+                $sub->select(DB::raw(1))
+                    ->from('glpi_tickets_users')
+                    ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
+                    ->where('glpi_tickets_users.type', 2)
+                    ->where('glpi_tickets_users.users_id', $glpiUserId);
+            })->orWhere(function ($resueltos) use ($glpiUserId) {
+                $resueltos->whereIn('t.status', [5, 6])
+                    ->whereExists(function ($sub) use ($glpiUserId) {
+                        $sub->select(DB::raw(1))
+                            ->from('glpi_itilsolutions')
+                            ->whereColumn('glpi_itilsolutions.items_id', 't.id')
+                            ->where('glpi_itilsolutions.itemtype', 'Ticket')
+                            ->where('glpi_itilsolutions.users_id', $glpiUserId);
+                    });
+            });
+        });
+    }
+
     public function index(Request $request)
     {
         $perPage = min((int) $request->input('per_page', 15), 50000);
@@ -540,22 +573,7 @@ class TicketController extends Controller
                         ->where('glpi_tickets_users.type', 2);
                   });
         } elseif ($specialFilter === 'my_cases') {
-            // Mis casos (asignados a mí, no cerrados)
-            $user = auth()->user();
-            $glpiUserId = $user->glpi_user_id;
-            
-            if ($glpiUserId) {
-                $query->whereExists(function ($q) use ($glpiUserId) {
-                    $q->select(DB::raw(1))
-                      ->from('glpi_tickets_users')
-                      ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                      ->where('glpi_tickets_users.type', 2)
-                      ->where('glpi_tickets_users.users_id', $glpiUserId);
-                })->where('t.status', '!=', 6);
-            } else {
-                // Si no tiene glpi_user_id, no mostrar nada
-                $query->whereRaw('1 = 0');
-            }
+            $this->filtrarMisCasos($query, auth()->user()->glpi_user_id);
         } elseif ($specialFilter === 'my_pending') {
             // Mis casos sin resolver (asignados a mí, pendientes)
             $user = auth()->user();
@@ -882,20 +900,7 @@ class TicketController extends Controller
                         ->where('glpi_tickets_users.type', 2);
                   });
         } elseif ($specialFilter === 'my_cases') {
-            $user = auth()->user();
-            $glpiUserId = $user->glpi_user_id;
-            
-            if ($glpiUserId) {
-                $query->whereExists(function ($q) use ($glpiUserId) {
-                    $q->select(DB::raw(1))
-                      ->from('glpi_tickets_users')
-                      ->whereColumn('glpi_tickets_users.tickets_id', 't.id')
-                      ->where('glpi_tickets_users.type', 2)
-                      ->where('glpi_tickets_users.users_id', $glpiUserId);
-                })->where('t.status', '!=', 6);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+            $this->filtrarMisCasos($query, auth()->user()->glpi_user_id);
         } elseif ($specialFilter === 'my_pending') {
             $user = auth()->user();
             $glpiUserId = $user->glpi_user_id;
