@@ -35,7 +35,7 @@ export function QueueSummary({ tickets, vistaPublica, ahora, onVer }: Props) {
 
     const categorias = Object.entries(
         tickets.reduce<Record<string, number>>((acc, t) => {
-            const c = categoriaCorta(t.category_name) ?? 'Sin categoría';
+            const c = categoriaCorta(t.category_name) ?? 'Sin causa';
             acc[c] = (acc[c] ?? 0) + 1;
             return acc;
         }, {}),
@@ -110,7 +110,7 @@ export function QueueSummary({ tickets, vistaPublica, ahora, onVer }: Props) {
                         )}
 
                         <div className="mt-5 border-t pt-4">
-                            <p className="text-xs font-medium text-gray-500">Categorías más frecuentes</p>
+                            <p className="text-xs font-medium text-gray-500">Causas más frecuentes</p>
                             <ul className="mt-2 flex flex-wrap gap-1.5">
                                 {categorias.map(([nombre, total]) => (
                                     <li key={nombre} className="inline-flex items-center gap-1.5 rounded-lg bg-huv-soft px-2 py-1 text-xs text-huv-ink">

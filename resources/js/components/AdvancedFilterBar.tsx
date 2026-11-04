@@ -47,7 +47,7 @@ const DEFAULT_FILTER_FIELDS: FieldDef[] = [
     { key: 'tiempo_resolver_excedido', label: 'Tiempo para resolver excedido', type: 'select' },
     { key: 'fecha_solucion', label: 'Fecha de solución', type: 'date' },
     { key: 'ultima_actualizacion', label: 'Última actualización', type: 'date' },
-    { key: 'categoria', label: 'Categoría', type: 'text' },
+    { key: 'categoria', label: 'Causa', type: 'text' },
     { key: 'entidad', label: 'Entidad', type: 'text' },
     { key: 'ultima_edicion_por', label: 'Última edición por', type: 'text' },
     { key: 'tiempo_aduenarse', label: 'Tiempo para adueñarse', type: 'text' },

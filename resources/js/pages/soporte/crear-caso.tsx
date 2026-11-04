@@ -2,6 +2,7 @@ import {
     AccionesFormulario,
     CampoAdjuntos,
     CampoCategoria,
+    CampoTipoMantenimiento,
     ESTADOS_CASO,
     PRIORIDADES_CASO,
     ResumenErrores,
@@ -30,6 +31,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TextareaWithHistory } from '@/components/ui/textarea-with-history';
 import { useFieldHistory } from '@/hooks/use-field-history';
+import { tipoPorCausa } from '@/lib/ticket-format';
 import { fieldClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -61,11 +63,16 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
         priority: '3',
         locations_id: '',
         itilcategories_id: '',
+        // Lo común es reparar algo: preventivo se elige, o sale solo al escoger una causa de mantenimiento preventivo
+        maintenance_type: 'correctivo',
         requester_id: '',
         observer_ids: [] as number[],
         assigned_ids: [] as number[],
     });
     const { data, setData, errors, processing } = form;
+
+    // Mientras la persona no elija la categoría a mano, sigue a la causa
+    const tipoElegido = useRef(false);
 
     const [archivos, setArchivos] = useState<File[]>([]);
     const [elementos, setElementos] = useState<ElementoCaso[]>([]);
@@ -99,7 +106,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
         if (!data.name.trim()) faltan.name = 'Escribe un título.';
         if (!data.content.trim()) faltan.content = 'Describe el caso.';
         if (!data.date) faltan.date = 'Indica la fecha de apertura.';
-        if (!data.itilcategories_id) faltan.itilcategories_id = 'Elige una categoría.';
+        if (!data.itilcategories_id) faltan.itilcategories_id = 'Elige la causa.';
         if (data.assigned_ids.length === 0) faltan.assigned_ids = 'Asigna al menos una persona.';
         form.clearErrors();
         if (Object.keys(faltan).length > 0) {
@@ -303,14 +310,25 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                             )}
                                         </FormField>
 
-                                        <FormField id="itilcategories_id" label="Categoría" error={errorDe('itilcategories_id')}>
+                                        <CampoTipoMantenimiento
+                                            value={data.maintenance_type}
+                                            error={errorDe('maintenance_type')}
+                                            onChange={(tipo) => {
+                                                tipoElegido.current = true;
+                                                setData('maintenance_type', tipo);
+                                                form.clearErrors('maintenance_type');
+                                            }}
+                                        />
+
+                                        <FormField id="itilcategories_id" label="Causa" error={errorDe('itilcategories_id')}>
                                             {(c) => (
                                                 <CampoCategoria
                                                     control={c}
                                                     categorias={categories}
                                                     value={data.itilcategories_id}
                                                     onChange={(v) => {
-                                                        setData('itilcategories_id', v);
+                                                        const causa = categories.find((cat) => String(cat.id) === v)?.completename;
+                                                        setData((d) => ({ ...d, itilcategories_id: v, ...(tipoElegido.current ? {} : { maintenance_type: tipoPorCausa(causa) }) }));
                                                         form.clearErrors('itilcategories_id');
                                                     }}
                                                 />

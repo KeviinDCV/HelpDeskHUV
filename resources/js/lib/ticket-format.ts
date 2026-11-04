@@ -56,6 +56,27 @@ export function areaCaso(content: string): string | null {
     return m ? m[1].trim() : null;
 }
 
+/**
+ * Categoría del caso para las estadísticas: mantenimiento correctivo o preventivo. Lo que GLPI
+ * llama categoría (Impresoras, Servinte…) es la causa. Igual que App\Services\TipoMantenimiento.
+ */
+export type TipoMantenimiento = 'correctivo' | 'preventivo';
+
+export const TIPOS_MANTENIMIENTO: { value: TipoMantenimiento; label: string; corto: string }[] = [
+    { value: 'correctivo', label: 'Mantenimiento correctivo', corto: 'Correctivo' },
+    { value: 'preventivo', label: 'Mantenimiento preventivo', corto: 'Preventivo' },
+];
+
+export function etiquetaMantenimiento(tipo: string | null | undefined, corta = false): string {
+    const t = TIPOS_MANTENIMIENTO.find((x) => x.value === tipo) ?? TIPOS_MANTENIMIENTO[0];
+    return corta ? t.corto : t.label;
+}
+
+/** La categoría que corresponde a una causa, cuando nadie la ha elegido: la misma regla del servidor. */
+export function tipoPorCausa(completename: string | null | undefined): TipoMantenimiento {
+    return /mantenimiento.*preventivo/i.test(completename ?? '') ? 'preventivo' : 'correctivo';
+}
+
 /** "Software > Servinte > Clinico" → "Servinte › Clinico": lo que distingue está al final. */
 export function categoriaCorta(completename: string | null): string | null {
     if (!completename) return null;

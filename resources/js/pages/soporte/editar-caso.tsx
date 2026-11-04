@@ -2,6 +2,7 @@ import {
     AccionesFormulario,
     CampoAdjuntos,
     CampoCategoria,
+    CampoTipoMantenimiento,
     ESTADOS_CASO,
     PRIORIDADES_CASO,
     ResumenErrores,
@@ -25,7 +26,7 @@ import { PRIORIDAD } from '@/components/ticket-pills';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { htmlToText, tieneMarcado } from '@/lib/strip-html';
-import { parseFecha } from '@/lib/ticket-format';
+import { parseFecha, tipoPorCausa } from '@/lib/ticket-format';
 import { btn, fieldClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -45,6 +46,8 @@ interface Ticket {
     itilcategories_id: number;
     location_name?: string | null;
     category_name?: string | null;
+    /** correctivo | preventivo: el elegido o el que sale de la causa */
+    maintenance_type?: string | null;
 }
 
 interface TicketUser {
@@ -148,6 +151,7 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
             priority: ticket.priority,
             locations_id: ticket.locations_id,
             itilcategories_id: ticket.itilcategories_id,
+            maintenance_type: ticket.maintenance_type ?? null,
             requester_ids: idsDe(1),
             observer_ids: idsDe(3),
             assigned_ids: idsDe(2),
@@ -169,11 +173,15 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
         priority: ticket.priority ? String(ticket.priority) : '3',
         locations_id: ticket.locations_id ? String(ticket.locations_id) : '',
         itilcategories_id: ticket.itilcategories_id ? String(ticket.itilcategories_id) : '',
+        maintenance_type: ticket.maintenance_type === 'preventivo' ? 'preventivo' : 'correctivo',
         requester_id: filaSolicitante ? String(filaSolicitante.users_id) : '',
         observer_ids: idsDe(3),
         assigned_ids: idsDe(2),
     });
     const { data, setData, errors, processing } = form;
+
+    // Mientras la persona no elija la categoría a mano, sigue a la causa si la cambia
+    const tipoElegido = useRef(false);
 
     const [archivos, setArchivos] = useState<File[]>([]);
     const [elementos, setElementos] = useState<ElementoCaso[]>(() =>
@@ -468,17 +476,29 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                             )}
                                         </FormField>
 
-                                        {/* En la edición no se exige (el servidor tampoco): hay casos antiguos sin categoría */}
-                                        <FormField id="itilcategories_id" label="Categoría" optional error={errorDe('itilcategories_id')}>
+                                        <CampoTipoMantenimiento
+                                            value={data.maintenance_type}
+                                            error={errorDe('maintenance_type')}
+                                            onChange={(tipo) => {
+                                                tipoElegido.current = true;
+                                                setData('maintenance_type', tipo);
+                                            }}
+                                        />
+
+                                        {/* En la edición no se exige (el servidor tampoco): hay casos antiguos sin causa */}
+                                        <FormField id="itilcategories_id" label="Causa" optional error={errorDe('itilcategories_id')}>
                                             {(c) => (
                                                 <CampoCategoria
                                                     control={c}
                                                     categorias={categories}
                                                     value={data.itilcategories_id}
-                                                    onChange={(v) => setData('itilcategories_id', v)}
+                                                    onChange={(v) => {
+                                                        const causa = categories.find((cat) => String(cat.id) === v)?.completename;
+                                                        setData((d) => ({ ...d, itilcategories_id: v, ...(tipoElegido.current ? {} : { maintenance_type: tipoPorCausa(causa) }) }));
+                                                    }}
                                                     actual={
                                                         ticket.itilcategories_id
-                                                            ? { value: String(ticket.itilcategories_id), label: ticket.category_name || `Categoría #${ticket.itilcategories_id}` }
+                                                            ? { value: String(ticket.itilcategories_id), label: ticket.category_name || `Causa #${ticket.itilcategories_id}` }
                                                             : undefined
                                                     }
                                                 />

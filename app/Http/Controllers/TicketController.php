@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use App\Models\User;
 use App\Models\Notification;
+use App\Services\TipoMantenimiento;
 
 class TicketController extends Controller
 {
@@ -84,7 +85,8 @@ class TicketController extends Controller
         'status' => 'estado',
         'priority' => 'prioridad',
         'locations_id' => 'localización',
-        'itilcategories_id' => 'categoría',
+        'itilcategories_id' => 'causa',
+        'maintenance_type' => 'categoría',
         'requester_id' => 'solicitante',
         'observer_ids' => 'observadores',
         'assigned_ids' => 'asignado a',
@@ -330,6 +332,7 @@ class TicketController extends Controller
         $specialFilter = $request->input('filter', ''); // unassigned, my_cases, resolved_today
         $excludeMaintenance = $request->input('exclude_maintenance', '');
         $advancedFilters = $request->input('advanced_filters', '');
+        $maintenanceFilter = $request->input('maintenance', ''); // correctivo | preventivo
 
         // Mapeo de campos para ordenamiento
         $sortableFields = [
@@ -365,6 +368,7 @@ class TicketController extends Controller
                 't.itilcategories_id',
                 'e.name as entity_name',
                 'cat.completename as category_name',
+                DB::raw(TipoMantenimiento::sql('t') . ' as maintenance_type'),
                 DB::raw("(SELECT COALESCE(
                             NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
                             lu.name
@@ -562,6 +566,11 @@ class TicketController extends Controller
             $query->where('t.date', '<=', $dateTo . ' 23:59:59');
         }
 
+        // Categoría de mantenimiento (correctivo / preventivo): la elegida o la que sale de la causa
+        if (is_string($maintenanceFilter) && isset(TipoMantenimiento::ETIQUETAS[$maintenanceFilter])) {
+            $query->whereRaw(TipoMantenimiento::sql('t') . ' = ?', [$maintenanceFilter]);
+        }
+
         // Filtros especiales del dashboard
         if ($specialFilter === 'unassigned') {
             // Tickets sin asignar (status = 1 y sin técnico)
@@ -646,6 +655,7 @@ class TicketController extends Controller
                 'filter' => $specialFilter,
                 'exclude_maintenance' => $excludeMaintenance,
                 'advanced_filters' => $advancedFilters,
+                'maintenance' => $maintenanceFilter,
             ], fn($value) => $value !== '' && $value !== null));
         
         // Obtener categorías para el filtro (agrupadas por name para unificar duplicados de GLPI)
@@ -692,6 +702,7 @@ class TicketController extends Controller
                 'filter' => $specialFilter,
                 'exclude_maintenance' => $excludeMaintenance,
                 'advanced_filters' => $advancedFilters,
+                'maintenance' => $maintenanceFilter,
             ],
             'auth' => [
                 'user' => auth()->user()
@@ -720,6 +731,7 @@ class TicketController extends Controller
         // tabla entera. Además de devolver datos que no coinciden con lo que el usuario ve en
         // pantalla, con ~60.000 tickets eso agota la memoria de PHP y la descarga falla.
         $advancedFilters = $request->input('advanced_filters', '');
+        $maintenanceFilter = $request->input('maintenance', ''); // correctivo | preventivo
 
         // Debe coincidir con el mapa de index(): si el usuario ordena la tabla por Categoría y
         // exporta, con un mapa más corto el campo no se reconocía y el Excel salía ordenado por
@@ -753,6 +765,7 @@ class TicketController extends Controller
                 't.status',
                 'e.name as entity_name',
                 'cat.completename as category_name',
+                DB::raw(TipoMantenimiento::sql('t') . ' as maintenance_type'),
                 DB::raw("(SELECT COALESCE(
                             NULLIF(CONCAT(gu.firstname, ' ', gu.realname), ' '),
                             lu.name
@@ -890,6 +903,11 @@ class TicketController extends Controller
             $query->where('t.date', '<=', $dateTo . ' 23:59:59');
         }
 
+        // Categoría de mantenimiento (correctivo / preventivo): la elegida o la que sale de la causa
+        if (is_string($maintenanceFilter) && isset(TipoMantenimiento::ETIQUETAS[$maintenanceFilter])) {
+            $query->whereRaw(TipoMantenimiento::sql('t') . ' = ?', [$maintenanceFilter]);
+        }
+
         // Filtros especiales
         if ($specialFilter === 'unassigned') {
             $query->where('t.status', 1)
@@ -998,17 +1016,18 @@ class TicketController extends Controller
 
         // Headers de tabla
         $row = 5;
-        $headers = ['ID', 'Título', 'Estado', 'Prioridad', 'Entidad', 'Categoría', 'Solicitante', 'Asignado a', 'Fecha Apertura', 'Última Actualización'];
+        // Categoría = mantenimiento correctivo o preventivo; Causa = la categoría de GLPI
+        $headers = ['ID', 'Título', 'Estado', 'Prioridad', 'Entidad', 'Categoría', 'Causa', 'Solicitante', 'Asignado a', 'Fecha Apertura', 'Última Actualización'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue("{$col}{$row}", $header);
             $col++;
         }
-        $sheet->getStyle("A{$row}:J{$row}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$row}:J{$row}")->getFill()
+        $sheet->getStyle("A{$row}:K{$row}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$row}:K{$row}")->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setRGB('2c4370');
-        $sheet->getStyle("A{$row}:J{$row}")->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle("A{$row}:K{$row}")->getFont()->getColor()->setRGB('FFFFFF');
 
         // Datos
         $row++;
@@ -1018,11 +1037,12 @@ class TicketController extends Controller
             $sheet->setCellValue("C{$row}", $ticket->status_name ?? '-');
             $sheet->setCellValue("D{$row}", $ticket->priority_name ?? '-');
             $sheet->setCellValue("E{$row}", $ticket->entity_name ?? '-');
-            $sheet->setCellValue("F{$row}", $ticket->category_name ?? '-');
-            $sheet->setCellValue("G{$row}", $ticket->requester_name ?? '-');
-            $sheet->setCellValue("H{$row}", $ticket->assigned_name ?? '-');
-            $sheet->setCellValue("I{$row}", $ticket->date ? date('d/m/Y H:i', strtotime($ticket->date)) : '-');
-            $sheet->setCellValue("J{$row}", $ticket->date_mod ? date('d/m/Y H:i', strtotime($ticket->date_mod)) : '-');
+            $sheet->setCellValue("F{$row}", TipoMantenimiento::etiqueta($ticket->maintenance_type));
+            $sheet->setCellValue("G{$row}", $ticket->category_name ?? '-');
+            $sheet->setCellValue("H{$row}", $ticket->requester_name ?? '-');
+            $sheet->setCellValue("I{$row}", $ticket->assigned_name ?? '-');
+            $sheet->setCellValue("J{$row}", $ticket->date ? date('d/m/Y H:i', strtotime($ticket->date)) : '-');
+            $sheet->setCellValue("K{$row}", $ticket->date_mod ? date('d/m/Y H:i', strtotime($ticket->date_mod)) : '-');
             $row++;
         }
 
@@ -1032,11 +1052,12 @@ class TicketController extends Controller
         $sheet->getColumnDimension('C')->setWidth(18);  // Estado
         $sheet->getColumnDimension('D')->setWidth(12);  // Prioridad
         $sheet->getColumnDimension('E')->setWidth(20);  // Entidad
-        $sheet->getColumnDimension('F')->setWidth(25);  // Categoría
-        $sheet->getColumnDimension('G')->setWidth(25);  // Solicitante
-        $sheet->getColumnDimension('H')->setWidth(25);  // Asignado
-        $sheet->getColumnDimension('I')->setWidth(18);  // Fecha Apertura
-        $sheet->getColumnDimension('J')->setWidth(18);  // Última Actualización
+        $sheet->getColumnDimension('F')->setWidth(26);  // Categoría
+        $sheet->getColumnDimension('G')->setWidth(25);  // Causa
+        $sheet->getColumnDimension('H')->setWidth(25);  // Solicitante
+        $sheet->getColumnDimension('I')->setWidth(25);  // Asignado
+        $sheet->getColumnDimension('J')->setWidth(18);  // Fecha Apertura
+        $sheet->getColumnDimension('K')->setWidth(18);  // Última Actualización
 
         // Generar archivo
         $filename = 'Casos_HelpDesk_' . date('Y-m-d_His') . '.xlsx';
@@ -1111,7 +1132,8 @@ class TicketController extends Controller
                 ->join('glpi_items_tickets as it', function ($j) {
                     $j->on('it.tickets_id', '=', 't.id')->where('it.itemtype', '=', 'Computer');
                 })
-                ->join('glpi_itilcategories as cat', 'cat.id', '=', 't.itilcategories_id')
+                // leftJoin: un preventivo elegido en el formulario puede tener cualquier causa, o ninguna
+                ->leftJoin('glpi_itilcategories as cat', 'cat.id', '=', 't.itilcategories_id')
                 ->where('t.is_deleted', 0)
                 ->whereIn('it.items_id', $computerIds)
                 ->whereDate('t.date', '>=', $dateFrom)
@@ -1119,7 +1141,9 @@ class TicketController extends Controller
                 ->where(function ($q) {
                     $q->where('cat.completename', 'LIKE', '%Mantenimiento > Preventivo%')
                         ->orWhere('cat.completename', '=', 'Mantenimiento Preventivo')
-                        ->orWhere('cat.completename', 'LIKE', '%Repotenciar Equipo%');
+                        ->orWhere('cat.completename', 'LIKE', '%Repotenciar Equipo%')
+                        // Los marcados como mantenimiento preventivo aunque su causa sea otra
+                        ->orWhereRaw(TipoMantenimiento::sql('t') . ' = ?', [TipoMantenimiento::PREVENTIVO]);
                 })
                 ->select('it.items_id as computer_id', 't.id as caso', 't.date as fecha', 'cat.completename as categoria', 't.name as titulo')
                 ->selectRaw("(SELECT sol.content FROM glpi_itilsolutions sol WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket' ORDER BY sol.id DESC LIMIT 1) as solucion")
@@ -1493,6 +1517,7 @@ class TicketController extends Controller
             // El formulario siempre la marcó como obligatoria, pero aquí no se exigía: uno de
             // cada cuatro casos de la base termina "Sin categoría" en Estadísticas.
             'itilcategories_id' => 'required|integer',
+            'maintenance_type' => 'required|in:correctivo,preventivo',
             'requester_id' => 'nullable|integer',
             'observer_ids' => 'nullable|array',
             'observer_ids.*' => 'integer',
@@ -1622,6 +1647,8 @@ class TicketController extends Controller
                 }
             }
 
+            TipoMantenimiento::guardar($ticketId, $validated['maintenance_type']);
+
             DB::commit();
 
             return redirect()->route('soporte.crear-caso')
@@ -1644,6 +1671,7 @@ class TicketController extends Controller
                 'e.name as entity_name',
                 'l.completename as location_name',
                 'cat.completename as category_name',
+                DB::raw(TipoMantenimiento::sql('t') . ' as maintenance_type'),
                 DB::raw("CASE 
                     WHEN t.status = 1 THEN 'Nuevo'
                     WHEN t.status = 2 THEN 'En curso (asignado)'
@@ -1791,8 +1819,9 @@ class TicketController extends Controller
                 't.*',
                 'e.name as entity_name',
                 'l.completename as location_name',
-                // Para mostrar la categoría actual aunque no esté en la lista del formulario
-                'cat.completename as category_name'
+                // Para mostrar la causa actual aunque no esté en la lista del formulario
+                'cat.completename as category_name',
+                DB::raw(TipoMantenimiento::sql('t') . ' as maintenance_type')
             )
             ->leftJoin('glpi_entities as e', 't.entities_id', '=', 'e.id')
             ->leftJoin('glpi_locations as l', 't.locations_id', '=', 'l.id')
@@ -1943,6 +1972,7 @@ class TicketController extends Controller
             'priority' => 'required|integer|between:1,6',
             'locations_id' => 'nullable|integer',
             'itilcategories_id' => 'nullable|integer',
+            'maintenance_type' => 'nullable|in:correctivo,preventivo',
             'requester_id' => 'nullable|integer',
             'observer_ids' => 'nullable|array',
             'observer_ids.*' => 'integer',
@@ -2023,6 +2053,18 @@ class TicketController extends Controller
             $this->sincronizarPersonas($id, 3, $validated['observer_ids'] ?? [], $lista('observer_ids'));
             $this->sincronizarPersonas($id, 2, $validated['assigned_ids'] ?? [], $lista('assigned_ids'));
             $this->sincronizarElementos($id, $validated['items'] ?? [], $lista('items'));
+
+            // Categoría (correctivo / preventivo). Se guarda si el usuario la cambió, y también si
+            // cambió la causa: un caso sin categoría elegida la deduce de su causa, y sin esto
+            // cambiaría de categoría sin que nadie la tocara. Se compara con lo que queda guardado.
+            $tipoEnviado = $validated['maintenance_type'] ?? null;
+            if ($tipoEnviado) {
+                $tipoCargado = $original['maintenance_type'] ?? null;
+                $cambioTipo = $tipoCargado === null || $tipoEnviado !== $tipoCargado;
+                if (($cambioTipo || array_key_exists('itilcategories_id', $columnas)) && TipoMantenimiento::de((int) $id) !== $tipoEnviado) {
+                    TipoMantenimiento::guardar((int) $id, $tipoEnviado);
+                }
+            }
 
             // Manejar archivos adjuntos nuevos
             if ($request->hasFile('attachments')) {

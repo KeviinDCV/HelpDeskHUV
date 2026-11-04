@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\TipoMantenimiento;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -25,7 +26,7 @@ class StatisticsController extends Controller
 
         // Generar clave de cache basada en filtros. v2: los datos cambiaron de forma (nombres de
         // GLPI, códigos, meses completos); con la clave vieja se servirían datos con la forma anterior.
-        $cacheKey = 'stats_v2_' . md5(json_encode([
+        $cacheKey = 'stats_v3_' . md5(json_encode([
             $dateFrom, $dateTo, $status, $priority, $technicianId, $categoryId
         ]));
 
@@ -33,7 +34,7 @@ class StatisticsController extends Controller
         $hasFilters = $dateFrom || $dateTo || $status || $priority || $technicianId || $categoryId;
         
         if (!$hasFilters) {
-            $cachedData = cache()->remember('stats_full_data_v2', 180, function() {
+            $cachedData = cache()->remember('stats_full_data_v3', 180, function() {
                 return $this->getStatisticsData('', '', '', '', '', '');
             });
             
@@ -200,7 +201,7 @@ class StatisticsController extends Controller
         $byCategory = (clone $baseQuery)
             ->leftJoin('glpi_itilcategories', 'glpi_tickets.itilcategories_id', '=', 'glpi_itilcategories.id')
             ->select(
-                DB::raw("COALESCE(glpi_itilcategories.name, 'Sin categoría') as category"),
+                DB::raw("COALESCE(glpi_itilcategories.name, 'Sin causa') as category"),
                 'glpi_itilcategories.completename',
                 DB::raw('COUNT(*) as count')
             )
@@ -209,6 +210,16 @@ class StatisticsController extends Controller
             ->limit(10)
             ->get()
             ->toArray();
+
+        // Por categoría de mantenimiento (correctivo / preventivo), con los mismos filtros
+        $porTipo = (clone $baseQuery)
+            ->selectRaw(TipoMantenimiento::sql('glpi_tickets') . ' as tipo, COUNT(*) as count')
+            ->groupBy('tipo')
+            ->pluck('count', 'tipo');
+        $byMaintenance = collect(TipoMantenimiento::ETIQUETAS)
+            ->map(fn ($etiqueta, $tipo) => ['type' => $tipo, 'label' => $etiqueta, 'count' => (int) ($porTipo[$tipo] ?? 0)])
+            ->values()
+            ->all();
 
         // Por mes: los últimos 12 meses de calendario, el actual incluido (va en curso). No usa el
         // rango de fechas, pero sí los demás filtros; el técnico antes se ignoraba aquí.
@@ -264,6 +275,7 @@ class StatisticsController extends Controller
             'byPriority' => $byPriority,
             'byTechnician' => $byTechnician,
             'byCategory' => $byCategory,
+            'byMaintenance' => $byMaintenance,
             'byMonth' => $byMonth,
             'recentCases' => $recentCases,
             'filters' => [
@@ -612,9 +624,9 @@ class StatisticsController extends Controller
             $sheet->getStyle("E{$row}")->getFont()->setColor(new Color($resColor));
         }
 
-        // ========== POR CATEGORÍA ==========
+        // ========== POR CATEGORÍA (CORRECTIVO / PREVENTIVO) ==========
         $row += 2;
-        $sheet->setCellValue("A{$row}", '📁 CASOS POR CATEGORÍA');
+        $sheet->setCellValue("A{$row}", '🛠 CASOS POR CATEGORÍA');
         $sheet->mergeCells("A{$row}:C{$row}");
         $this->applyHeaderStyle($sheet, "A{$row}:C{$row}", $primaryColor);
 
@@ -624,10 +636,35 @@ class StatisticsController extends Controller
         $sheet->setCellValue("C{$row}", 'Porcentaje');
         $this->applyHeaderStyle($sheet, "A{$row}:C{$row}", $secondaryColor);
 
+        $porTipo = (clone $baseQuery)
+            ->selectRaw(TipoMantenimiento::sql('glpi_tickets') . ' as tipo, COUNT(*) as count')
+            ->groupBy('tipo')
+            ->pluck('count', 'tipo');
+        foreach (TipoMantenimiento::ETIQUETAS as $tipo => $etiqueta) {
+            $row++;
+            $cantidad = (int) ($porTipo[$tipo] ?? 0);
+            $sheet->setCellValue("A{$row}", $etiqueta);
+            $sheet->setCellValue("B{$row}", $cantidad);
+            $sheet->setCellValue("C{$row}", ($total > 0 ? round(($cantidad / $total) * 100, 1) : 0) . '%');
+            $this->applyDataStyle($sheet, "A{$row}:C{$row}", $row % 2 == 0 ? $lightBg : null);
+        }
+
+        // ========== POR CAUSA (la categoría de GLPI) ==========
+        $row += 2;
+        $sheet->setCellValue("A{$row}", '📁 CASOS POR CAUSA');
+        $sheet->mergeCells("A{$row}:C{$row}");
+        $this->applyHeaderStyle($sheet, "A{$row}:C{$row}", $primaryColor);
+
+        $row++;
+        $sheet->setCellValue("A{$row}", 'Causa');
+        $sheet->setCellValue("B{$row}", 'Cantidad');
+        $sheet->setCellValue("C{$row}", 'Porcentaje');
+        $this->applyHeaderStyle($sheet, "A{$row}:C{$row}", $secondaryColor);
+
         $byCategory = (clone $baseQuery)
             ->leftJoin('glpi_itilcategories', 'glpi_tickets.itilcategories_id', '=', 'glpi_itilcategories.id')
             ->select(
-                DB::raw("COALESCE(glpi_itilcategories.name, 'Sin categoría') as category"),
+                DB::raw("COALESCE(glpi_itilcategories.name, 'Sin causa') as category"),
                 DB::raw('COUNT(*) as count')
             )
             ->groupBy('glpi_itilcategories.id', 'glpi_itilcategories.name')
@@ -725,7 +762,7 @@ class StatisticsController extends Controller
         $statusColors = [1 => 'dbeafe', 2 => 'fef3c7', 3 => 'fef3c7', 4 => 'ede9fe', 5 => 'd1fae5', 6 => 'e5e7eb'];
 
         // ========== ENCABEZADO ==========
-        $sheet->mergeCells('A1:L1');
+        $sheet->mergeCells('A1:M1');
         $sheet->setCellValue('A1', 'HELPDESK HUV - REPORTE DETALLADO DE CASOS');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 18, 'color' => ['rgb' => 'FFFFFF']],
@@ -735,7 +772,7 @@ class StatisticsController extends Controller
         $sheet->getRowDimension(1)->setRowHeight(35);
 
         // Información de filtros
-        $sheet->mergeCells('A2:L2');
+        $sheet->mergeCells('A2:M2');
         $filterInfo = 'Generado: ' . date('d/m/Y H:i:s');
         if ($dateFrom || $dateTo) {
             $filterInfo .= ' | Período: ' . ($dateFrom ?: 'Inicio') . ' a ' . ($dateTo ?: 'Hoy');
@@ -748,9 +785,10 @@ class StatisticsController extends Controller
         ]);
 
         // Encabezados de tabla
-        $headers = ['ID', 'Título', 'Estado', 'Prioridad', 'Categoría', 'Ubicación', 'Solicitante', 'Técnico Asignado', 'Fecha Creación', 'Fecha Resolución', 'Tiempo Respuesta', 'Descripción'];
+        // Categoría = mantenimiento correctivo o preventivo; Causa = la categoría de GLPI
+        $headers = ['ID', 'Título', 'Estado', 'Prioridad', 'Categoría', 'Causa', 'Ubicación', 'Solicitante', 'Técnico Asignado', 'Fecha Creación', 'Fecha Resolución', 'Tiempo Respuesta', 'Descripción'];
         $sheet->fromArray($headers, null, 'A4');
-        $this->applyHeaderStyle($sheet, "A4:L4", $secondaryColor);
+        $this->applyHeaderStyle($sheet, "A4:M4", $secondaryColor);
         $sheet->getRowDimension(4)->setRowHeight(25);
 
         // Query de datos con limit para evitar timeout
@@ -784,6 +822,7 @@ class StatisticsController extends Controller
                 't.date',
                 't.solvedate',
                 'cat.name as category',
+                DB::raw(TipoMantenimiento::sql('t') . ' as maintenance_type'),
                 'loc.completename as location',
                 DB::raw("CONCAT(req.firstname, ' ', req.realname) as requester"),
                 DB::raw("CONCAT(tech.firstname, ' ', tech.realname) as technician")
@@ -811,7 +850,8 @@ class StatisticsController extends Controller
                 $ticket->name ?? '',
                 $statusNames[$ticket->status] ?? 'Desconocido',
                 $priorityNames[$ticket->priority] ?? 'Sin definir',
-                $ticket->category ?? 'Sin categoría',
+                TipoMantenimiento::etiqueta($ticket->maintenance_type),
+                $ticket->category ?? 'Sin causa',
                 $ticket->location ?? 'Sin ubicación',
                 $ticket->requester ?? 'Sin solicitante',
                 $ticket->technician ?? 'Sin asignar',
@@ -833,7 +873,7 @@ class StatisticsController extends Controller
         // Aplicar estilos en bloques (más eficiente)
         if ($totalRows > 0) {
             // Estilo base para todas las celdas de datos
-            $dataRange = "A5:L{$lastDataRow}";
+            $dataRange = "A5:M{$lastDataRow}";
             $sheet->getStyle($dataRange)->applyFromArray([
                 'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                 'borders' => [
@@ -866,7 +906,7 @@ class StatisticsController extends Controller
         // Total de registros
         $footerRow = $lastDataRow + 1;
         $sheet->setCellValue("A{$footerRow}", "Total de casos: {$totalRows}" . ($totalRows >= $maxRecords ? " (limitado a {$maxRecords})" : ''));
-        $sheet->mergeCells("A{$footerRow}:L{$footerRow}");
+        $sheet->mergeCells("A{$footerRow}:M{$footerRow}");
         $sheet->getStyle("A{$footerRow}")->applyFromArray([
             'font' => ['bold' => true, 'size' => 11],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $lightBg]],
@@ -874,7 +914,7 @@ class StatisticsController extends Controller
         ]);
 
         // Ajustar anchos
-        $columnWidths = ['A' => 8, 'B' => 40, 'C' => 18, 'D' => 12, 'E' => 20, 'F' => 25, 'G' => 22, 'H' => 22, 'I' => 16, 'J' => 16, 'K' => 14, 'L' => 15];
+        $columnWidths = ['A' => 8, 'B' => 40, 'C' => 18, 'D' => 12, 'E' => 26, 'F' => 20, 'G' => 25, 'H' => 22, 'I' => 22, 'J' => 16, 'K' => 16, 'L' => 14, 'M' => 15];
         foreach ($columnWidths as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
         }
@@ -884,7 +924,7 @@ class StatisticsController extends Controller
 
         // Filtros automáticos
         if ($totalRows > 0) {
-            $sheet->setAutoFilter("A4:L{$lastDataRow}");
+            $sheet->setAutoFilter("A4:M{$lastDataRow}");
         }
     }
 }

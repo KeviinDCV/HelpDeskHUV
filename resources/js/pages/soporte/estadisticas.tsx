@@ -27,6 +27,8 @@ interface StatisticsProps {
     byPriority: { code: number; priority: string; count: number; percentage: number }[];
     byTechnician: { technician: string; total: number; abiertos: number; cerrados: number }[];
     byCategory: { category: string; completename: string | null; count: number }[];
+    /** Mantenimiento correctivo y preventivo (la categoría elegida o la que sale de la causa) */
+    byMaintenance?: { type: string; label: string; count: number }[];
     byMonth: Mes[];
     recentCases: { id: number; name: string; status: string; status_code: number; priority: number; created_at: string }[];
     filters: { date_from: string; date_to: string; status: string; priority: string; technician_id: string; category_id: string };
@@ -334,6 +336,7 @@ export default function Estadisticas({
     byPriority = [],
     byTechnician = [],
     byCategory = [],
+    byMaintenance = [],
     byMonth = [],
     recentCases = [],
     filters = { date_from: '', date_to: '', status: '', priority: '', technician_id: '', category_id: '' },
@@ -393,7 +396,7 @@ export default function Estadisticas({
     };
     const nombreCategoria = (id: string) => {
         const c = categories.find((x) => String(x.id) === id);
-        return c ? (categoriaCorta(c.completename) ?? c.name) : `Categoría ${id}`;
+        return c ? (categoriaCorta(c.completename) ?? c.name) : `Causa ${id}`;
     };
     const aplicados: string[] = [];
     if (filters.date_from && filters.date_to) aplicados.push(`${fechaCorta(filters.date_from)} – ${fechaCorta(filters.date_to)}`);
@@ -455,7 +458,7 @@ export default function Estadisticas({
                                         type="button"
                                         onClick={() => exportar('general')}
                                         className={btn.secondary}
-                                        title="Excel con las cifras, estados, prioridades, técnicos, categorías y los últimos 12 meses"
+                                        title="Excel con las cifras, estados, prioridades, técnicos, categorías (correctivo y preventivo), causas y los últimos 12 meses"
                                     >
                                         <Download aria-hidden="true" />
                                         Exportar resumen
@@ -552,7 +555,7 @@ export default function Estadisticas({
                                         />
                                     </div>
                                     <div>
-                                        <FilterLabel htmlFor="est-categoria">Categoría</FilterLabel>
+                                        <FilterLabel htmlFor="est-categoria">Causa</FilterLabel>
                                         <SearchableSelect
                                             id="est-categoria"
                                             value={categoryFilter}
@@ -715,20 +718,30 @@ export default function Estadisticas({
                                 </section>
 
                                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                                    <Tarjeta titulo="Categorías más frecuentes" descripcion="Las 10 con más casos.">
-                                        <TablaBarras
-                                            titulo="Categorías con más casos"
-                                            columna="Categoría"
-                                            total={stats.total}
-                                            filas={byCategory.map((c, i) => ({
-                                                clave: `${c.completename ?? c.category}-${i}`,
-                                                // GLPI tiene alguna categoría con el nombre vacío
-                                                etiqueta: categoriaCorta(c.completename) || c.category || 'Sin nombre',
-                                                titulo: c.completename || c.category || 'Sin nombre',
-                                                valor: Number(c.count),
-                                            }))}
-                                        />
-                                    </Tarjeta>
+                                    <div className="min-w-0 space-y-5">
+                                        <Tarjeta titulo="Por categoría" descripcion="Mantenimiento correctivo y preventivo.">
+                                            <TablaBarras
+                                                titulo="Casos por categoría"
+                                                columna="Categoría"
+                                                total={stats.total}
+                                                filas={byMaintenance.map((m) => ({ clave: m.type, etiqueta: m.label, valor: Number(m.count) }))}
+                                            />
+                                        </Tarjeta>
+                                        <Tarjeta titulo="Causas más frecuentes" descripcion="Las 10 con más casos.">
+                                            <TablaBarras
+                                                titulo="Causas con más casos"
+                                                columna="Causa"
+                                                total={stats.total}
+                                                filas={byCategory.map((c, i) => ({
+                                                    clave: `${c.completename ?? c.category}-${i}`,
+                                                    // GLPI tiene alguna categoría con el nombre vacío
+                                                    etiqueta: categoriaCorta(c.completename) || c.category || 'Sin nombre',
+                                                    titulo: c.completename || c.category || 'Sin nombre',
+                                                    valor: Number(c.count),
+                                                }))}
+                                            />
+                                        </Tarjeta>
+                                    </div>
 
                                     <Tarjeta titulo="Últimos casos" descripcion="Los 10 más recientes con estos filtros.">
                                         <ul className="-mx-2">

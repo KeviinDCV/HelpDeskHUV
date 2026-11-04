@@ -8,10 +8,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { csrfHeaders } from '@/lib/csrf';
+import { TIPOS_MANTENIMIENTO, type TipoMantenimiento } from '@/lib/ticket-format';
 import { btn, fieldClass, selectTriggerClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { AlertTriangle, FileText, Loader2, Plus, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, FileText, Loader2, Plus, Upload, X } from 'lucide-react';
 import { useId, useRef, useState, type ReactNode, type Ref } from 'react';
 
 export interface UsuarioCaso {
@@ -54,7 +55,8 @@ export const CAMPOS_CASO: Record<string, { etiqueta: string; id: string }> = {
     status: { etiqueta: 'Estado', id: 'status' },
     priority: { etiqueta: 'Prioridad', id: 'priority' },
     locations_id: { etiqueta: 'Localización', id: 'locations_id' },
-    itilcategories_id: { etiqueta: 'Categoría', id: 'itilcategories_id' },
+    maintenance_type: { etiqueta: 'Categoría', id: 'maintenance_type' },
+    itilcategories_id: { etiqueta: 'Causa', id: 'itilcategories_id' },
     requester_id: { etiqueta: 'Solicitante', id: 'requester_id' },
     observer_ids: { etiqueta: 'Observadores', id: 'observer_ids' },
     assigned_ids: { etiqueta: 'Asignado a', id: 'assigned_ids' },
@@ -440,8 +442,53 @@ export function SelectorElementos({
 }
 
 /**
- * Categoría con el botón "+" para crear una nueva sin salir del formulario. La lista vive aquí
- * para que la categoría recién creada aparezca y quede elegida.
+ * Categoría del caso: mantenimiento correctivo o preventivo, lo que se cuenta en las
+ * estadísticas. Las dos opciones a la vista; el radio real recibe el foco y las flechas.
+ */
+export function CampoTipoMantenimiento({ value, onChange, error }: { value: string; onChange: (tipo: TipoMantenimiento) => void; error?: string }) {
+    const ayuda = useId();
+    const errorId = useId();
+    return (
+        <fieldset aria-describedby={[ayuda, error ? errorId : null].filter(Boolean).join(' ')} aria-invalid={error ? true : undefined}>
+            <legend className="text-sm font-medium text-gray-700">Categoría</legend>
+            <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-lg bg-gray-900/[0.05] p-1 dark:bg-white/[0.06]">
+                {TIPOS_MANTENIMIENTO.map((t, i) => (
+                    <label
+                        key={t.value}
+                        className="flex h-8 cursor-pointer items-center justify-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors select-none hover:text-gray-900 has-checked:bg-[#fff] has-checked:text-gray-900 has-checked:elev-1 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-huv-ink dark:has-checked:bg-white/10"
+                    >
+                        <input
+                            type="radio"
+                            name="maintenance_type"
+                            // El resumen de errores lleva el foco a este id
+                            id={i === 0 ? 'maintenance_type' : undefined}
+                            value={t.value}
+                            checked={value === t.value}
+                            onChange={() => onChange(t.value)}
+                            className="sr-only"
+                        />
+                        {/* Corto a la vista para que quepa en el celular; completo para el lector de pantalla */}
+                        <span className="sr-only">Mantenimiento </span>
+                        {t.corto}
+                    </label>
+                ))}
+            </div>
+            {error && (
+                <p id={errorId} className="mt-1.5 flex items-start gap-1.5 text-sm text-red-600">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    {error}
+                </p>
+            )}
+            <p id={ayuda} className="mt-1.5 text-xs text-gray-500">
+                Mantenimiento correctivo: algo falló y se reparó. Preventivo: revisión programada.
+            </p>
+        </fieldset>
+    );
+}
+
+/**
+ * Causa (la categoría de GLPI) con el botón "+" para crear una nueva sin salir del formulario. La
+ * lista vive aquí para que la causa recién creada aparezca y quede elegida.
  */
 export function CampoCategoria({
     categorias,
@@ -454,7 +501,7 @@ export function CampoCategoria({
     value: string;
     onChange: (id: string) => void;
     control: { id: string; 'aria-describedby'?: string; 'aria-invalid'?: true };
-    /** La categoría que ya tiene el caso (Editar), por si no está en la lista */
+    /** La causa que ya tiene el caso (Editar), por si no está en la lista */
     actual?: { value: string; label: string };
 }) {
     const [lista, setLista] = useState<CategoriaCaso[]>(categorias);
@@ -468,7 +515,7 @@ export function CampoCategoria({
     const crear = async () => {
         const limpio = nombre.trim();
         if (!limpio) {
-            setError('Escribe el nombre de la categoría.');
+            setError('Escribe el nombre de la causa.');
             return;
         }
         setCreando(true);
@@ -487,7 +534,7 @@ export function CampoCategoria({
             }
             const resultado = await r.json();
             if (!r.ok || !resultado.success) {
-                setError(resultado.message || 'No se pudo crear la categoría.');
+                setError(resultado.message || 'No se pudo crear la causa.');
                 return;
             }
             const cat: CategoriaCaso = resultado.category;
@@ -498,13 +545,13 @@ export function CampoCategoria({
             setNombre('');
             setPadre('');
         } catch {
-            setError('Error de conexión al crear la categoría.');
+            setError('Error de conexión al crear la causa.');
         } finally {
             setCreando(false);
         }
     };
 
-    // Si la categoría actual del caso no está en la lista (no es de incidentes, o es un
+    // Si la causa actual del caso no está en la lista (no es de incidentes, o es un
     // duplicado), se muestra igual con su nombre: el caso la conserva mientras no se cambie.
     const opciones = lista.map((cat) => ({ value: String(cat.id), label: cat.completename }));
     if (actual && actual.value && !opciones.some((o) => o.value === actual.value)) opciones.unshift(actual);
@@ -517,8 +564,8 @@ export function CampoCategoria({
                     options={opciones}
                     value={value}
                     onValueChange={onChange}
-                    placeholder="Elige una categoría…"
-                    searchPlaceholder="Buscar categoría…"
+                    placeholder="Elige la causa…"
+                    searchPlaceholder="Buscar causa…"
                     className="min-w-0 flex-1"
                     triggerClassName={disparador}
                 />
@@ -529,8 +576,8 @@ export function CampoCategoria({
                         setAbierto(true);
                     }}
                     id="boton-nueva-categoria"
-                    title="Crear una categoría nueva"
-                    aria-label="Crear una categoría nueva"
+                    title="Crear una causa nueva"
+                    aria-label="Crear una causa nueva"
                     className={cn(btn.secondary, 'size-10 shrink-0 px-0')}
                 >
                     <Plus aria-hidden="true" />
@@ -547,7 +594,7 @@ export function CampoCategoria({
             >
                 <DialogContent
                     className="gap-0 rounded-2xl p-0 sm:max-w-[480px]"
-                    // Al cerrar, el foco vuelve al botón "+"; si se creó la categoría, al selector que ya la muestra
+                    // Al cerrar, el foco vuelve al botón "+"; si se creó la causa, al selector que ya la muestra
                     onCloseAutoFocus={(e) => {
                         e.preventDefault();
                         enfocar(creada.current ? control.id : 'boton-nueva-categoria');
@@ -555,7 +602,7 @@ export function CampoCategoria({
                     }}
                 >
                     <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
-                        <DialogTitle className="text-lg font-semibold text-gray-900">Crear categoría</DialogTitle>
+                        <DialogTitle className="text-lg font-semibold text-gray-900">Crear causa</DialogTitle>
                         <DialogDescription className="text-sm text-gray-500">Queda disponible de inmediato y se elige en este caso.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-5 px-6 py-5">
@@ -578,15 +625,15 @@ export function CampoCategoria({
                                 />
                             )}
                         </FormField>
-                        <FormField id="new_category_parent" label="Categoría padre" optional hint="Si eliges una, la nueva queda dentro de ella.">
+                        <FormField id="new_category_parent" label="Causa padre" optional hint="Si eliges una, la nueva queda dentro de ella.">
                             {(c) => (
                                 <SearchableSelect
                                     {...c}
-                                    options={[{ value: '', label: 'Ninguna (categoría principal)' }, ...lista.map((cat) => ({ value: String(cat.id), label: cat.completename }))]}
+                                    options={[{ value: '', label: 'Ninguna (causa principal)' }, ...lista.map((cat) => ({ value: String(cat.id), label: cat.completename }))]}
                                     value={padre}
                                     onValueChange={setPadre}
-                                    placeholder="Ninguna (categoría principal)"
-                                    searchPlaceholder="Buscar categoría…"
+                                    placeholder="Ninguna (causa principal)"
+                                    searchPlaceholder="Buscar causa…"
                                     triggerClassName={disparador}
                                 />
                             )}
@@ -598,7 +645,7 @@ export function CampoCategoria({
                         </button>
                         <button type="button" onClick={crear} disabled={creando} className={btn.primary}>
                             {creando && <Loader2 className="animate-spin" aria-hidden="true" />}
-                            {creando ? 'Creando…' : 'Crear categoría'}
+                            {creando ? 'Creando…' : 'Crear causa'}
                         </button>
                     </div>
                 </DialogContent>

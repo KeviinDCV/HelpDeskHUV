@@ -21,7 +21,7 @@ import { PriorityPill, StatusPill } from '@/components/ticket-pills';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { categoriaCorta } from '@/lib/ticket-format';
+import { TIPOS_MANTENIMIENTO, categoriaCorta, etiquetaMantenimiento } from '@/lib/ticket-format';
 import { btn, fieldClass, filterSelectClass } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -65,6 +65,8 @@ interface Ticket {
     assigned_user_id: number | null;
     assigned_glpi_id: number | null;
     category_name: string | null;
+    /** correctivo | preventivo: el elegido o el que sale de la causa */
+    maintenance_type: string | null;
     item_name: string | null;
     users_id_recipient: number;
 }
@@ -87,6 +89,7 @@ interface TicketsProps {
         filter: string;
         exclude_maintenance: string;
         advanced_filters: string;
+        maintenance?: string;
     };
     auth: {
         user: User;
@@ -154,6 +157,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     const [dateFrom, setDateFrom] = React.useState(filters.date_from || '');
     const [dateTo, setDateTo] = React.useState(filters.date_to || '');
     const [excludeMaintenance, setExcludeMaintenance] = React.useState(filters.exclude_maintenance === '1');
+    const [maintenanceFilter, setMaintenanceFilter] = React.useState(filters.maintenance || 'all');
 
     // Estado de filtros avanzados (GLPI-style)
     const [advancedFilters, setAdvancedFilters] = React.useState<FilterRow[]>(() => {
@@ -172,6 +176,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         statusFilter !== 'all',
         priorityFilter !== 'all',
         categoryFilter !== 'all',
+        maintenanceFilter !== 'all',
         assignedFilter !== 'all',
         !!dateFrom,
         !!dateTo,
@@ -223,6 +228,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
         if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
         if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+        if (maintenanceFilter && maintenanceFilter !== 'all') params.maintenance = maintenanceFilter;
         if (assignedFilter && assignedFilter !== 'all') params.assigned = assignedFilter;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
@@ -257,6 +263,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
         setStatusFilter('all');
         setPriorityFilter('all');
         setCategoryFilter('all');
+        setMaintenanceFilter('all');
         setAssignedFilter('all');
         setDateFrom('');
         setDateTo('');
@@ -346,7 +353,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const orden = { sort: filters.sort, direction: filters.direction, onSort: handleSort };
-    const columnas = canEdit ? 12 : 11;
+    const columnas = canEdit ? 13 : 12;
 
     return (
         <>
@@ -457,7 +464,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                 <DataTableFilters
                                     label="Filtros rápidos"
                                     visibleLabel
-                                    gridClassName="lg:grid-cols-3 xl:grid-cols-6"
+                                    gridClassName="lg:grid-cols-4 xl:grid-cols-7"
                                     onApply={() => go(buildParams())}
                                     onClear={clearFilters}
                                     canClear={filtrosActivos > 0}
@@ -511,7 +518,23 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         </Select>
                                     </div>
                                     <div>
-                                        <FilterLabel htmlFor="filtro-categoria">Categoría</FilterLabel>
+                                        <FilterLabel htmlFor="filtro-mantenimiento">Categoría</FilterLabel>
+                                        <Select value={maintenanceFilter} onValueChange={setMaintenanceFilter}>
+                                            <SelectTrigger id="filtro-mantenimiento" className={filterSelectClass}>
+                                                <SelectValue placeholder="Todas" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                {TIPOS_MANTENIMIENTO.map((t) => (
+                                                    <SelectItem key={t.value} value={t.value}>
+                                                        {t.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <FilterLabel htmlFor="filtro-categoria">Causa</FilterLabel>
                                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                                             <SelectTrigger id="filtro-categoria" className={filterSelectClass}>
                                                 <SelectValue placeholder="Todas" />
@@ -534,7 +557,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         <FilterLabel htmlFor="filtro-hasta">Abierto hasta</FilterLabel>
                                         <input id="filtro-hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={cn(fieldClass, 'h-9')} />
                                     </div>
-                                    <label className="flex cursor-pointer select-none items-start gap-2.5 sm:col-span-2 lg:col-span-3 xl:col-span-6">
+                                    <label className="flex cursor-pointer select-none items-start gap-2.5 sm:col-span-2 lg:col-span-4 xl:col-span-7">
                                         <input
                                             type="checkbox"
                                             checked={excludeMaintenance}
@@ -543,7 +566,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         />
                                         <span className="text-sm">
                                             <span className="font-medium text-gray-700">Excluir mantenimientos</span>
-                                            <span className="ml-2 text-xs text-gray-500">Oculta los casos de mantenimiento preventivo y correctivo</span>
+                                            <span className="ml-2 text-xs text-gray-500">Oculta los casos cuya causa o título es de mantenimiento preventivo o correctivo</span>
                                         </span>
                                     </label>
                                 </DataTableFilters>
@@ -562,6 +585,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         <TableHead>Solicitante</TableHead>
                                         <TableHead>Asignado a</TableHead>
                                         <TableHead>Categoría</TableHead>
+                                        <TableHead>Causa</TableHead>
                                         <TableHead>Elemento</TableHead>
                                         {canEdit && (
                                             <TableHead className="text-right">
@@ -607,6 +631,9 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 </TableCell>
                                                 <TableCell className="min-w-[6rem] text-gray-700">
                                                     <TruncatedText value={ticket.assigned_name} lines={2} className="max-w-[9rem]" />
+                                                </TableCell>
+                                                <TableCell className="whitespace-nowrap text-gray-700">
+                                                    <span title={etiquetaMantenimiento(ticket.maintenance_type)}>{etiquetaMantenimiento(ticket.maintenance_type, true)}</span>
                                                 </TableCell>
                                                 <TableCell className="text-gray-700">
                                                     {/* Lo que distingue está al final ("Servinte › Clinico"); la ruta completa, al pasar el mouse. */}
@@ -705,7 +732,8 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                                     {[
                                         ['Entidad', ticketToView.entity_name],
-                                        ['Categoría', ticketToView.category_name],
+                                        ['Categoría', etiquetaMantenimiento(ticketToView.maintenance_type)],
+                                        ['Causa', ticketToView.category_name],
                                         ['Apertura', formatTableDate(ticketToView.date)],
                                         ['Última actualización', formatTableDate(ticketToView.date_mod)],
                                         ['Solicitante', ticketToView.requester_name],

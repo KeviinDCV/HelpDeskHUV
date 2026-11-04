@@ -4,7 +4,7 @@ import { GLPIHeader } from '@/components/glpi-header';
 import { ResolverCasoDialog } from '@/components/resolver-caso-dialog';
 import { PriorityPill, StatusPill } from '@/components/ticket-pills';
 import { htmlToText } from '@/lib/strip-html';
-import { fechaCompleta, haceCuanto, parseFecha } from '@/lib/ticket-format';
+import { etiquetaMantenimiento, fechaCompleta, haceCuanto, parseFecha } from '@/lib/ticket-format';
 import { btn } from '@/lib/ui-classes';
 import { cn } from '@/lib/utils';
 import { Head, Link } from '@inertiajs/react';
@@ -32,6 +32,8 @@ interface Ticket {
     entity_name: string | null;
     location_name: string | null;
     category_name: string | null;
+    /** correctivo | preventivo: el elegido o el que sale de la causa */
+    maintenance_type?: string | null;
 }
 
 interface Person {
@@ -327,7 +329,8 @@ export default function VerCaso({
                                             {nombres(asignados)}
                                         </Dato>
                                         {observers.length > 0 && <Dato etiqueta="Observadores">{nombres(observers)}</Dato>}
-                                        <Dato etiqueta="Categoría" vacio="Sin categoría">
+                                        <Dato etiqueta="Categoría">{etiquetaMantenimiento(ticket.maintenance_type)}</Dato>
+                                        <Dato etiqueta="Causa" vacio="Sin causa">
                                             {ticket.category_name}
                                         </Dato>
                                         <Dato etiqueta="Localización">{ticket.location_name}</Dato>
