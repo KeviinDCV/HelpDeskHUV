@@ -326,8 +326,7 @@ export default function CrearCaso({ users, locations, categories, itemTypes, aut
                                                     control={c}
                                                     categorias={categories}
                                                     value={data.itilcategories_id}
-                                                    onChange={(v) => {
-                                                        const causa = categories.find((cat) => String(cat.id) === v)?.completename;
+                                                    onChange={(v, causa) => {
                                                         setData((d) => ({ ...d, itilcategories_id: v, ...(tipoElegido.current ? {} : { maintenance_type: tipoPorCausa(causa) }) }));
                                                         form.clearErrors('itilcategories_id');
                                                     }}

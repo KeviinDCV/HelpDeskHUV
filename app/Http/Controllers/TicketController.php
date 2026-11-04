@@ -1139,11 +1139,19 @@ class TicketController extends Controller
                 ->whereDate('t.date', '>=', $dateFrom)
                 ->whereDate('t.date', '<=', $dateTo)
                 ->where(function ($q) {
-                    $q->where('cat.completename', 'LIKE', '%Mantenimiento > Preventivo%')
-                        ->orWhere('cat.completename', '=', 'Mantenimiento Preventivo')
-                        ->orWhere('cat.completename', 'LIKE', '%Repotenciar Equipo%')
-                        // Los marcados como mantenimiento preventivo aunque su causa sea otra
-                        ->orWhereRaw(TipoMantenimiento::sql('t') . ' = ?', [TipoMantenimiento::PREVENTIVO]);
+                    $elegido = TipoMantenimiento::sqlElegido('t');
+                    // Repotenciación: por su causa, sea cual sea la categoría
+                    $q->where('cat.completename', 'LIKE', '%Repotenciar Equipo%')
+                        // Preventivo elegido en el formulario, con cualquier causa
+                        ->orWhereRaw("{$elegido} = ?", [TipoMantenimiento::PREVENTIVO])
+                        // Sin categoría elegida: por la causa, como antes
+                        ->orWhere(function ($porCausa) use ($elegido) {
+                            $porCausa->whereRaw("{$elegido} IS NULL")
+                                ->where(function ($c) {
+                                    $c->where('cat.completename', 'LIKE', '%Mantenimiento > Preventivo%')
+                                        ->orWhere('cat.completename', '=', 'Mantenimiento Preventivo');
+                                });
+                        });
                 })
                 ->select('it.items_id as computer_id', 't.id as caso', 't.date as fecha', 'cat.completename as categoria', 't.name as titulo')
                 ->selectRaw("(SELECT sol.content FROM glpi_itilsolutions sol WHERE sol.items_id = t.id AND sol.itemtype = 'Ticket' ORDER BY sol.id DESC LIMIT 1) as solucion")
@@ -1405,7 +1413,7 @@ class TicketController extends Controller
         if ($name === '') {
             return response()->json([
                 'success' => false,
-                'message' => 'El nombre de la categoría no puede estar vacío.',
+                'message' => 'El nombre de la causa no puede estar vacío.',
             ], 422);
         }
 
@@ -1419,7 +1427,7 @@ class TicketController extends Controller
             if (!$parent) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'La categoría padre seleccionada no existe.',
+                    'message' => 'La causa padre seleccionada no existe.',
                 ], 422);
             }
         }
@@ -1440,7 +1448,7 @@ class TicketController extends Controller
             return response()->json([
                 'success' => true,
                 'existed' => true,
-                'message' => 'La categoría ya existía y fue seleccionada.',
+                'message' => 'La causa ya existía y fue seleccionada.',
                 'category' => [
                     'id' => $existing->id,
                     'name' => $existing->name,
@@ -1487,14 +1495,14 @@ class TicketController extends Controller
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se pudo crear la categoría. Es posible que ya exista una con ese nombre.',
+                'message' => 'No se pudo crear la causa. Es posible que ya exista una con ese nombre.',
             ], 422);
         }
 
         return response()->json([
             'success' => true,
             'existed' => false,
-            'message' => 'Categoría creada correctamente.',
+            'message' => 'Causa creada correctamente.',
             'category' => [
                 'id' => $newId,
                 'name' => $name,
@@ -1517,7 +1525,9 @@ class TicketController extends Controller
             // El formulario siempre la marcó como obligatoria, pero aquí no se exigía: uno de
             // cada cuatro casos de la base termina "Sin categoría" en Estadísticas.
             'itilcategories_id' => 'required|integer',
-            'maintenance_type' => 'required|in:correctivo,preventivo',
+            // Opcional para el servidor: una pestaña abierta antes de este cambio no la manda, y el
+            // caso se crea igual con la categoría que sale de la causa. El formulario siempre la envía.
+            'maintenance_type' => 'nullable|in:correctivo,preventivo',
             'requester_id' => 'nullable|integer',
             'observer_ids' => 'nullable|array',
             'observer_ids.*' => 'integer',
@@ -1647,7 +1657,9 @@ class TicketController extends Controller
                 }
             }
 
-            TipoMantenimiento::guardar($ticketId, $validated['maintenance_type']);
+            if (!empty($validated['maintenance_type'])) {
+                TipoMantenimiento::guardar($ticketId, $validated['maintenance_type']);
+            }
 
             DB::commit();
 
@@ -1833,6 +1845,7 @@ class TicketController extends Controller
         if (!$ticket) {
             return redirect()->route('soporte.casos')->with('error', 'Caso no encontrado');
         }
+        $ticket->maintenance_explicit = TipoMantenimiento::elegido((int) $id);
 
         // Personas del caso (solicitante, asignados, observadores) con su nombre: el formulario
         // solo lista usuarios activos de la app, y quien no esté ahí (un técnico de GLPI, un

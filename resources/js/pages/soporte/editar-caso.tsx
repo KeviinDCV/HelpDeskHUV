@@ -48,6 +48,8 @@ interface Ticket {
     category_name?: string | null;
     /** correctivo | preventivo: el elegido o el que sale de la causa */
     maintenance_type?: string | null;
+    /** Si alguien la eligió: entonces cambiar la causa no la toca */
+    maintenance_explicit?: boolean;
 }
 
 interface TicketUser {
@@ -180,8 +182,9 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
     });
     const { data, setData, errors, processing } = form;
 
-    // Mientras la persona no elija la categoría a mano, sigue a la causa si la cambia
-    const tipoElegido = useRef(false);
+    // Si la categoría no se ha elegido nunca (casos de antes) sigue a la causa mientras la persona
+    // no la toque. Si ya se eligió, cambiar la causa no la cambia.
+    const tipoElegido = useRef(ticket.maintenance_explicit === true);
 
     const [archivos, setArchivos] = useState<File[]>([]);
     const [elementos, setElementos] = useState<ElementoCaso[]>(() =>
@@ -492,8 +495,7 @@ export default function EditarCaso({ ticket, ticketUsers, ticketItems, users, lo
                                                     control={c}
                                                     categorias={categories}
                                                     value={data.itilcategories_id}
-                                                    onChange={(v) => {
-                                                        const causa = categories.find((cat) => String(cat.id) === v)?.completename;
+                                                    onChange={(v, causa) => {
                                                         setData((d) => ({ ...d, itilcategories_id: v, ...(tipoElegido.current ? {} : { maintenance_type: tipoPorCausa(causa) }) }));
                                                     }}
                                                     actual={

@@ -499,7 +499,8 @@ export function CampoCategoria({
 }: {
     categorias: CategoriaCaso[];
     value: string;
-    onChange: (id: string) => void;
+    /** Con la ruta completa de la causa: la recién creada con «+» no está en la lista de la página */
+    onChange: (id: string, completename?: string) => void;
     control: { id: string; 'aria-describedby'?: string; 'aria-invalid'?: true };
     /** La causa que ya tiene el caso (Editar), por si no está en la lista */
     actual?: { value: string; label: string };
@@ -539,7 +540,7 @@ export function CampoCategoria({
             }
             const cat: CategoriaCaso = resultado.category;
             setLista((prev) => (prev.some((c) => c.id === cat.id) ? prev : [...prev, cat].sort((a, b) => a.completename.localeCompare(b.completename))));
-            onChange(String(cat.id));
+            onChange(String(cat.id), cat.completename);
             creada.current = true;
             setAbierto(false);
             setNombre('');
@@ -563,7 +564,7 @@ export function CampoCategoria({
                     {...control}
                     options={opciones}
                     value={value}
-                    onValueChange={onChange}
+                    onValueChange={(id) => onChange(id, lista.find((cat) => String(cat.id) === id)?.completename ?? (actual?.value === id ? actual.label : undefined))}
                     placeholder="Elige la causa…"
                     searchPlaceholder="Buscar causa…"
                     className="min-w-0 flex-1"

@@ -353,7 +353,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
     };
 
     const orden = { sort: filters.sort, direction: filters.direction, onSort: handleSort };
-    const columnas = canEdit ? 13 : 12;
+    const columnas = canEdit ? 12 : 11;
 
     return (
         <>
@@ -584,8 +584,7 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                         <SortableHead field="date_mod" label="Actualizado" {...orden} />
                                         <TableHead>Solicitante</TableHead>
                                         <TableHead>Asignado a</TableHead>
-                                        <TableHead>Categoría</TableHead>
-                                        <TableHead>Causa</TableHead>
+                                        <TableHead className="whitespace-normal">Categoría y causa</TableHead>
                                         <TableHead>Elemento</TableHead>
                                         {canEdit && (
                                             <TableHead className="text-right">
@@ -632,11 +631,10 @@ export default function Casos({ tickets, categories, technicians, filters, auth 
                                                 <TableCell className="min-w-[6rem] text-gray-700">
                                                     <TruncatedText value={ticket.assigned_name} lines={2} className="max-w-[9rem]" />
                                                 </TableCell>
-                                                <TableCell className="whitespace-nowrap text-gray-700">
-                                                    <span title={etiquetaMantenimiento(ticket.maintenance_type)}>{etiquetaMantenimiento(ticket.maintenance_type, true)}</span>
-                                                </TableCell>
                                                 <TableCell className="text-gray-700">
-                                                    {/* Lo que distingue está al final ("Servinte › Clinico"); la ruta completa, al pasar el mouse. */}
+                                                    {/* Arriba la categoría (correctivo / preventivo); debajo la causa. De la causa, lo que
+                                                        distingue está al final ("Servinte › Clinico"); la ruta completa, al pasar el mouse. */}
+                                                    <span className="block text-xs font-medium text-gray-500">{etiquetaMantenimiento(ticket.maintenance_type, true)}</span>
                                                     <span title={ticket.category_name ?? undefined}>
                                                         <TruncatedText value={categoriaCorta(ticket.category_name)} lines={2} className="max-w-[10rem]" />
                                                     </span>

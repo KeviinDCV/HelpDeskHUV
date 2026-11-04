@@ -43,6 +43,20 @@ final class TipoMantenimiento
         return "COALESCE((SELECT tm.maintenance_type FROM " . self::TABLA . " tm WHERE tm.tickets_id = {$tabla}.id), {$porCausa})";
     }
 
+    /** SQL con la categoría elegida a mano, o NULL si el caso no tiene (o la tabla aún no existe). */
+    public static function sqlElegido(string $tabla = 't'): string
+    {
+        return self::hayTabla()
+            ? "(SELECT tme.maintenance_type FROM " . self::TABLA . " tme WHERE tme.tickets_id = {$tabla}.id)"
+            : 'NULL';
+    }
+
+    /** Si alguien eligió la categoría de este caso (si no, sale de su causa). */
+    public static function elegido(int $ticketId): bool
+    {
+        return self::hayTabla() && DB::table(self::TABLA)->where('tickets_id', $ticketId)->exists();
+    }
+
     /** La categoría actual de un caso: la elegida o, si no se eligió, la que sale de su causa. */
     public static function de(int $ticketId): string
     {
